@@ -1,0 +1,53 @@
+/**
+ * DevFlow layout & density scale — compact SaaS dashboard (Figma-aligned).
+ * Use semantic layout utilities; avoid one-off large padding in pages.
+ */
+
+@theme {
+  --width-sidebar: 15rem; /* 240px */
+  --height-header: 3rem; /* 48px */
+  --spacing-page: 1rem; /* 16px */
+  --spacing-section: 1rem;
+  --spacing-card: 0.75rem; /* 12px */
+  --spacing-card-lg: 1rem; /* 16px */
+  --spacing-stack: 1rem;
+  --radius-card: 0.5rem; /* 8px — rounded-lg */
+}
+
+@layer components {
+  .shell-sidebar {
+    @apply fixed left-0 top-0 z-20 flex h-full w-60 flex-col border-r border-devflow-border bg-devflow-surface;
+  }
+
+  .shell-main {
+    @apply ml-60 flex min-h-screen min-w-0 flex-col;
+  }
+
+  .app-header {
+    @apply sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b border-devflow-border px-4;
+  }
+
+  .page-main {
+    @apply flex flex-1 gap-4 p-4;
+  }
+
+  .page-stack {
+    @apply flex flex-col gap-4;
+  }
+
+  .ui-card {
+    @apply rounded-lg border border-devflow-border bg-white p-3 shadow-[0px_1px_1px_rgba(0,0,0,0.05)];
+  }
+
+  .ui-card-muted {
+    @apply rounded-lg border border-devflow-border bg-[#f2f4f6] p-3;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-2 rounded-md px-3 py-1.5;
+  }
+
+  .btn-compact {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-btn;
+  }
+}

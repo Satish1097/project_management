@@ -1,0 +1,40 @@
+@import 'tailwindcss';
+@import './styles/typography.css';
+@import './styles/layout.css';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --color-devflow-primary: #0058be;
+  --color-devflow-text: #191c1e;
+  --color-devflow-text-secondary: #424754;
+  --color-devflow-text-muted: #727785;
+  --color-devflow-border: #c2c6d6;
+  --color-devflow-surface: #f7f9fb;
+  --color-devflow-card: #ffffff;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

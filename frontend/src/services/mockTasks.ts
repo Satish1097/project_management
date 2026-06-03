@@ -1,0 +1,51 @@
+import { FileText, Network, Shield, Zap } from 'lucide-react'
+import type { Task } from '@/types/tasks'
+
+export const mockAssignedTasks: Task[] = [
+  {
+    id: '1',
+    key: 'DEV-1042',
+    title: 'Implement Redis caching for API endpoints',
+    priority: 'high',
+    status: 'in_progress',
+    project: 'Infrastructure',
+    projectIcon: Zap,
+    label: 'BACKEND',
+    dueDate: 'Oct 12',
+    dueOverdue: true,
+  },
+  {
+    id: '2',
+    key: 'DEV-1085',
+    title: 'Fix race condition in CI/CD pipeline',
+    priority: 'medium',
+    status: 'todo',
+    project: 'Devops',
+    projectIcon: Network,
+    label: 'CRITICAL',
+    labelVariant: 'critical',
+    dueDate: 'Oct 24',
+  },
+  {
+    id: '3',
+    key: 'DEV-1102',
+    title: 'Update documentation for v2 release',
+    priority: 'none',
+    status: 'backlog',
+    project: 'Product',
+    projectIcon: FileText,
+    label: 'DOCS',
+    dueDate: 'Nov 05',
+  },
+  {
+    id: '4',
+    key: 'DEV-1124',
+    title: 'Audit 3rd party dependencies',
+    priority: 'low',
+    status: 'todo',
+    project: 'Security',
+    projectIcon: Shield,
+    label: 'AUDIT',
+    dueDate: 'Nov 12',
+  },
+]
