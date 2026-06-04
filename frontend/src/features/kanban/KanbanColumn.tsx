@@ -1,4 +1,4 @@
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal, Plus } from 'lucide-react'
 import type { KanbanColumn as KanbanColumnType } from '@/types/kanban'
 import { TaskCard } from './TaskCard'
 
@@ -8,37 +8,58 @@ type KanbanColumnProps = {
 
 export function KanbanColumn({ column }: KanbanColumnProps) {
   return (
-    <section className="flex min-w-0 flex-col gap-2.5 rounded-lg bg-devflow-muted/40 p-2">
-      <div className="flex items-center justify-between px-0.5">
-        <div className="flex items-center gap-2">
+    <section className="issue-kanban-column group">
+      <header className="issue-kanban-column__header">
+        <div className="issue-kanban-column__header-title">
           <span
-            className="size-2 shrink-0 rounded-full"
+            className="issue-kanban-column__status-dot"
             style={{ backgroundColor: column.dotColor }}
+            aria-hidden
           />
-          <h2 className="text-table-header uppercase tracking-wide text-devflow-text-secondary">
-            {column.title}
-          </h2>
-          <span className="rounded-full bg-devflow-pill px-2 py-0.5 text-caption-label leading-4 text-devflow-text-secondary">
+          <span className="issue-kanban-column__label">{column.title}</span>
+          <span className="issue-kanban-column__separator" aria-hidden>
+            •
+          </span>
+          <span
+            className="issue-kanban-column__count"
+            aria-label={`${column.count} issues`}
+          >
             {column.count}
           </span>
         </div>
-        <button
-          type="button"
-          className="text-devflow-text-muted"
-          aria-label={`${column.title} column menu`}
-        >
-          <MoreHorizontal className="size-4" />
-        </button>
-      </div>
+        <div className="issue-kanban-column__actions">
+          <button
+            type="button"
+            className="text-devflow-text-muted lg:hidden"
+            aria-label={`${column.title} column menu`}
+          >
+            <MoreHorizontal className="size-4" />
+          </button>
+          <button
+            type="button"
+            className="issue-kanban-column__add-btn"
+            aria-label={`Add issue to ${column.title}`}
+            title={`Add to ${column.title}`}
+          >
+            <Plus className="size-3.5" strokeWidth={2} />
+          </button>
+        </div>
+      </header>
 
-      <div className="flex flex-col gap-2.5">
-        {column.issues.map((issue) => (
-          <TaskCard
-            key={issue.id}
-            issue={issue}
-            columnId={column.id}
-          />
-        ))}
+      <div className="issue-kanban-column__body">
+        {column.issues.length === 0 ? (
+          <div className="issue-kanban-empty">
+            <p className="issue-kanban-empty__text">No issues in this column</p>
+          </div>
+        ) : (
+          column.issues.map((issue) => (
+            <TaskCard
+              key={issue.id}
+              issue={issue}
+              columnId={column.id}
+            />
+          ))
+        )}
       </div>
     </section>
   )
