@@ -1,11 +1,15 @@
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
-import { BRANDING } from '@/constants/branding'
 import { layout } from '@/constants/layout'
 import { cn } from '@/utils/cn'
-import { ROUTES } from '@/constants/routes'
+import { sprintBoardPath } from '@/constants/routes'
 import { KanbanColumn } from './KanbanColumn'
 import type { KanbanColumn as KanbanColumnType } from '@/types/kanban'
+import {
+  formatSprintStatus,
+  getProjectById,
+  getSprintById,
+} from '@/services/projectData'
 
 const advancedColumns: KanbanColumnType[] = [
   {
@@ -84,18 +88,27 @@ const advancedColumns: KanbanColumnType[] = [
 ]
 
 export function AdvancedBoardPage() {
+  const { projectId = '', sprintId = '' } = useParams()
+  const project = getProjectById(projectId)
+  const sprint = getSprintById(projectId, sprintId)
+
+  if (!project || !sprint) {
+    return <Navigate to="/projects" replace />
+  }
+
   return (
     <div className="min-h-screen bg-devflow-surface">
       <header className={cn(layout.appHeader, 'bg-devflow-card')}>
-        <div className="flex items-center gap-4">
-          <span className="text-brand text-devflow-text">{BRANDING.appName}</span>
-          <span className="text-devflow-text-secondary">|</span>
-          <span className="font-medium text-devflow-text-secondary">
-            Advanced Engineering Board
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate font-semibold text-devflow-text">
+            {project.name}
+          </span>
+          <span className="truncate text-caption text-devflow-text-secondary">
+            {sprint.name} • {formatSprintStatus(sprint.status)}
           </span>
         </div>
         <Link
-          to={ROUTES.board}
+          to={sprintBoardPath(projectId, sprintId)}
           className="text-btn text-devflow-primary hover:underline"
         >
           Standard board
@@ -130,7 +143,11 @@ export function AdvancedBoardPage() {
                   </p>
                 </div>
               ) : (
-                <KanbanColumn column={column} />
+                <KanbanColumn
+                  column={column}
+                  projectId={projectId}
+                  sprintId={sprintId}
+                />
               )}
             </div>
           ))}

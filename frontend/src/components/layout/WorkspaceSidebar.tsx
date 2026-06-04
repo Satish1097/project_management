@@ -14,6 +14,7 @@ import { SidebarBrand } from '@/components/brand/SidebarBrand'
 import { layout } from '@/constants/layout'
 import {
   ROUTES,
+  isProjectsArea,
   resolveWorkspaceActiveNav,
   type WorkspaceNavId,
 } from '@/constants/routes'
@@ -28,7 +29,7 @@ const navItems: {
   { id: 'search', label: 'Search', icon: Search, path: ROUTES.search },
   { id: 'inbox', label: 'Inbox', icon: Inbox, path: ROUTES.notifications },
   { id: 'myIssues', label: 'My Issues', icon: ListChecks, path: ROUTES.myTasks },
-  { id: 'projects', label: 'Projects', icon: LayoutGrid, path: ROUTES.workspaceEmpty },
+  { id: 'projects', label: 'Projects', icon: LayoutGrid, path: ROUTES.projects },
   { id: 'cycles', label: 'Cycles', icon: Calendar, path: '#' },
   { id: 'roadmaps', label: 'Roadmaps', icon: Map, path: '#' },
 ]
@@ -40,10 +41,7 @@ export function WorkspaceSidebar() {
   const resolveActive = (id: WorkspaceNavId, path: string) => {
     if (activeNav) return activeNav === id
     if (id === 'myIssues') return pathname === ROUTES.myTasks
-    if (id === 'projects')
-      return (
-        pathname === ROUTES.workspaceEmpty || pathname === ROUTES.dashboard
-      )
+    if (id === 'projects') return isProjectsArea(pathname)
     return pathname === path
   }
 
@@ -82,7 +80,7 @@ export function WorkspaceSidebar() {
 
       <div className="mt-3 flex flex-col gap-0.5 border-t border-devflow-border pt-3">
         <Link
-          to={ROUTES.projectSettings}
+          to={ROUTES.workspaceProjectSettings}
           className={cn(
             layout.navItem,
             'text-nav text-devflow-text-secondary hover:bg-devflow-hover-overlay',

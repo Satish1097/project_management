@@ -4,7 +4,7 @@ import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 
 const items = [
-  { label: 'General', icon: Settings, path: ROUTES.projectSettings },
+  { label: 'General', icon: Settings, path: ROUTES.workspaceProjectSettings },
   { label: 'Members', icon: Users, path: ROUTES.workspaceSettings },
   { label: 'Statuses', icon: GitBranch, path: '#' },
 ] as const

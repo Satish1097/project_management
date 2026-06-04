@@ -4,9 +4,15 @@ import { TaskCard } from './TaskCard'
 
 type KanbanColumnProps = {
   column: KanbanColumnType
+  projectId?: string
+  sprintId?: string
 }
 
-export function KanbanColumn({ column }: KanbanColumnProps) {
+export function KanbanColumn({
+  column,
+  projectId,
+  sprintId,
+}: KanbanColumnProps) {
   return (
     <section className="flex min-w-0 flex-col gap-3">
       <div className="flex items-center justify-between px-1">
@@ -33,7 +39,13 @@ export function KanbanColumn({ column }: KanbanColumnProps) {
 
       <div className="flex flex-col gap-3">
         {column.issues.map((issue) => (
-          <TaskCard key={issue.id} issue={issue} columnId={column.id} />
+          <TaskCard
+            key={issue.id}
+            issue={issue}
+            columnId={column.id}
+            projectId={projectId}
+            sprintId={sprintId}
+          />
         ))}
       </div>
     </section>

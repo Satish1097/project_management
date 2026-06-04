@@ -6,7 +6,11 @@ import {
   Search,
   User,
 } from 'lucide-react'
-import { ROUTES } from '@/constants/routes'
+import {
+  DEFAULT_BOARD_CONTEXT,
+  ROUTES,
+  sprintIssueDetailPath,
+} from '@/constants/routes'
 
 const results = [
   {
@@ -78,7 +82,10 @@ export function GlobalSearchPage() {
                   key={item.id}
                   to={
                     item.type === 'issue'
-                      ? ROUTES.issueDetail
+                      ? sprintIssueDetailPath(
+                          DEFAULT_BOARD_CONTEXT.projectId,
+                          DEFAULT_BOARD_CONTEXT.sprintId,
+                        )
                       : ROUTES.dashboard
                   }
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-devflow-surface"

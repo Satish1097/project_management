@@ -3,7 +3,7 @@ import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 
 const tabs = [
-  { label: 'General', path: ROUTES.projectSettings },
+  { label: 'General', path: ROUTES.workspaceProjectSettings },
   { label: 'Members', path: ROUTES.workspaceSettings },
   { label: 'Labels', path: ROUTES.projectSettingsLabels },
   { label: 'Automations', path: '#' },

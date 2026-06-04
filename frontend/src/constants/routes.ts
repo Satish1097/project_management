@@ -8,28 +8,102 @@ export const ROUTES = {
   signup: '/signup',
   forgotPassword: '/forgot-password',
 
-  // Main app (ops shell — Sidebar)
+  // Workspace
   dashboard: '/',
-  board: '/board',
-  advancedBoard: '/board/advanced',
-  issueDetail: '/board/issue',
-  issueDetailEnhanced: '/board/issue/enhanced',
-  operations: '/operations',
-  qa: '/qa',
-  releases: '/releases',
-  projectSettings: '/projects/settings',
-
-  // Workspace shell (WorkspaceSidebar)
   myTasks: '/tasks',
+  projects: '/projects',
   workspaceEmpty: '/workspace/empty',
   search: '/search',
   notifications: '/notifications',
   workspaceSettings: '/workspace/settings',
+
+  // Workspace-level project settings (legacy path)
+  workspaceProjectSettings: '/projects/settings',
   projectSettingsLabels: '/projects/settings/labels',
+
+  // Delivery modules (workspace scope)
+  operations: '/operations',
+  qa: '/qa',
+  releases: '/releases',
+
+  // Legacy board paths — redirect to project/sprint context
+  boardLegacy: '/board',
+  advancedBoardLegacy: '/board/advanced',
+  issueDetailLegacy: '/board/issue',
+  issueDetailEnhancedLegacy: '/board/issue/enhanced',
 
   // Errors
   notFound: '/404',
   forbidden: '/403',
+} as const
+
+/** Project workspace: /projects/:projectId/... */
+export function projectPath(projectId: string) {
+  return `/projects/${projectId}`
+}
+
+export function projectOverviewPath(projectId: string) {
+  return projectPath(projectId)
+}
+
+export function projectBacklogPath(projectId: string) {
+  return `${projectPath(projectId)}/backlog`
+}
+
+export function projectSprintsPath(projectId: string) {
+  return `${projectPath(projectId)}/sprints`
+}
+
+export function projectTeamPath(projectId: string) {
+  return `${projectPath(projectId)}/team`
+}
+
+export function projectReleasesPath(projectId: string) {
+  return `${projectPath(projectId)}/releases`
+}
+
+export function projectReportsPath(projectId: string) {
+  return `${projectPath(projectId)}/reports`
+}
+
+export function projectSettingsPath(projectId: string) {
+  return `${projectPath(projectId)}/settings`
+}
+
+export function sprintBoardPath(projectId: string, sprintId: string) {
+  return `${projectPath(projectId)}/sprints/${sprintId}/board`
+}
+
+export function sprintListPath(projectId: string, sprintId: string) {
+  return `${projectPath(projectId)}/sprints/${sprintId}/list`
+}
+
+export function sprintActivityPath(projectId: string, sprintId: string) {
+  return `${projectPath(projectId)}/sprints/${sprintId}/activity`
+}
+
+export function sprintAdvancedBoardPath(projectId: string, sprintId: string) {
+  return `${projectPath(projectId)}/sprints/${sprintId}/board/advanced`
+}
+
+export function sprintIssueDetailPath(
+  projectId: string,
+  sprintId: string,
+) {
+  return `${projectPath(projectId)}/sprints/${sprintId}/board/issue`
+}
+
+export function sprintIssueDetailEnhancedPath(
+  projectId: string,
+  sprintId: string,
+) {
+  return `${projectPath(projectId)}/sprints/${sprintId}/board/issue/enhanced`
+}
+
+/** Default board context for mock/demo links */
+export const DEFAULT_BOARD_CONTEXT = {
+  projectId: '3',
+  sprintId: 'sprint-15',
 } as const
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES]
@@ -62,20 +136,46 @@ export type WorkspaceNavId =
   | 'cycles'
   | 'roadmaps'
 
+export function isProjectsArea(pathname: string): boolean {
+  return (
+    pathname === ROUTES.projects ||
+    pathname.startsWith('/projects/') &&
+      !pathname.startsWith('/projects/settings')
+  )
+}
+
 export function resolveWorkspaceActiveNav(
   pathname: string,
 ): WorkspaceNavId | undefined {
   if (pathname === ROUTES.search) return 'search'
   if (pathname === ROUTES.notifications) return 'inbox'
   if (pathname === ROUTES.myTasks) return 'myIssues'
-  if (
-    pathname === ROUTES.workspaceEmpty ||
-    pathname === ROUTES.dashboard ||
-    pathname === ROUTES.workspaceSettings ||
-    pathname === ROUTES.projectSettingsLabels ||
-    pathname.startsWith('/projects/settings')
-  ) {
+  if (isProjectsArea(pathname) || pathname === ROUTES.workspaceEmpty) {
     return 'projects'
   }
+  return undefined
+}
+
+export function parseProjectRoute(pathname: string): {
+  projectId?: string
+  sprintId?: string
+} {
+  const match = pathname.match(
+    /^\/projects\/([^/]+)(?:\/sprints\/([^/]+))?/,
+  )
+  if (!match) return {}
+  return { projectId: match[1], sprintId: match[2] }
+}
+
+export function isSprintViewPath(pathname: string): boolean {
+  return /\/sprints\/[^/]+\/(board|list|activity)(?:\/|$)/.test(pathname)
+}
+
+export function resolveSprintViewTab(
+  pathname: string,
+): 'Board' | 'List' | 'Activity' | undefined {
+  if (pathname.endsWith('/list')) return 'List'
+  if (pathname.endsWith('/activity')) return 'Activity'
+  if (/\/sprints\/[^/]+\/board(?:\/|$)/.test(pathname)) return 'Board'
   return undefined
 }

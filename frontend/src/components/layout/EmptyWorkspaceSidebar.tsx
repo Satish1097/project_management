@@ -19,7 +19,7 @@ const navItems = [
   { label: 'Search', icon: Search, path: ROUTES.search },
   { label: 'Inbox', icon: Inbox, path: ROUTES.notifications },
   { label: 'My Issues', icon: ListChecks, path: ROUTES.myTasks },
-  { label: 'Projects', icon: LayoutGrid, path: ROUTES.workspaceEmpty },
+  { label: 'Projects', icon: LayoutGrid, path: ROUTES.projects },
   { label: 'Cycles', icon: Calendar, path: '#' },
   { label: 'Roadmaps', icon: Map, path: '#' },
 ] as const

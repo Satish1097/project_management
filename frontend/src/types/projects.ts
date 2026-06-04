@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type ProjectStatus = 'active' | 'planning' | 'at_risk'
+export type ProjectStatus = 'active' | 'planning' | 'at_risk' | 'archived'
 
 export type ProjectMember = {
   name: string
@@ -18,6 +18,14 @@ export type Project = {
   issuesCritical?: boolean
   members: ProjectMember[]
   extraMembers?: number
+  /** Display label for open issues (e.g. "12 Open Issues") */
+  openIssuesLabel?: string
+  progress?: number
+  recentActivity?: string
+  /** Shown in "My Projects" filter */
+  isMember?: boolean
+  /** Shown in "Favorites" filter */
+  isFavorite?: boolean
 }
 
 export type ActivityItem = {

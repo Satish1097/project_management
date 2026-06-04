@@ -1,8 +1,15 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { WorkspaceEmptyShell } from '@/components/layout/WorkspaceEmptyShell'
 import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
-import { ROUTES } from '@/constants/routes'
+import { ProjectShell } from '@/components/layout/ProjectShell'
+import {
+  DEFAULT_BOARD_CONTEXT,
+  ROUTES,
+  sprintAdvancedBoardPath,
+  sprintIssueDetailEnhancedPath,
+  sprintIssueDetailPath,
+} from '@/constants/routes'
 import { GuestRoute } from '@/app/guards/GuestRoute'
 import { ProtectedRoute } from '@/app/guards/ProtectedRoute'
 import { AuthLayoutRoute } from '@/app/layouts/AuthLayoutRoute'
@@ -12,7 +19,6 @@ import { SignupPage } from '@/features/auth/SignupPage'
 import { ForbiddenPage } from '@/features/errors/ForbiddenPage'
 import { NotFoundPage } from '@/features/errors/NotFoundPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
-import { BoardPage } from '@/features/kanban/BoardPage'
 import { AdvancedBoardPage } from '@/features/kanban/AdvancedBoardPage'
 import { EmptyWorkspacePage } from '@/features/workspace/EmptyWorkspacePage'
 import { MyTasksPage } from '@/features/tasks/MyTasksPage'
@@ -26,6 +32,17 @@ import { GlobalSearchPage } from '@/features/search/GlobalSearchPage'
 import { OperationsDashboardPage } from '@/features/operations/OperationsDashboardPage'
 import { QAManagementPage } from '@/features/qa/QAManagementPage'
 import { ReleaseManagementPage } from '@/features/releases/ReleaseManagementPage'
+import { ProjectsListPage } from '@/features/projects/ProjectsListPage'
+import { ProjectOverviewPage } from '@/features/projects/ProjectOverviewPage'
+import { ProjectSprintsPage } from '@/features/projects/ProjectSprintsPage'
+import { ProjectPlaceholderPage } from '@/features/projects/ProjectPlaceholderPage'
+import { SprintBoardPage } from '@/features/projects/SprintBoardPage'
+import { SprintListPage } from '@/features/projects/SprintListPage'
+import { SprintActivityPage } from '@/features/projects/SprintActivityPage'
+import { BoardLegacyRedirect } from '@/features/projects/BoardLegacyRedirect'
+
+const { projectId: defaultProjectId, sprintId: defaultSprintId } =
+  DEFAULT_BOARD_CONTEXT
 
 /**
  * Route tree:
@@ -55,20 +72,91 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
-      // Ops shell: dashboard, board, settings, delivery modules
       {
         element: <AppShell />,
         children: [
           { index: true, element: <DashboardPage /> },
-          { path: 'board', element: <BoardPage /> },
-          { path: 'projects/settings', element: <ProjectSettingsPage /> },
+          { path: 'projects', element: <ProjectsListPage /> },
+          {
+            path: 'projects/:projectId',
+            element: <ProjectShell />,
+            children: [
+              { index: true, element: <ProjectOverviewPage /> },
+              {
+                path: 'backlog',
+                element: (
+                  <ProjectPlaceholderPage
+                    title="Backlog"
+                    description="Prioritize and groom issues before they enter a sprint."
+                  />
+                ),
+              },
+              { path: 'sprints', element: <ProjectSprintsPage /> },
+              {
+                path: 'team',
+                element: (
+                  <ProjectPlaceholderPage
+                    title="Team"
+                    description="Members, roles, and project access."
+                  />
+                ),
+              },
+              {
+                path: 'releases',
+                element: (
+                  <ProjectPlaceholderPage
+                    title="Releases"
+                    description="Versions and deployments for this project."
+                  />
+                ),
+              },
+              {
+                path: 'reports',
+                element: (
+                  <ProjectPlaceholderPage
+                    title="Reports"
+                    description="Velocity, burndown, and delivery metrics."
+                  />
+                ),
+              },
+              {
+                path: 'settings',
+                element: (
+                  <ProjectPlaceholderPage
+                    title="Settings"
+                    description="Project identity, workflow, and integrations."
+                  />
+                ),
+              },
+              { path: 'sprints/:sprintId/board', element: <SprintBoardPage /> },
+              { path: 'sprints/:sprintId/list', element: <SprintListPage /> },
+              {
+                path: 'sprints/:sprintId/activity',
+                element: <SprintActivityPage />,
+              },
+            ],
+          },
+          {
+            path: 'projects/settings',
+            element: <ProjectSettingsPage />,
+          },
           { path: 'operations', element: <OperationsDashboardPage /> },
           { path: 'qa', element: <QAManagementPage /> },
           { path: 'releases', element: <ReleaseManagementPage /> },
+          // Legacy top-level board → project sprint board
+          { path: 'board', element: <BoardLegacyRedirect /> },
+          {
+            path: 'board/advanced',
+            element: (
+              <Navigate
+                to={sprintAdvancedBoardPath(defaultProjectId, defaultSprintId)}
+                replace
+              />
+            ),
+          },
         ],
       },
 
-      // Workspace shell: issues, search, inbox, project hub
       {
         element: <WorkspaceShell />,
         children: [
@@ -80,7 +168,6 @@ export const router = createBrowserRouter([
         ],
       },
 
-      // Empty workspace onboarding shell
       {
         element: <WorkspaceEmptyShell />,
         children: [
@@ -88,14 +175,43 @@ export const router = createBrowserRouter([
         ],
       },
 
-      // Full-page board flows (no persistent shell)
-      { path: 'board/advanced', element: <AdvancedBoardPage /> },
-      { path: 'board/issue', element: <IssueDetailDrawerPage /> },
-      { path: 'board/issue/enhanced', element: <EnhancedIssueDrawerPage /> },
+      {
+        path: 'projects/:projectId/sprints/:sprintId/board/advanced',
+        element: <AdvancedBoardPage />,
+      },
+      {
+        path: 'projects/:projectId/sprints/:sprintId/board/issue',
+        element: <IssueDetailDrawerPage />,
+      },
+      {
+        path: 'projects/:projectId/sprints/:sprintId/board/issue/enhanced',
+        element: <EnhancedIssueDrawerPage />,
+      },
+      // Legacy issue/board overlays
+      {
+        path: 'board/issue',
+        element: (
+          <Navigate
+            to={sprintIssueDetailPath(defaultProjectId, defaultSprintId)}
+            replace
+          />
+        ),
+      },
+      {
+        path: 'board/issue/enhanced',
+        element: (
+          <Navigate
+            to={sprintIssueDetailEnhancedPath(
+              defaultProjectId,
+              defaultSprintId,
+            )}
+            replace
+          />
+        ),
+      },
     ],
   },
 
-  // ─── Error routes (public) ─────────────────────────────────────────────
   { path: ROUTES.forbidden, element: <ForbiddenPage /> },
   { path: ROUTES.notFound, element: <NotFoundPage /> },
   { path: '*', element: <NotFoundPage /> },

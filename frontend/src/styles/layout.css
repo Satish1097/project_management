@@ -5,6 +5,7 @@
 
 @theme {
   --width-sidebar: 15rem; /* 240px */
+  --width-sidebar-collapsed: 4rem; /* 64px */
   --height-header: 3rem; /* 48px */
   --spacing-page: 1rem; /* 16px */
   --spacing-section: 1rem;
@@ -16,11 +17,19 @@
 
 @layer components {
   .shell-sidebar {
-    @apply fixed left-0 top-0 z-20 flex h-full w-60 flex-col border-r border-devflow-border bg-devflow-surface;
+    @apply fixed left-0 top-0 z-20 flex h-full w-60 flex-col border-r border-devflow-border bg-devflow-surface transition-[width] duration-200 ease-out;
   }
 
   .shell-main {
-    @apply ml-60 flex min-h-screen min-w-0 flex-col;
+    @apply ml-60 flex min-h-screen min-w-0 flex-col transition-[margin] duration-200 ease-out;
+  }
+
+  .shell-layout--collapsed .shell-sidebar {
+    width: var(--width-sidebar-collapsed);
+  }
+
+  .shell-layout--collapsed .shell-main {
+    margin-left: var(--width-sidebar-collapsed);
   }
 
   .app-header {

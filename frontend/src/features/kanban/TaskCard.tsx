@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom'
 import { Check } from 'lucide-react'
-import { ROUTES } from '@/constants/routes'
+import {
+  DEFAULT_BOARD_CONTEXT,
+  sprintIssueDetailPath,
+} from '@/constants/routes'
 import { Avatar } from '@/components/ui/Avatar'
 import { PriorityBadge } from '@/components/ui/PriorityBadge'
 import type { KanbanIssue } from '@/types/kanban'
@@ -9,9 +12,16 @@ import { cn } from '@/utils/cn'
 type TaskCardProps = {
   issue: KanbanIssue
   columnId: string
+  projectId?: string
+  sprintId?: string
 }
 
-export function TaskCard({ issue, columnId }: TaskCardProps) {
+export function TaskCard({
+  issue,
+  columnId,
+  projectId = DEFAULT_BOARD_CONTEXT.projectId,
+  sprintId = DEFAULT_BOARD_CONTEXT.sprintId,
+}: TaskCardProps) {
   const isDone = issue.done || columnId === 'done'
   const inProgress = columnId === 'in_progress'
 
@@ -28,45 +38,43 @@ export function TaskCard({ issue, columnId }: TaskCardProps) {
       <div className="flex items-center justify-between">
         <span
           className={cn(
-            'font-mono text-caption font-medium tracking-[0.24px] text-devflow-text-muted',
-            isDone && 'line-through',
+            'font-mono text-caption',
+            isDone ? 'text-devflow-text-muted' : 'text-devflow-text-secondary',
           )}
         >
           {issue.key}
         </span>
-        {isDone ? (
-          <Check className="size-3 text-devflow-success" strokeWidth={3} />
-        ) : (
-          issue.priority && <PriorityBadge priority={issue.priority} />
-        )}
+        {issue.priority && <PriorityBadge priority={issue.priority} />}
       </div>
 
-      <h3
+      <p
         className={cn(
-          'text-card-title text-devflow-text',
-          isDone && 'text-devflow-text-secondary line-through',
+          'text-body font-medium',
+          isDone ? 'text-devflow-text-secondary line-through' : 'text-devflow-text',
         )}
       >
         {issue.title}
-      </h3>
+      </p>
 
-      <div className="flex items-center justify-between pt-2">
-        <span
-          className={cn(
-            'rounded-lg px-2 py-0.5 text-caption font-medium',
-            isDone
-              ? 'bg-devflow-pill text-devflow-text-secondary'
-              : 'bg-[var(--df-nav-tint)] text-devflow-nav-active-text-alt',
-          )}
-        >
-          {issue.label}
-        </span>
-        <Avatar name={issue.assignee.name} color={issue.assignee.color} />
+      <div className="flex items-center justify-between">
+        {issue.label && (
+          <span className="rounded bg-devflow-pill px-2 py-0.5 text-caption-label text-devflow-text-secondary">
+            {issue.label}
+          </span>
+        )}
+        {issue.assignee && (
+          <Avatar name={issue.assignee.name} color={issue.assignee.color} size={24} />
+        )}
+        {isDone && (
+          <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-devflow-success text-white">
+            <Check className="size-3" strokeWidth={3} />
+          </span>
+        )}
       </div>
 
-      {issue.progress !== undefined && (
-        <div className="flex items-center gap-4 pt-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-devflow-table-header">
+      {issue.progress !== undefined && inProgress && (
+        <div className="flex items-center gap-2">
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-devflow-table-header">
             <div
               className="h-full rounded-full bg-devflow-primary"
               style={{ width: `${issue.progress}%` }}
@@ -82,7 +90,10 @@ export function TaskCard({ issue, columnId }: TaskCardProps) {
 
   if (issue.key === 'DF-101') {
     return (
-      <Link to={ROUTES.issueDetail} className={cn('block', className)}>
+      <Link
+        to={sprintIssueDetailPath(projectId, sprintId)}
+        className={cn('block', className)}
+      >
         {content}
       </Link>
     )

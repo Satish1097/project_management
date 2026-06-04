@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   Calendar,
   ChevronDown,
@@ -8,7 +8,7 @@ import {
   Paperclip,
   X,
 } from 'lucide-react'
-import { ROUTES } from '@/constants/routes'
+import { sprintIssueDetailPath } from '@/constants/routes'
 import { IssueStatusBadge } from '@/components/ui/IssueStatusBadge'
 import { LabelBadge } from '@/components/ui/LabelBadge'
 import { PriorityBadge } from '@/components/ui/PriorityBadge'
@@ -27,6 +27,7 @@ const linkedIssues = [
 ]
 
 export function EnhancedIssueDrawerPage() {
+  const { projectId = '', sprintId = '' } = useParams()
   const completed = subtasks.filter((t) => t.done).length
 
   return (
@@ -40,7 +41,7 @@ export function EnhancedIssueDrawerPage() {
               <PriorityBadge priority="high" />
             </div>
             <Link
-              to={ROUTES.issueDetail}
+              to={sprintIssueDetailPath(projectId, sprintId)}
               className="rounded-lg p-2 hover:bg-devflow-surface"
             >
               <X className="size-5" />
