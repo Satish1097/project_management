@@ -6,10 +6,7 @@ import {
   Search,
   User,
 } from 'lucide-react'
-import { WorkspaceSidebar } from '@/components/layout/WorkspaceSidebar'
-import { layout } from '@/constants/layout'
 import { ROUTES } from '@/constants/routes'
-import { cn } from '@/utils/cn'
 
 const results = [
   {
@@ -50,14 +47,13 @@ const typeIcons = {
 
 export function GlobalSearchPage() {
   return (
-    <div className="relative min-h-screen bg-[#f2f4f6]">
-      <WorkspaceSidebar activeNav="search" />
-      <div className={cn(layout.shellMain, 'p-4 opacity-40')}>
+    <div className="relative min-h-screen bg-devflow-muted">
+      <div className="p-4 opacity-40">
         <h1 className="text-page-title text-devflow-text">Dashboard</h1>
       </div>
 
       <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[15vh]">
-        <div className="w-full max-w-xl overflow-hidden rounded-lg border border-devflow-border bg-white shadow-2xl">
+        <div className="w-full max-w-xl overflow-hidden rounded-lg border border-devflow-border bg-devflow-card shadow-2xl">
           <div className="flex items-center gap-3 border-b border-devflow-border px-4 py-3">
             <Search className="size-5 text-devflow-text-muted" />
             <input
@@ -67,7 +63,7 @@ export function GlobalSearchPage() {
               placeholder="Search issues, projects, people..."
               className="flex-1 bg-transparent text-input outline-none"
             />
-            <kbd className="rounded bg-[#e0e3e5] px-2 py-0.5 text-caption text-devflow-text-secondary">
+            <kbd className="rounded bg-devflow-subtle px-2 py-0.5 text-caption text-devflow-text-secondary">
               ESC
             </kbd>
           </div>
@@ -87,7 +83,7 @@ export function GlobalSearchPage() {
                   }
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-devflow-surface"
                 >
-                  <div className="flex size-8 items-center justify-center rounded-lg bg-[#f2f4f6]">
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-devflow-muted">
                     <Icon className="size-4 text-devflow-text-secondary" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -108,9 +104,9 @@ export function GlobalSearchPage() {
               )
             })}
           </div>
-          <div className="flex items-center justify-between border-t border-devflow-border bg-[#f7f9fb] px-4 py-2 text-caption text-devflow-text-muted">
+          <div className="flex items-center justify-between border-t border-devflow-border bg-devflow-surface px-4 py-2 text-caption text-devflow-text-muted">
             <span>↑↓ navigate · ↵ select</span>
-            <Link to={ROUTES.dashboard} className="hover:text-[#004191]">
+            <Link to={ROUTES.dashboard} className="hover:text-devflow-brand">
               Close search
             </Link>
           </div>

@@ -14,7 +14,7 @@ function ActivityAvatar({
 }) {
   if (type === 'system') {
     return (
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#2170e4] text-white">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--df-activity-accent)] text-white">
         <Rocket className="size-3" />
       </div>
     )
@@ -25,7 +25,7 @@ function ActivityAvatar({
       <div
         className={cn(
           'flex size-8 shrink-0 items-center justify-center rounded-full border border-devflow-border text-caption font-semibold text-devflow-text-secondary',
-          color ?? 'bg-[#f1f5f9]',
+          color ?? 'bg-devflow-avatar-bg',
         )}
       >
         {value}
@@ -54,11 +54,11 @@ export function ActivityFeed() {
               <p className="text-body text-devflow-text">
                 <span className="font-semibold">Sarah</span>
                 <span className="font-normal"> moved </span>
-                <span className="rounded bg-[rgba(33,112,228,0.1)] px-1 font-mono text-devflow-primary">
+                <span className="rounded bg-[var(--df-activity-highlight)] px-1 font-mono text-devflow-primary">
                   DF-42
                 </span>
                 <span className="font-normal"> to </span>
-                <span className="font-semibold text-[#16a34a]">Done</span>
+                <span className="font-semibold text-devflow-success">Done</span>
               </p>
               <p className="mt-1 font-mono text-caption uppercase leading-[15px] text-devflow-text-muted">
                 2 minutes ago

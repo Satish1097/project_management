@@ -13,7 +13,7 @@ import { useNotifications } from './NotificationProvider'
 import type { Notification } from './types'
 
 const LIST_SCROLLBAR =
-  'scroll-smooth [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#d1d5db] hover:[&::-webkit-scrollbar-thumb]:bg-[#9ca3af]'
+  'scroll-smooth [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.45)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-devflow-scrollbar hover:[&::-webkit-scrollbar-thumb]:bg-devflow-scrollbar-hover'
 
 type NotificationDropdownPanelProps = {
   onClose: () => void
@@ -30,8 +30,8 @@ function DropdownHeader({
   onClose: () => void
 }) {
   return (
-    <header className="box-border flex h-[52px] shrink-0 items-center justify-between border-b border-[#e8eaef] bg-white px-5">
-      <h2 className="text-[15px] font-semibold leading-none tracking-[-0.01em] text-[#111827]">
+    <header className="box-border flex h-[52px] shrink-0 items-center justify-between border-b border-devflow-panel-border bg-devflow-card px-5">
+      <h2 className="text-[15px] font-semibold leading-none tracking-[-0.01em] text-devflow-text">
         Notifications
       </h2>
       <div className="flex items-center gap-2">
@@ -39,14 +39,14 @@ function DropdownHeader({
           type="button"
           onClick={onMarkAllRead}
           disabled={unreadCount === 0}
-          className="text-[13px] font-medium leading-none text-[#2563eb] transition-colors hover:text-[#1d4ed8] disabled:pointer-events-none disabled:opacity-40"
+          className="text-[13px] font-medium leading-none text-devflow-accent transition-colors hover:text-devflow-accent-hover disabled:pointer-events-none disabled:opacity-40"
         >
           Mark all read
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="flex size-7 items-center justify-center rounded-md text-[#9ca3af] transition-colors hover:bg-[#f3f4f6] hover:text-[#6b7280]"
+          className="flex size-7 items-center justify-center rounded-md text-devflow-text-muted transition-colors hover:bg-devflow-muted hover:text-devflow-icon-muted"
           aria-label="Close notifications"
         >
           <X className="size-4" strokeWidth={2} />
@@ -69,7 +69,7 @@ function DropdownTabs({
 }) {
   return (
     <nav
-      className="box-border flex h-11 shrink-0 items-stretch gap-1 border-b border-[#e8eaef] bg-white px-4"
+      className="box-border flex h-11 shrink-0 items-stretch gap-1 border-b border-devflow-panel-border bg-devflow-card px-4"
       role="tablist"
     >
       {NOTIFICATION_TABS.map((tab) => {
@@ -86,8 +86,8 @@ function DropdownTabs({
             className={cn(
               'relative flex h-full items-center gap-1.5 px-3 text-[13px] font-medium leading-none transition-colors',
               isActive
-                ? 'text-[#2563eb]'
-                : 'text-[#9ca3af] hover:text-[#6b7280]',
+                ? 'text-devflow-accent'
+                : 'text-devflow-text-muted hover:text-devflow-icon-muted',
             )}
           >
             {tab.label}
@@ -96,8 +96,8 @@ function DropdownTabs({
                 className={cn(
                   'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none tabular-nums',
                   isActive
-                    ? 'bg-[#2563eb] text-white'
-                    : 'bg-[#f3f4f6] text-[#6b7280]',
+                    ? 'bg-devflow-accent text-white'
+                    : 'bg-devflow-accent-muted-bg text-devflow-icon-muted',
                 )}
               >
                 {badge > 9 ? '9+' : badge}
@@ -105,7 +105,7 @@ function DropdownTabs({
             )}
             {isActive && (
               <span
-                className="absolute inset-x-1 bottom-0 h-[2px] rounded-full bg-[#2563eb]"
+                className="absolute inset-x-1 bottom-0 h-[2px] rounded-full bg-devflow-accent"
                 aria-hidden
               />
             )}
@@ -131,15 +131,15 @@ function DropdownNotificationRow({
         type="button"
         onClick={() => onMarkRead(notification.id)}
         className={cn(
-          'box-border grid w-full grid-cols-[12px_40px_minmax(0,1fr)_56px] items-start gap-x-3 gap-y-0 border-b border-[#f0f1f3] px-4 py-3.5 text-left transition-colors duration-150',
-          'hover:bg-[#f9fafb] focus-visible:bg-[#f9fafb] focus-visible:outline-none',
-          notification.unread && 'bg-[#fafbfc]',
+          'box-border grid w-full grid-cols-[12px_40px_minmax(0,1fr)_56px] items-start gap-x-3 gap-y-0 border-b border-devflow-panel-divider px-4 py-3.5 text-left transition-colors duration-150',
+          'hover:bg-devflow-panel-hover focus-visible:bg-devflow-panel-hover focus-visible:outline-none',
+          notification.unread && 'bg-devflow-panel-row-unread',
         )}
       >
         <div className="flex justify-center pt-1.5">
           {notification.unread ? (
             <span
-              className="size-2 shrink-0 rounded-full bg-[#2563eb]"
+              className="size-2 shrink-0 rounded-full bg-devflow-accent"
               aria-label="Unread"
             />
           ) : (
@@ -155,19 +155,19 @@ function DropdownNotificationRow({
         />
 
         <div className="min-w-0 overflow-hidden pt-0.5">
-          <p className="text-[13px] leading-[1.35] text-[#374151]">
-            <span className="font-semibold text-[#111827]">
+          <p className="text-[13px] leading-[1.35] text-devflow-text-secondary">
+            <span className="font-semibold text-devflow-text">
               {notification.user}
             </span>{' '}
             <span className="font-normal">{notification.message}</span>
           </p>
           {notification.preview && (
-            <p className="mt-0.5 truncate text-[13px] leading-[1.35] text-[#6b7280]">
+            <p className="mt-0.5 truncate text-[13px] leading-[1.35] text-devflow-icon-muted">
               {notification.preview}
             </p>
           )}
           {notification.project && (
-            <p className="mt-1 truncate text-[11px] leading-none text-[#9ca3af]">
+            <p className="mt-1 truncate text-[11px] leading-none text-devflow-text-muted">
               {notification.project}
             </p>
           )}
@@ -175,13 +175,13 @@ function DropdownNotificationRow({
 
         <div className="flex flex-col items-end justify-between self-stretch py-0.5">
           <time
-            className="whitespace-nowrap text-[11px] leading-none text-[#9ca3af] tabular-nums"
+            className="whitespace-nowrap text-[11px] leading-none text-devflow-text-muted tabular-nums"
             dateTime={notification.time}
           >
             {notification.time}
           </time>
           <span
-            className="flex size-5 items-center justify-center text-[#c4c9d2]"
+            className="flex size-5 items-center justify-center text-devflow-text-muted"
             aria-hidden
           >
             <Icon className="size-3.5" strokeWidth={2} />
@@ -194,10 +194,10 @@ function DropdownNotificationRow({
 
 function DropdownFooter({ onClose }: { onClose: () => void }) {
   return (
-    <footer className="box-border flex h-11 shrink-0 items-center justify-between border-t border-[#e8eaef] bg-white px-4">
+    <footer className="box-border flex h-11 shrink-0 items-center justify-between border-t border-devflow-panel-border bg-devflow-card px-4">
       <button
         type="button"
-        className="inline-flex items-center gap-1.5 text-[12px] font-medium leading-none text-[#6b7280] transition-colors hover:text-[#374151]"
+        className="inline-flex items-center gap-1.5 text-[12px] font-medium leading-none text-devflow-icon-muted transition-colors hover:text-devflow-text-secondary"
       >
         <Settings className="size-3.5" strokeWidth={2} />
         Notification preferences
@@ -205,7 +205,7 @@ function DropdownFooter({ onClose }: { onClose: () => void }) {
       <Link
         to={ROUTES.notifications}
         onClick={onClose}
-        className="inline-flex items-center gap-0.5 text-[12px] font-medium leading-none text-[#2563eb] transition-colors hover:text-[#1d4ed8]"
+        className="inline-flex items-center gap-0.5 text-[12px] font-medium leading-none text-devflow-accent transition-colors hover:text-devflow-accent-hover"
       >
         View all notifications
         <ChevronRight className="size-3.5" strokeWidth={2.5} />
@@ -232,7 +232,7 @@ export function NotificationDropdownPanel({
 
   return (
     <div
-      className="flex w-full flex-col overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04)]"
+      className="flex w-full flex-col overflow-hidden rounded-xl border border-devflow-panel-border-strong bg-devflow-card shadow-devflow-md"
       style={{ maxHeight }}
       role="dialog"
       aria-label="Notifications"
@@ -258,7 +258,7 @@ export function NotificationDropdownPanel({
         )}
       >
         {filtered.length === 0 ? (
-          <li className="px-4 py-10 text-center text-[13px] text-[#9ca3af]">
+          <li className="px-4 py-10 text-center text-[13px] text-devflow-text-muted">
             No notifications here
           </li>
         ) : (

@@ -1,15 +1,16 @@
 import { layout } from '@/constants/layout'
 import { Avatar } from '@/components/ui/Avatar'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { cn } from '@/utils/cn'
 
 const tabs = ['All Issues', 'Active', 'Backlog'] as const
 
 export function MyTasksHeader() {
   return (
-    <header className={cn(layout.appHeader, 'bg-[rgba(247,249,251,0.8)] backdrop-blur-[6px]')}>
+    <header className={cn(layout.appHeader, 'header-glass backdrop-blur-[6px]')}>
       <div className="flex items-center gap-4">
-        <h1 className="text-section-title font-bold text-[#004191]">
+        <h1 className="text-section-title font-bold text-devflow-brand">
           My Tasks
         </h1>
         <nav className="flex items-center gap-4">
@@ -20,8 +21,8 @@ export function MyTasksHeader() {
               className={cn(
                 'pb-1.5 text-nav',
                 tab === 'All Issues'
-                  ? 'border-b-2 border-[#004191] font-bold text-[#004191]'
-                  : 'font-medium text-[#424753]',
+                  ? 'border-b-2 border-devflow-brand font-bold text-devflow-brand'
+                  : 'font-medium text-devflow-text-secondary',
               )}
             >
               {tab}
@@ -31,7 +32,8 @@ export function MyTasksHeader() {
       </div>
 
       <div className="flex items-center gap-4">
-        <NotificationBell className="text-[#424753] hover:bg-white/60" />
+        <ThemeToggle />
+        <NotificationBell className="text-devflow-text-secondary hover:bg-devflow-hover-overlay" />
         <Avatar
           name="You"
           color="#94a3b8"

@@ -28,7 +28,7 @@ export function SettingsSubNav() {
             className={cn(
               'flex items-center gap-4 rounded-lg px-4 py-2 text-nav',
               pathname === path
-                ? 'bg-[rgba(0,88,190,0.05)] font-semibold text-devflow-primary'
+                ? 'bg-[var(--df-settings-active)] font-semibold text-devflow-primary'
                 : 'text-devflow-text-secondary',
             )}
           >

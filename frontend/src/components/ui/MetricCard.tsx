@@ -38,10 +38,10 @@ export function MetricCard({
           <span
             className={cn(
               'rounded px-2 py-0.5 text-caption-label',
-              badge.variant === 'success' && 'bg-[rgba(16,185,129,0.1)] text-[#10b981]',
-              badge.variant === 'warning' && 'bg-[rgba(180,83,9,0.1)] text-[#b45309]',
-              badge.variant === 'danger' && 'bg-[#ffdad6] text-[#ba1a1a]',
-              !badge.variant && 'bg-[#e6e8ea] text-devflow-text-secondary',
+              badge.variant === 'success' && 'bg-[var(--df-success-tint)] text-devflow-success',
+              badge.variant === 'warning' && 'bg-[var(--df-warning-tint)] text-devflow-warning',
+              badge.variant === 'danger' && 'bg-devflow-danger-bg text-devflow-error',
+              !badge.variant && 'bg-devflow-pill text-devflow-text-secondary',
             )}
           >
             {badge.text}
@@ -56,9 +56,9 @@ export function MetricCard({
         )}
       </div>
       {progress !== undefined && (
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#eceef0]">
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-devflow-table-header">
           <div
-            className="h-full rounded-full bg-[#10b981]"
+            className="h-full rounded-full bg-devflow-success"
             style={{ width: `${progress}%` }}
           />
         </div>

@@ -52,8 +52,8 @@ export function NotificationBell({
         className={cn(
           'relative inline-flex size-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
           isOpen
-            ? 'border-[#d4dce8] bg-[#eef2f7] text-[#004191]'
-            : 'border-[#e8eaef] bg-[#f5f6f8] text-[#5c6370] hover:border-[#d8dce3] hover:bg-[#eef0f3] hover:text-[#374151]',
+            ? 'border-devflow-bell-border-active bg-devflow-bell-bg-active text-devflow-brand'
+            : 'border-devflow-panel-border bg-devflow-bell-bg text-devflow-bell-text hover:border-devflow-bell-hover-border hover:bg-devflow-bell-hover-bg hover:text-devflow-text-secondary',
           className,
         )}
         aria-label="Notifications"
@@ -67,8 +67,8 @@ export function NotificationBell({
         {unreadCount > 0 && (
           <span
             className={cn(
-              'pointer-events-none absolute flex items-center justify-center rounded-full bg-[#e53935] font-bold leading-none text-white ring-2 ring-[#f5f6f8]',
-              isOpen && 'ring-[#eef2f7]',
+              'pointer-events-none absolute flex items-center justify-center rounded-full bg-devflow-badge font-bold leading-none text-white ring-2 ring-devflow-bell-ring',
+              isOpen && 'ring-devflow-bell-ring-active',
               badgeLabel.length > 1
                 ? '-right-1 -top-1 h-[18px] min-w-[20px] px-0.5 text-[10px]'
                 : '-right-1 -top-1 size-[18px] text-[11px]',

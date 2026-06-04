@@ -11,7 +11,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
-import { DevFlowLogo } from '@/components/brand/DevFlowLogo'
+import { SidebarBrand } from '@/components/brand/SidebarBrand'
 import { layout } from '@/constants/layout'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
@@ -32,25 +32,13 @@ export function Sidebar() {
   return (
     <aside className={cn(layout.shellSidebar, 'justify-between')}>
       <div className="flex flex-col gap-0.5 p-4">
-        <div className="flex items-center gap-3 pb-4">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-devflow-primary">
-            <DevFlowLogo />
-          </div>
-          <div>
-            <p className="text-brand text-devflow-primary">
-              DevFlow
-              <br />
-              Ops
-            </p>
-            <p className="text-body text-devflow-text-secondary">
-              Software Team
-            </p>
-          </div>
+        <div className="pb-2">
+          <SidebarBrand titleClassName="text-devflow-primary" />
         </div>
 
         <button
           type="button"
-          className="mb-4 flex w-full items-center justify-center gap-1.5 rounded-lg bg-devflow-primary py-1.5 text-btn text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)]"
+          className="mb-4 flex w-full items-center justify-center gap-1.5 rounded-lg bg-devflow-primary py-1.5 text-btn text-white shadow-devflow-sm"
         >
           <Plus className="size-3.5" strokeWidth={2.5} />
           New Issue
@@ -65,6 +53,8 @@ export function Sidebar() {
                 : label === 'Board'
                   ? pathname === ROUTES.board ||
                     pathname.startsWith('/board/')
+                : label === 'Settings'
+                  ? pathname.startsWith('/projects/settings')
                   : pathname === path || pathname.startsWith(`${path}/`)
 
             return (
@@ -74,7 +64,7 @@ export function Sidebar() {
                 className={cn(
                   layout.navItem,
                   'text-body text-devflow-text-secondary transition-colors',
-                  active && 'bg-[#d0e1fb] text-[#54647a]',
+                  active && 'bg-devflow-nav-active-alt text-devflow-nav-active-text-alt',
                 )}
               >
                 <Icon className="size-5 shrink-0" strokeWidth={1.75} />
@@ -88,14 +78,14 @@ export function Sidebar() {
       <div className="border-t border-devflow-border px-4 pb-4 pt-3">
         <Link
           to="#"
-          className={cn(layout.navItem, 'text-body text-devflow-text-secondary hover:bg-white/60')}
+          className={cn(layout.navItem, 'text-body text-devflow-text-secondary hover:bg-devflow-hover-overlay')}
         >
           <HelpCircle className="size-5" strokeWidth={1.75} />
           Help
         </Link>
         <Link
           to="#"
-          className={cn(layout.navItem, 'text-body text-devflow-text-secondary hover:bg-white/60')}
+          className={cn(layout.navItem, 'text-body text-devflow-text-secondary hover:bg-devflow-hover-overlay')}
         >
           <Archive className="size-[18px]" strokeWidth={1.75} />
           Archive

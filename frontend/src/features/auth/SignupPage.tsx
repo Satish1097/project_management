@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { DevFlowLogo } from '@/components/brand/DevFlowLogo'
-import { AuthLayout } from '@/components/layout/AuthLayout'
+import { AppLogo } from '@/components/brand/AppLogo'
+import { BRANDING } from '@/constants/branding'
 import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/features/auth/AuthProvider'
 import { IconInput } from '@/components/ui/IconInput'
 import {
   ArrowRightIcon,
@@ -27,14 +28,14 @@ function EyeToggle({ visible, onToggle }: { visible: boolean; onToggle: () => vo
         <svg width="18" height="13" viewBox="0 0 18 13" fill="none" aria-hidden>
           <path
             d="M9 0.5C5 0.5 1.73 2.61 0 5.5C1.73 8.39 5 10.5 9 10.5C13 10.5 16.27 8.39 18 5.5C16.27 2.61 13 0.5 9 0.5ZM9 9C7.07 9 5.5 7.43 5.5 5.5C5.5 3.57 7.07 2 9 2C10.93 2 12.5 3.57 12.5 5.5C12.5 7.43 10.93 9 9 9Z"
-            fill="#727785"
+            fill="currentColor"
           />
         </svg>
       ) : (
         <svg width="18" height="13" viewBox="0 0 18 13" fill="none" aria-hidden>
           <path
             d="M0.5 0.5L17.5 12.5M7.5 5.2C7.18 5.66 7 6.22 7 6.8C7 8.01 7.99 9 9.2 9C9.78 9 10.34 8.82 10.8 8.5M2.2 2.8C4.1 1.4 6.4 0.5 9 0.5C13 0.5 16.27 2.61 18 5.5C17.2 6.77 16.05 7.8 14.7 8.5"
-            stroke="#727785"
+            stroke="currentColor"
             strokeWidth="1.2"
             strokeLinecap="round"
           />
@@ -52,27 +53,28 @@ const FEATURES = [
 
 export function SignupPage() {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [passwordVisible, setPasswordVisible] = useState(false)
 
   return (
-    <AuthLayout variant="signup">
+    <>
       <div className="flex w-full flex-col items-center pb-8">
-        <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-devflow-primary shadow-[0px_1px_1px_rgba(0,0,0,0.05)]">
-          <DevFlowLogo className="h-[19px] w-[23px]" />
+        <div className="mb-3 flex size-10 items-center justify-center overflow-hidden rounded-full shadow-devflow-sm">
+          <AppLogo className="size-10" />
         </div>
         <h1 className="text-page-title text-devflow-text">
-          DevFlow
+          {BRANDING.appName}
         </h1>
       </div>
 
-      <div className="w-full rounded-lg border border-devflow-border bg-white p-6 shadow-[0px_1px_1px_rgba(0,0,0,0.05)]">
+      <div className="w-full rounded-lg border border-devflow-border bg-devflow-card p-6 shadow-devflow-sm">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1 text-center">
             <h2 className="text-section-title text-devflow-text">
               Create your account
             </h2>
             <p className="text-body text-devflow-text-secondary">
-              Start optimizing your engineering workflow today.
+              {BRANDING.signupTagline}
             </p>
           </div>
 
@@ -80,7 +82,8 @@ export function SignupPage() {
             className="flex flex-col gap-4"
             onSubmit={(e) => {
               e.preventDefault()
-              navigate(ROUTES.workspaceEmpty)
+              login()
+              navigate(ROUTES.workspaceEmpty, { replace: true })
             }}
           >
             <IconInput
@@ -115,7 +118,7 @@ export function SignupPage() {
                   type={passwordVisible ? 'text' : 'password'}
                   autoComplete="new-password"
                   placeholder="••••••••"
-                  className="w-full rounded-lg border border-devflow-border bg-devflow-surface pb-[11px] pl-[41px] pr-12 pt-[10px] text-input text-devflow-text outline-none transition-colors placeholder:text-devflow-text-muted/60 focus:border-devflow-primary focus:bg-white focus:ring-2 focus:ring-devflow-primary/20"
+                  className="w-full rounded-lg border border-devflow-border bg-devflow-surface pb-[11px] pl-[41px] pr-12 pt-[10px] text-input text-devflow-text outline-none transition-colors placeholder:text-devflow-text-muted/60 focus:border-devflow-primary focus:bg-devflow-card focus:ring-2 focus:ring-devflow-primary/20"
                 />
                 <EyeToggle
                   visible={passwordVisible}
@@ -171,6 +174,6 @@ export function SignupPage() {
           </div>
         ))}
       </div>
-    </AuthLayout>
+    </>
   )
 }

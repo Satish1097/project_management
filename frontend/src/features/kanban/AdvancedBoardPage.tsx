@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Plus } from 'lucide-react'
+import { BRANDING } from '@/constants/branding'
 import { layout } from '@/constants/layout'
 import { cn } from '@/utils/cn'
 import { ROUTES } from '@/constants/routes'
@@ -85,9 +86,9 @@ const advancedColumns: KanbanColumnType[] = [
 export function AdvancedBoardPage() {
   return (
     <div className="min-h-screen bg-devflow-surface">
-      <header className={cn(layout.appHeader, 'bg-white')}>
+      <header className={cn(layout.appHeader, 'bg-devflow-card')}>
         <div className="flex items-center gap-4">
-          <span className="text-brand text-devflow-text">DevFlow</span>
+          <span className="text-brand text-devflow-text">{BRANDING.appName}</span>
           <span className="text-devflow-text-secondary">|</span>
           <span className="font-medium text-devflow-text-secondary">
             Advanced Engineering Board
@@ -100,14 +101,14 @@ export function AdvancedBoardPage() {
           Standard board
         </Link>
       </header>
-      <div className="flex gap-3 border-b border-devflow-border bg-white px-4 py-2">
+      <div className="flex gap-3 border-b border-devflow-border bg-devflow-card px-4 py-2">
         {['All Teams', 'Backend', 'Frontend', 'Platform'].map((f, i) => (
           <button
             key={f}
             type="button"
             className={
               i === 0
-                ? 'rounded-lg bg-[#d0e1fb] px-3 py-1.5 text-btn text-[#54647a]'
+                ? 'rounded-lg bg-devflow-nav-active-alt px-3 py-1.5 text-btn text-devflow-nav-active-text-alt'
                 : 'px-3 py-1.5 text-body text-devflow-text-secondary'
             }
           >
@@ -120,7 +121,7 @@ export function AdvancedBoardPage() {
           {advancedColumns.map((column) => (
             <div key={column.id} className="w-72 shrink-0">
               {column.count === 0 && column.id === 'blocked' ? (
-                <div className="rounded-lg border border-dashed border-devflow-border bg-white/60 p-5 text-center">
+                <div className="rounded-lg border border-dashed border-devflow-border bg-devflow-card/60 p-5 text-center">
                   <p className="text-table-header uppercase text-devflow-text-muted">
                     BLOCKED (0)
                   </p>
@@ -136,7 +137,7 @@ export function AdvancedBoardPage() {
         </div>
         <button
           type="button"
-          className="fixed bottom-10 right-6 flex size-14 items-center justify-center rounded-full bg-[#004191] text-white shadow-lg"
+          className="fixed bottom-10 right-6 flex size-14 items-center justify-center rounded-full bg-devflow-brand-deep text-white shadow-lg"
         >
           <Plus className="size-5" />
         </button>

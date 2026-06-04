@@ -10,9 +10,9 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    'bg-devflow-primary text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] hover:bg-[#004da8]',
+    'bg-devflow-primary text-white shadow-devflow-sm hover:bg-devflow-primary-hover',
   outline:
-    'border border-devflow-border bg-white text-devflow-text hover:bg-devflow-surface',
+    'border border-devflow-border bg-devflow-card text-devflow-text hover:bg-devflow-surface',
 }
 
 export function Button({

@@ -10,7 +10,7 @@ import {
   ListChecks,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
-import { DevFlowLogo } from '@/components/brand/DevFlowLogo'
+import { SidebarBrand } from '@/components/brand/SidebarBrand'
 import { layout } from '@/constants/layout'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
@@ -29,27 +29,13 @@ export function EmptyWorkspaceSidebar() {
 
   return (
     <aside className={cn(layout.shellSidebar, 'px-3 py-3')}>
-      <div className="border-b border-transparent pb-4">
-        <div className="flex items-center gap-2 px-1">
-          <div className="flex h-8 w-[25px] items-center justify-center rounded-lg bg-devflow-primary">
-            <DevFlowLogo className="h-4 w-5" />
-          </div>
-          <div>
-            <p className="text-brand text-[#004191]">
-              DevFlow
-              <br />
-              Workspace
-            </p>
-            <p className="text-caption text-[#424753]">
-              Engineering Team
-            </p>
-          </div>
-        </div>
+      <div className="border-b border-transparent pb-2">
+        <SidebarBrand />
       </div>
 
       <button
         type="button"
-        className="my-3 flex w-full items-center justify-center gap-1 rounded-lg bg-[#004191] py-1.5 text-btn text-white"
+        className="my-3 flex w-full items-center justify-center gap-1 rounded-lg bg-devflow-brand-deep py-1.5 text-btn text-white"
       >
         <Plus className="size-2.5" strokeWidth={2.5} />
         Create Issue
@@ -64,8 +50,8 @@ export function EmptyWorkspaceSidebar() {
               to={path}
               className={cn(
                 layout.navItem,
-                'text-body text-[#424753]',
-                active && 'bg-[#d4e3ff] text-[#56657c]',
+                'text-body text-devflow-text-secondary',
+                active && 'bg-devflow-nav-active text-devflow-nav-active-text',
               )}
             >
               <Icon className="size-[18px] shrink-0" strokeWidth={1.75} />
@@ -78,14 +64,14 @@ export function EmptyWorkspaceSidebar() {
       <div className="flex flex-col gap-1 border-t border-devflow-border pt-4">
         <Link
           to="#"
-          className={cn(layout.navItem, 'text-nav text-[#424753] hover:bg-white/60')}
+          className={cn(layout.navItem, 'text-nav text-devflow-text-secondary hover:bg-devflow-hover-overlay')}
         >
           <Settings className="size-5" strokeWidth={1.75} />
           Settings
         </Link>
         <Link
           to="#"
-          className={cn(layout.navItem, 'text-nav text-[#424753] hover:bg-white/60')}
+          className={cn(layout.navItem, 'text-nav text-devflow-text-secondary hover:bg-devflow-hover-overlay')}
         >
           <HelpCircle className="size-5" strokeWidth={1.75} />
           Support

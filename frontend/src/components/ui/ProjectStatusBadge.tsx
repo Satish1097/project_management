@@ -2,9 +2,9 @@ import type { ProjectStatus } from '@/types/projects'
 import { cn } from '@/utils/cn'
 
 const styles: Record<ProjectStatus, string> = {
-  active: 'text-[#15803d]',
-  planning: 'bg-[rgba(208,225,251,0.3)] text-[#505f76]',
-  at_risk: 'bg-[rgba(255,218,214,0.3)] text-[#ba1a1a]',
+  active: 'text-devflow-success',
+  planning: 'bg-[var(--df-nav-tint-soft)] text-[var(--df-status-dot-neutral)]',
+  at_risk: 'bg-[var(--df-danger-tint)] text-devflow-error',
 }
 
 const labels: Record<ProjectStatus, string> = {

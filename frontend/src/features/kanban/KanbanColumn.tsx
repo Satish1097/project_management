@@ -18,7 +18,7 @@ export function KanbanColumn({ column }: KanbanColumnProps) {
           <h2 className="text-table-header uppercase tracking-wide text-devflow-text-secondary">
             {column.title}
           </h2>
-          <span className="rounded-full bg-[#e6e8ea] px-2 py-0.5 text-caption-label leading-4 text-devflow-text-secondary">
+          <span className="rounded-full bg-devflow-pill px-2 py-0.5 text-caption-label leading-4 text-devflow-text-secondary">
             {column.count}
           </span>
         </div>

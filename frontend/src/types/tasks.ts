@@ -2,7 +2,17 @@ import type { LucideIcon } from 'lucide-react'
 
 export type TaskPriority = 'high' | 'medium' | 'low' | 'none'
 
-export type TaskStatus = 'in_progress' | 'todo' | 'backlog'
+export type TaskStatus =
+  | 'backlog'
+  | 'todo'
+  | 'in_progress'
+  | 'review'
+  | 'done'
+
+export type TaskAssignee = {
+  name: string
+  color: string
+}
 
 export type Task = {
   id: string
@@ -16,4 +26,15 @@ export type Task = {
   labelVariant?: 'default' | 'critical'
   dueDate: string
   dueOverdue?: boolean
+  assignee: TaskAssignee
 }
+
+export type IssueViewMode = 'list' | 'board'
+
+export type IssueFilters = {
+  status: TaskStatus | 'all'
+  priority: TaskPriority | 'all'
+  project: string | 'all'
+}
+
+export type IssueSortKey = 'dueDate' | 'priority' | 'title' | 'default'

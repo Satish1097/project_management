@@ -33,7 +33,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         ref={ref}
         id={inputId}
         className={cn(
-          'w-full rounded-lg border border-devflow-border bg-white px-3 py-2 text-input text-devflow-text outline-none transition-colors placeholder:text-devflow-text-muted focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/20',
+          'w-full rounded-lg border border-devflow-border bg-devflow-card px-3 py-2 text-input text-devflow-text outline-none transition-colors placeholder:text-devflow-text-muted focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/20',
           className,
         )}
         {...props}

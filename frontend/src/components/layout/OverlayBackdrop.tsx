@@ -18,7 +18,7 @@ export function OverlayBackdrop({
       <div className="pointer-events-none fixed inset-0 ml-60 bg-black/20 backdrop-blur-[1px]" />
       <Link
         to={closeTo}
-        className="fixed right-6 top-20 z-50 flex size-10 items-center justify-center rounded-full bg-white text-devflow-text-secondary shadow-md hover:bg-devflow-surface"
+        className="fixed right-6 top-20 z-50 flex size-10 items-center justify-center rounded-full bg-devflow-card text-devflow-text-secondary shadow-md hover:bg-devflow-surface"
         aria-label="Close"
       >
         <X className="size-5" />

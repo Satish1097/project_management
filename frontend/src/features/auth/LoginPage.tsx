@@ -1,7 +1,8 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { DevFlowLogo } from '@/components/brand/DevFlowLogo'
-import { AuthLayout } from '@/components/layout/AuthLayout'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { AppLogo } from '@/components/brand/AppLogo'
+import { BRANDING } from '@/constants/branding'
 import { Button } from '@/components/ui/Button'
+import { useAuth } from '@/features/auth/AuthProvider'
 import { Checkbox } from '@/components/ui/Checkbox'
 import { Divider } from '@/components/ui/Divider'
 import { GoogleIcon } from '@/components/ui/GoogleIcon'
@@ -11,24 +12,28 @@ import { ROUTES } from '@/constants/routes'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { login } = useAuth()
+  const redirectTo =
+    (location.state as { from?: string } | null)?.from ?? ROUTES.dashboard
 
   return (
-    <AuthLayout variant="login">
+    <>
       <header className="flex w-full flex-col items-center">
         <div className="flex items-center gap-2">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-devflow-primary">
-            <DevFlowLogo />
+          <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full">
+            <AppLogo className="size-10" />
           </div>
           <h1 className="text-page-title text-devflow-text">
-            DevFlow
+            {BRANDING.appName}
           </h1>
         </div>
         <p className="pt-2 text-body text-devflow-text-secondary">
-          Streamlined engineering operations
+          {BRANDING.loginTagline}
         </p>
       </header>
 
-      <div className="relative w-full rounded-lg border border-devflow-border bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05),0px_2px_4px_-2px_rgba(0,0,0,0.05)]">
+      <div className="relative w-full rounded-lg border border-devflow-border bg-devflow-card p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05),0px_2px_4px_-2px_rgba(0,0,0,0.05)]">
         <div className="flex flex-col gap-4">
           <div>
             <h2 className="text-section-title text-devflow-text">
@@ -43,7 +48,8 @@ export function LoginPage() {
             className="flex flex-col gap-4"
             onSubmit={(e) => {
               e.preventDefault()
-              navigate(ROUTES.workspaceEmpty)
+              login()
+              navigate(redirectTo, { replace: true })
             }}
           >
             <Input
@@ -60,12 +66,12 @@ export function LoginPage() {
               autoComplete="current-password"
               placeholder="••••••••"
               labelAction={
-                <button
-                  type="button"
-                  className="text-body text-devflow-primary"
+                <Link
+                  to={ROUTES.forgotPassword}
+                  className="text-body text-devflow-primary hover:underline"
                 >
                   Forgot password?
-                </button>
+                </Link>
               }
             />
 
@@ -115,6 +121,6 @@ export function LoginPage() {
           Security
         </button>
       </footer>
-    </AuthLayout>
+    </>
   )
 }

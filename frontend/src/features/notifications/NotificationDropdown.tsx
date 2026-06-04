@@ -91,7 +91,7 @@ export function NotificationDropdown({ anchorRect }: NotificationDropdownProps) 
             aria-hidden
           >
             <div
-              className="absolute left-1/2 size-0 -translate-x-1/2 border-x-[10px] border-b-[10px] border-x-transparent border-b-[#e5e7eb]"
+              className="absolute left-1/2 size-0 -translate-x-1/2 border-x-[10px] border-b-[10px] border-x-transparent border-b-devflow-panel-border-strong"
               style={{ top: 0 }}
             />
             <div

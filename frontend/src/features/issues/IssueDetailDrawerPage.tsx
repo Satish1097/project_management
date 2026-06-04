@@ -29,7 +29,7 @@ export function IssueDetailDrawerPage() {
         </main>
       </div>
 
-      <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-devflow-border bg-white shadow-2xl">
+      <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-devflow-border bg-devflow-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-devflow-border px-4 py-3">
           <div className="flex items-center gap-3">
             <span className="font-mono text-caption text-devflow-text-muted">DF-101</span>
@@ -91,7 +91,7 @@ export function IssueDetailDrawerPage() {
               </p>
               <button
                 type="button"
-                className="inline-flex items-center gap-1 text-btn text-[#ba1a1a]"
+                className="inline-flex items-center gap-1 text-btn text-devflow-error"
               >
                 High
                 <ChevronDown className="size-3" />

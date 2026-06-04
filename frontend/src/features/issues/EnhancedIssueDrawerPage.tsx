@@ -31,7 +31,7 @@ export function EnhancedIssueDrawerPage() {
 
   return (
     <div className="min-h-screen bg-black/30">
-      <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl bg-white shadow-2xl">
+      <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl bg-devflow-card shadow-2xl">
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b border-devflow-border px-4 py-2.5">
             <div className="flex items-center gap-3">
@@ -73,7 +73,7 @@ export function EnhancedIssueDrawerPage() {
                     {completed}/{subtasks.length}
                   </span>
                 </div>
-                <div className="mb-2 h-2 overflow-hidden rounded-full bg-[#eceef0]">
+                <div className="mb-2 h-2 overflow-hidden rounded-full bg-devflow-table-header">
                   <div
                     className="h-full bg-devflow-primary"
                     style={{ width: `${(completed / subtasks.length) * 100}%` }}
@@ -121,7 +121,7 @@ export function EnhancedIssueDrawerPage() {
               </div>
             </div>
 
-            <aside className="w-56 shrink-0 overflow-y-auto border-l border-devflow-border bg-[#f7f9fb] p-3">
+            <aside className="w-56 shrink-0 overflow-y-auto border-l border-devflow-border bg-devflow-surface p-3">
               <div className="space-y-4">
                 <div>
                   <p className="mb-2 text-caption-label text-devflow-text-muted">
@@ -129,7 +129,7 @@ export function EnhancedIssueDrawerPage() {
                   </p>
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between rounded-lg border border-devflow-border bg-white px-3 py-2 text-input"
+                    className="flex w-full items-center justify-between rounded-lg border border-devflow-border bg-devflow-card px-3 py-2 text-input"
                   >
                     In Progress
                     <ChevronDown className="size-4" />
@@ -139,7 +139,7 @@ export function EnhancedIssueDrawerPage() {
                   <p className="mb-2 text-caption-label text-devflow-text-muted">
                     Assignee
                   </p>
-                  <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-white px-3 py-2">
+                  <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2">
                     <Avatar name="Sarah Chen" color="#8b5cf6" size={24} />
                     <span className="text-input">Sarah Chen</span>
                   </div>
@@ -148,7 +148,7 @@ export function EnhancedIssueDrawerPage() {
                   <p className="mb-2 text-caption-label text-devflow-text-muted">
                     Due Date
                   </p>
-                  <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-white px-3 py-2 text-input">
+                  <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2 text-input">
                     <Calendar className="size-4" />
                     Oct 24, 2025
                   </div>
@@ -157,7 +157,7 @@ export function EnhancedIssueDrawerPage() {
                   <p className="mb-2 text-caption-label text-devflow-text-muted">
                     Sprint
                   </p>
-                  <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-white px-3 py-2 text-input">
+                  <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2 text-input">
                     <GitBranch className="size-4" />
                     Sprint 42
                   </div>

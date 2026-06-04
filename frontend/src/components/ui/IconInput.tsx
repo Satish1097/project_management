@@ -27,7 +27,7 @@ export const IconInput = forwardRef<HTMLInputElement, IconInputProps>(
             ref={ref}
             id={inputId}
             className={cn(
-              'w-full rounded-lg border border-devflow-border bg-devflow-surface py-2 pl-9 pr-3 text-input text-devflow-text outline-none transition-colors placeholder:text-devflow-text-muted/60 focus:border-devflow-primary focus:bg-white focus:ring-2 focus:ring-devflow-primary/20',
+              'w-full rounded-lg border border-devflow-border bg-devflow-surface py-2 pl-9 pr-3 text-input text-devflow-text outline-none transition-colors placeholder:text-devflow-text-muted/60 focus:border-devflow-primary focus:bg-devflow-card focus:ring-2 focus:ring-devflow-primary/20',
               trailing && 'pr-12',
               className,
             )}

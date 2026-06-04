@@ -31,13 +31,13 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
   return (
     <div
       className={cn(
-        'flex min-h-[min(720px,calc(100vh-var(--height-header)-4rem))] flex-col overflow-hidden rounded-xl border border-[#e3e6ed] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_rgba(15,23,42,0.06)]',
+        'flex min-h-[min(720px,calc(100vh-var(--height-header)-4rem))] flex-col overflow-hidden rounded-xl border border-devflow-panel-border bg-devflow-card shadow-devflow-drawer',
         className,
       )}
       role="region"
       aria-label="Notifications"
     >
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#e8eaef] px-6 py-4">
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-devflow-panel-border px-6 py-4">
         <h2 className="text-[16px] font-semibold leading-none text-devflow-text">
           Notifications
         </h2>
@@ -45,14 +45,14 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
           type="button"
           onClick={markAllRead}
           disabled={unreadCount === 0}
-          className="rounded-md px-2.5 py-1.5 text-[12px] font-medium text-[#004191] transition-colors hover:bg-[rgba(0,65,145,0.06)] disabled:cursor-default disabled:opacity-40"
+          className="rounded-md px-2.5 py-1.5 text-[12px] font-medium text-devflow-brand transition-colors hover:bg-[var(--df-brand-tint-hover)] disabled:cursor-default disabled:opacity-40"
         >
           Mark all read
         </button>
       </header>
 
       <nav
-        className="flex shrink-0 items-center gap-0.5 border-b border-[#e8eaef] px-6"
+        className="flex shrink-0 items-center gap-0.5 border-b border-devflow-panel-border px-6"
         role="tablist"
       >
         {NOTIFICATION_TABS.map((tab) => {
@@ -69,7 +69,7 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
               className={cn(
                 'relative -mb-px flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium leading-none transition-colors',
                 isActive
-                  ? 'text-[#004191]'
+                  ? 'text-devflow-brand'
                   : 'text-devflow-text-muted hover:text-devflow-text-secondary',
               )}
             >
@@ -79,8 +79,8 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
                   className={cn(
                     'inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
                     isActive
-                      ? 'bg-[#004191] text-white'
-                      : 'bg-[#e8eaef] text-devflow-text-secondary',
+                      ? 'bg-devflow-brand-deep text-white'
+                      : 'bg-devflow-panel-border text-devflow-text-secondary',
                   )}
                 >
                   {badge > 9 ? '9+' : badge}
@@ -88,7 +88,7 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
               )}
               {isActive && (
                 <span
-                  className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-[#004191]"
+                  className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-devflow-brand-deep"
                   aria-hidden
                 />
               )}
@@ -111,15 +111,15 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
                   type="button"
                   onClick={() => markRead(n.id)}
                   className={cn(
-                    'grid w-full min-h-[80px] grid-cols-[auto_1fr_auto] items-start gap-4 border-b border-[#eef0f4] px-5 py-4 text-left transition-colors sm:px-6',
-                    'hover:bg-[#fafbfc] focus-visible:bg-[#fafbfc] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#004191]/30',
-                    n.unread && 'bg-[#f7fafc]',
+                    'grid w-full min-h-[80px] grid-cols-[auto_1fr_auto] items-start gap-4 border-b border-devflow-panel-divider-soft px-5 py-4 text-left transition-colors sm:px-6',
+                    'hover:bg-devflow-panel-hover focus-visible:bg-devflow-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-devflow-brand/30',
+                    n.unread && 'bg-devflow-panel-row-unread-alt',
                   )}
                 >
                   <div className="relative shrink-0">
                     <Avatar name={n.user} color={n.color} size={38} />
                     <span
-                      className="absolute -bottom-0.5 -right-0.5 flex size-[18px] items-center justify-center rounded-full border-2 border-white bg-[#eef0f4] text-devflow-text-muted"
+                      className="absolute -bottom-0.5 -right-0.5 flex size-[18px] items-center justify-center rounded-full border-2 border-devflow-card bg-devflow-bell-bg text-devflow-text-muted"
                       aria-hidden
                     >
                       <Icon className="size-2.5" strokeWidth={2.25} />
@@ -149,7 +149,7 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
                     </time>
                     {n.unread && (
                       <span
-                        className="size-2 rounded-full bg-[#004191]"
+                        className="size-2 rounded-full bg-devflow-brand-deep"
                         aria-label="Unread"
                       />
                     )}
@@ -161,17 +161,17 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
         )}
       </ul>
 
-      <footer className="flex shrink-0 flex-col gap-2 border-t border-[#e8eaef] px-6 py-4">
+      <footer className="flex shrink-0 flex-col gap-2 border-t border-devflow-panel-border px-6 py-4">
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px] font-medium text-devflow-text-secondary transition-colors hover:bg-[#f2f4f6] hover:text-devflow-text"
+          className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px] font-medium text-devflow-text-secondary transition-colors hover:bg-devflow-muted hover:text-devflow-text"
         >
           <Check className="size-3.5" strokeWidth={2} />
           Notification preferences
         </button>
         <Link
           to={ROUTES.notifications}
-          className="text-[12px] font-medium text-[#004191] hover:underline"
+          className="text-[12px] font-medium text-devflow-brand hover:underline"
         >
           View all notifications
         </Link>

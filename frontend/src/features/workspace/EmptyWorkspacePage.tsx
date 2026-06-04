@@ -46,7 +46,7 @@ export function EmptyWorkspacePage() {
               <h1 className="text-page-title text-devflow-text">
                 Ready to build something great?
               </h1>
-              <p className="max-w-md text-body text-[#424753]">
+              <p className="max-w-md text-body text-devflow-text-secondary">
                 Create your first project to start tracking tasks and
                 collaborating with your team. Your journey to engineering
                 excellence starts here.
@@ -56,14 +56,14 @@ export function EmptyWorkspacePage() {
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <Link
                 to={ROUTES.dashboard}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#004191] px-4 py-2 text-btn text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]"
+                className="inline-flex items-center gap-2 rounded-lg bg-devflow-brand-deep px-4 py-2 text-btn text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]"
               >
                 <FolderPlus className="size-5" strokeWidth={2} />
                 Create New Project
               </Link>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg border border-devflow-border px-4 py-2 text-btn text-[#424753]"
+                className="inline-flex items-center gap-2 rounded-lg border border-devflow-border px-4 py-2 text-btn text-devflow-text-secondary"
               >
                 <ArrowDownUp className="size-4" strokeWidth={2} />
                 Import from Jira
@@ -72,7 +72,7 @@ export function EmptyWorkspacePage() {
 
             <button
               type="button"
-              className="inline-flex items-center gap-1 pt-2 text-btn text-[#004191] hover:underline"
+              className="inline-flex items-center gap-1 pt-2 text-btn text-devflow-brand hover:underline"
             >
               <Compass className="size-3.5" />
               Explore templates

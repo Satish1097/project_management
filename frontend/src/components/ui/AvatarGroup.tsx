@@ -15,13 +15,13 @@ export function AvatarGroup({ members, extra, size = 28 }: AvatarGroupProps) {
         <div
           key={member.name}
           className={cn(
-            'rounded-full border-2 border-white',
+            'rounded-full border-2 border-devflow-card',
             index > 0 && '-ml-2',
           )}
         >
           {member.initials ? (
             <div
-              className="flex items-center justify-center rounded-full bg-[#f1f5f9] font-mono text-caption text-devflow-text-muted"
+              className="flex items-center justify-center rounded-full bg-devflow-avatar-bg font-mono text-caption text-devflow-text-muted"
               style={{ width: size, height: size }}
             >
               {member.initials}
@@ -33,7 +33,7 @@ export function AvatarGroup({ members, extra, size = 28 }: AvatarGroupProps) {
       ))}
       {extra !== undefined && extra > 0 && (
         <div
-          className="-ml-2 flex items-center justify-center rounded-full border-2 border-white bg-[#d8e2ff] text-caption font-bold text-[#001a42]"
+          className="-ml-2 flex items-center justify-center rounded-full border-2 border-devflow-card bg-[var(--df-avatar-overflow-bg)] text-caption font-bold text-[var(--df-avatar-overflow-text)]"
           style={{ width: size, height: size }}
         >
           +{extra}

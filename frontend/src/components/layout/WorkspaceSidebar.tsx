@@ -10,12 +10,14 @@ import {
   HelpCircle,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
-import { DevFlowLogo } from '@/components/brand/DevFlowLogo'
+import { SidebarBrand } from '@/components/brand/SidebarBrand'
 import { layout } from '@/constants/layout'
-import { ROUTES } from '@/constants/routes'
+import {
+  ROUTES,
+  resolveWorkspaceActiveNav,
+  type WorkspaceNavId,
+} from '@/constants/routes'
 import { cn } from '@/utils/cn'
-
-type WorkspaceNavId = 'search' | 'inbox' | 'myIssues' | 'projects' | 'cycles' | 'roadmaps'
 
 const navItems: {
   id: WorkspaceNavId
@@ -31,12 +33,9 @@ const navItems: {
   { id: 'roadmaps', label: 'Roadmaps', icon: Map, path: '#' },
 ]
 
-type WorkspaceSidebarProps = {
-  activeNav?: WorkspaceNavId
-}
-
-export function WorkspaceSidebar({ activeNav }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar() {
   const { pathname } = useLocation()
+  const activeNav = resolveWorkspaceActiveNav(pathname)
 
   const resolveActive = (id: WorkspaceNavId, path: string) => {
     if (activeNav) return activeNav === id
@@ -50,20 +49,8 @@ export function WorkspaceSidebar({ activeNav }: WorkspaceSidebarProps) {
 
   return (
     <aside className={cn(layout.shellSidebar, 'px-3 py-3')}>
-      <div className="pb-4">
-        <div className="flex items-center gap-2 px-1">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-[#004191]">
-            <DevFlowLogo className="h-4 w-5" />
-          </div>
-          <div>
-            <p className="text-brand text-[#004191]">
-              DevFlow
-            </p>
-            <p className="text-caption-label tracking-[0.5px] text-[#727784]">
-              Engineering Team
-            </p>
-          </div>
-        </div>
+      <div className="pb-2">
+        <SidebarBrand />
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
@@ -73,8 +60,8 @@ export function WorkspaceSidebar({ activeNav }: WorkspaceSidebarProps) {
             to={path}
             className={cn(
               layout.navItem,
-              'text-body text-[#424753]',
-              resolveActive(id, path) && 'bg-[#d4e3ff] text-[#56657c]',
+              'text-body text-devflow-text-secondary',
+              resolveActive(id, path) && 'bg-devflow-nav-active text-devflow-nav-active-text',
             )}
           >
             <Icon className="size-[18px] shrink-0" strokeWidth={1.75} />
@@ -86,7 +73,7 @@ export function WorkspaceSidebar({ activeNav }: WorkspaceSidebarProps) {
       <div className="pt-4">
         <button
           type="button"
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#004191] py-1.5 text-btn text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)]"
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-devflow-brand-deep py-1.5 text-btn text-white shadow-devflow-sm"
         >
           <Plus className="size-2.5" strokeWidth={2.5} />
           Create Issue
@@ -95,15 +82,19 @@ export function WorkspaceSidebar({ activeNav }: WorkspaceSidebarProps) {
 
       <div className="mt-3 flex flex-col gap-0.5 border-t border-devflow-border pt-3">
         <Link
-          to="#"
-          className={cn(layout.navItem, 'text-nav text-[#424753] hover:bg-white/60')}
+          to={ROUTES.projectSettings}
+          className={cn(
+            layout.navItem,
+            'text-nav text-devflow-text-secondary hover:bg-devflow-hover-overlay',
+            pathname.startsWith('/projects/settings') && 'bg-devflow-nav-active text-devflow-nav-active-text',
+          )}
         >
           <Settings className="size-5" strokeWidth={1.75} />
           Settings
         </Link>
         <Link
           to="#"
-          className={cn(layout.navItem, 'text-nav text-[#424753] hover:bg-white/60')}
+          className={cn(layout.navItem, 'text-nav text-devflow-text-secondary hover:bg-devflow-hover-overlay')}
         >
           <HelpCircle className="size-5" strokeWidth={1.75} />
           Support

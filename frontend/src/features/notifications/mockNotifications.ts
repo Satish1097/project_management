@@ -1,3 +1,4 @@
+import { BRANDING } from '@/constants/branding'
 import type { Notification } from './types'
 
 export const initialNotifications: Notification[] = [
@@ -8,7 +9,7 @@ export const initialNotifications: Notification[] = [
     color: '#8b5cf6',
     message: 'mentioned you in DF-101',
     preview: 'Please review the latest designs.',
-    project: 'DevFlow Core',
+    project: BRANDING.projectCoreName,
     time: '2m ago',
     unread: true,
   },
@@ -30,7 +31,7 @@ export const initialNotifications: Notification[] = [
     color: '#10b981',
     message: 'commented on DF-1102',
     preview: 'Looks good to me, ship it.',
-    project: 'DevFlow Core',
+    project: BRANDING.projectCoreName,
     time: '3h ago',
     unread: false,
   },

@@ -1,8 +1,16 @@
-import { Navigate, createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
+import { WorkspaceEmptyShell } from '@/components/layout/WorkspaceEmptyShell'
+import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { ROUTES } from '@/constants/routes'
+import { GuestRoute } from '@/app/guards/GuestRoute'
+import { ProtectedRoute } from '@/app/guards/ProtectedRoute'
+import { AuthLayoutRoute } from '@/app/layouts/AuthLayoutRoute'
+import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { SignupPage } from '@/features/auth/SignupPage'
+import { ForbiddenPage } from '@/features/errors/ForbiddenPage'
+import { NotFoundPage } from '@/features/errors/NotFoundPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { BoardPage } from '@/features/kanban/BoardPage'
 import { AdvancedBoardPage } from '@/features/kanban/AdvancedBoardPage'
@@ -18,95 +26,77 @@ import { GlobalSearchPage } from '@/features/search/GlobalSearchPage'
 import { OperationsDashboardPage } from '@/features/operations/OperationsDashboardPage'
 import { QAManagementPage } from '@/features/qa/QAManagementPage'
 import { ReleaseManagementPage } from '@/features/releases/ReleaseManagementPage'
-import { WorkspaceEmptyShell } from '@/components/layout/WorkspaceEmptyShell'
-import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 
+/**
+ * Route tree:
+ * - Guest auth routes (login, signup, forgot-password) with AuthLayout
+ * - Protected app routes (ops Sidebar layout)
+ * - Protected workspace routes (WorkspaceSidebar layout)
+ * - Protected full-page routes (board overlays, no shell)
+ * - Public error routes
+ */
 export const router = createBrowserRouter([
+  // ─── Authentication (guest only) ───────────────────────────────────────
   {
-    path: ROUTES.login,
-    element: <LoginPage />,
-  },
-  {
-    path: ROUTES.signup,
-    element: <SignupPage />,
-  },
-  {
-    element: <WorkspaceEmptyShell />,
+    element: <GuestRoute />,
     children: [
       {
-        path: ROUTES.workspaceEmpty,
-        element: <EmptyWorkspacePage />,
+        element: <AuthLayoutRoute />,
+        children: [
+          { path: ROUTES.login, element: <LoginPage /> },
+          { path: ROUTES.signup, element: <SignupPage /> },
+          { path: ROUTES.forgotPassword, element: <ForgotPasswordPage /> },
+        ],
       },
     ],
   },
+
+  // ─── Protected application ───────────────────────────────────────────────
   {
-    element: <WorkspaceShell activeNav="myIssues" />,
+    element: <ProtectedRoute />,
     children: [
+      // Ops shell: dashboard, board, settings, delivery modules
       {
-        path: ROUTES.myTasks,
-        element: <MyTasksPage />,
+        element: <AppShell />,
+        children: [
+          { index: true, element: <DashboardPage /> },
+          { path: 'board', element: <BoardPage /> },
+          { path: 'projects/settings', element: <ProjectSettingsPage /> },
+          { path: 'operations', element: <OperationsDashboardPage /> },
+          { path: 'qa', element: <QAManagementPage /> },
+          { path: 'releases', element: <ReleaseManagementPage /> },
+        ],
       },
+
+      // Workspace shell: issues, search, inbox, project hub
+      {
+        element: <WorkspaceShell />,
+        children: [
+          { path: 'tasks', element: <MyTasksPage /> },
+          { path: 'search', element: <GlobalSearchPage /> },
+          { path: 'notifications', element: <NotificationCenterPage /> },
+          { path: 'workspace/settings', element: <WorkspaceSettingsPage /> },
+          { path: 'projects/settings/labels', element: <ProjectSettingsLabelsPage /> },
+        ],
+      },
+
+      // Empty workspace onboarding shell
+      {
+        element: <WorkspaceEmptyShell />,
+        children: [
+          { path: 'workspace/empty', element: <EmptyWorkspacePage /> },
+        ],
+      },
+
+      // Full-page board flows (no persistent shell)
+      { path: 'board/advanced', element: <AdvancedBoardPage /> },
+      { path: 'board/issue', element: <IssueDetailDrawerPage /> },
+      { path: 'board/issue/enhanced', element: <EnhancedIssueDrawerPage /> },
     ],
   },
-  {
-    path: ROUTES.projectSettingsLabels,
-    element: <ProjectSettingsLabelsPage />,
-  },
-  {
-    path: ROUTES.workspaceSettings,
-    element: <WorkspaceSettingsPage />,
-  },
-  {
-    path: ROUTES.notifications,
-    element: <NotificationCenterPage />,
-  },
-  {
-    path: ROUTES.search,
-    element: <GlobalSearchPage />,
-  },
-  {
-    path: ROUTES.operations,
-    element: <OperationsDashboardPage />,
-  },
-  {
-    path: ROUTES.qa,
-    element: <QAManagementPage />,
-  },
-  {
-    path: ROUTES.releases,
-    element: <ReleaseManagementPage />,
-  },
-  {
-    path: ROUTES.issueDetail,
-    element: <IssueDetailDrawerPage />,
-  },
-  {
-    path: ROUTES.issueDetailEnhanced,
-    element: <EnhancedIssueDrawerPage />,
-  },
-  {
-    path: ROUTES.advancedBoard,
-    element: <AdvancedBoardPage />,
-  },
-  {
-    element: <AppShell />,
-    children: [
-      {
-        path: ROUTES.dashboard,
-        element: <DashboardPage />,
-      },
-      {
-        path: ROUTES.board,
-        element: <BoardPage />,
-      },
-      {
-        path: ROUTES.projectSettings,
-        element: <ProjectSettingsPage />,
-      },
-    ],
-  },
-  {
-    path: '*',
-    element: <Navigate to={ROUTES.login} replace />,
-  },
+
+  // ─── Error routes (public) ─────────────────────────────────────────────
+  { path: ROUTES.forbidden, element: <ForbiddenPage /> },
+  { path: ROUTES.notFound, element: <NotFoundPage /> },
+  { path: '*', element: <NotFoundPage /> },
 ])

@@ -1,6 +1,10 @@
 import { FileText, Network, Shield, Zap } from 'lucide-react'
 import type { Task } from '@/types/tasks'
 
+const you = { name: 'You', color: '#94a3b8' }
+const alex = { name: 'Alex Chen', color: '#6366f1' }
+const sam = { name: 'Sam Rivera', color: '#ec4899' }
+
 export const mockAssignedTasks: Task[] = [
   {
     id: '1',
@@ -13,6 +17,7 @@ export const mockAssignedTasks: Task[] = [
     label: 'BACKEND',
     dueDate: 'Oct 12',
     dueOverdue: true,
+    assignee: you,
   },
   {
     id: '2',
@@ -25,6 +30,7 @@ export const mockAssignedTasks: Task[] = [
     label: 'CRITICAL',
     labelVariant: 'critical',
     dueDate: 'Oct 24',
+    assignee: you,
   },
   {
     id: '3',
@@ -36,6 +42,7 @@ export const mockAssignedTasks: Task[] = [
     projectIcon: FileText,
     label: 'DOCS',
     dueDate: 'Nov 05',
+    assignee: alex,
   },
   {
     id: '4',
@@ -47,5 +54,73 @@ export const mockAssignedTasks: Task[] = [
     projectIcon: Shield,
     label: 'AUDIT',
     dueDate: 'Nov 12',
+    assignee: you,
+  },
+  {
+    id: '5',
+    key: 'DEV-1130',
+    title: 'Add rate limiting middleware',
+    priority: 'high',
+    status: 'review',
+    project: 'Infrastructure',
+    projectIcon: Zap,
+    label: 'BACKEND',
+    dueDate: 'Oct 18',
+    assignee: sam,
+  },
+  {
+    id: '6',
+    key: 'DEV-1098',
+    title: 'Migrate auth tokens to HttpOnly cookies',
+    priority: 'medium',
+    status: 'review',
+    project: 'Security',
+    projectIcon: Shield,
+    label: 'SECURITY',
+    dueDate: 'Oct 22',
+    assignee: you,
+  },
+  {
+    id: '7',
+    key: 'DEV-1055',
+    title: 'Ship dashboard analytics widgets',
+    priority: 'medium',
+    status: 'done',
+    project: 'Product',
+    projectIcon: FileText,
+    label: 'FRONTEND',
+    dueDate: 'Sep 28',
+    assignee: you,
+  },
+  {
+    id: '8',
+    key: 'DEV-1031',
+    title: 'Configure staging environment secrets',
+    priority: 'low',
+    status: 'done',
+    project: 'Devops',
+    projectIcon: Network,
+    label: 'DEVOPS',
+    dueDate: 'Sep 15',
+    assignee: alex,
+  },
+  {
+    id: '9',
+    key: 'DEV-1140',
+    title: 'Prototype WebSocket notification channel',
+    priority: 'none',
+    status: 'backlog',
+    project: 'Product',
+    projectIcon: FileText,
+    label: 'BACKEND',
+    dueDate: 'Dec 01',
+    assignee: sam,
   },
 ]
+
+export const issueProjects = [
+  'Infrastructure',
+  'Devops',
+  'Product',
+  'Security',
+] as const

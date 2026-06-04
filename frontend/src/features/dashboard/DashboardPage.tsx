@@ -34,7 +34,7 @@ export function DashboardPage() {
             ))}
           </div>
 
-          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-devflow-border bg-[rgba(242,244,246,0.3)] p-6 opacity-70">
+          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-devflow-border bg-[var(--df-empty-state)] p-6 opacity-70">
             <FilePlus className="mb-2 size-7 text-devflow-text-muted" />
             <p className="text-section-title text-devflow-text-secondary">
               Ready to scale?

@@ -4,7 +4,7 @@ import { EmptyWorkspaceSidebar } from './EmptyWorkspaceSidebar'
 
 export function WorkspaceEmptyShell() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-devflow-card">
       <EmptyWorkspaceSidebar />
       <div className={layout.shellMain}>
         <Outlet />

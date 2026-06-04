@@ -2,14 +2,10 @@ import { Outlet } from 'react-router-dom'
 import { layout } from '@/constants/layout'
 import { WorkspaceSidebar } from './WorkspaceSidebar'
 
-type WorkspaceShellProps = {
-  activeNav?: 'myIssues' | 'projects' | 'search' | 'inbox'
-}
-
-export function WorkspaceShell({ activeNav }: WorkspaceShellProps) {
+export function WorkspaceShell() {
   return (
-    <div className="min-h-screen bg-white">
-      <WorkspaceSidebar activeNav={activeNav} />
+    <div className="min-h-screen bg-devflow-main">
+      <WorkspaceSidebar />
       <div className={layout.shellMain}>
         <Outlet />
       </div>

@@ -22,10 +22,10 @@ export function ProjectCard({ project }: ProjectCardProps) {
   return (
     <Link
       to={ROUTES.board}
-      className="flex flex-col gap-1 rounded-lg border border-devflow-border bg-white p-3 transition-shadow hover:shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]"
+      className="flex flex-col gap-1 rounded-lg border border-devflow-border bg-devflow-card p-3 transition-shadow hover:shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.05)]"
     >
       <div className="flex items-start justify-between">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[rgba(208,225,251,0.5)] text-devflow-primary">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--df-nav-tint)] text-devflow-primary">
           <Icon className="size-5" strokeWidth={1.75} />
         </div>
         <ProjectStatusBadge status={project.status} />
@@ -38,10 +38,10 @@ export function ProjectCard({ project }: ProjectCardProps) {
         {project.description}
       </p>
 
-      <div className="flex items-center justify-between border-t border-[rgba(194,198,214,0.5)] pt-[17px]">
+      <div className="flex items-center justify-between border-t border-[var(--df-border-faint)] pt-[17px]">
         <div className="flex items-center gap-1">
           {project.issuesCritical ? (
-            <AlertTriangle className="size-3 text-[#ba1a1a]" />
+            <AlertTriangle className="size-3 text-devflow-error" />
           ) : (
             <Circle className="size-2.5 fill-devflow-text-secondary text-devflow-text-secondary" />
           )}
@@ -49,7 +49,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             className={cn(
               'font-mono text-caption font-medium tracking-[0.24px]',
               project.issuesCritical
-                ? 'text-[#ba1a1a]'
+                ? 'text-devflow-error'
                 : 'text-devflow-text-secondary',
             )}
           >

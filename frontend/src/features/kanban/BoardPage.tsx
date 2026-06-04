@@ -10,7 +10,7 @@ export function BoardPage() {
   return (
     <>
       <TopHeader variant="board" activeTab="Board" />
-      <div className="flex items-center justify-end gap-3 border-b border-devflow-border bg-white px-4 py-2">
+      <div className="flex items-center justify-end gap-3 border-b border-devflow-border bg-devflow-card px-4 py-2">
         <Link
           to={ROUTES.advancedBoard}
           className="text-btn text-devflow-primary hover:underline"
@@ -28,7 +28,7 @@ export function BoardPage() {
 
         <button
           type="button"
-          className="fixed bottom-4 right-4 flex size-11 items-center justify-center rounded-full bg-devflow-primary text-white shadow-[0px_10px_15px_-3px_rgba(0,0,0,0.1)]"
+          className="fixed bottom-4 right-4 flex size-11 items-center justify-center rounded-full bg-devflow-primary text-white shadow-devflow-lg"
           aria-label="Quick add"
         >
           <Plus className="size-3.5" strokeWidth={2.5} />

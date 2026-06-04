@@ -1,0 +1,220 @@
+/**
+ * HKPMS theme tokens — light (:root) and dark (.dark on html).
+ * Tailwind colors in index.css reference these CSS variables.
+ */
+
+:root {
+  color-scheme: light;
+
+  --df-primary: #0058be;
+  --df-primary-hover: #004da8;
+  --df-brand: #004191;
+  --df-brand-deep: #004191;
+
+  --df-text: #191c1e;
+  --df-text-secondary: #424754;
+  --df-text-muted: #727785;
+
+  --df-border: #c2c6d6;
+  --df-surface: #f7f9fb;
+  --df-main: #ffffff;
+  --df-card: #ffffff;
+  --df-muted: #f2f4f6;
+  --df-subtle: #e0e3e5;
+  --df-table-header: #eceef0;
+  --df-pill: #e6e8ea;
+  --df-progress-track: #eceef0;
+
+  --df-nav-active: #d4e3ff;
+  --df-nav-active-alt: #d0e1fb;
+  --df-nav-active-text: #56657c;
+  --df-nav-active-text-alt: #54647a;
+
+  --df-icon-muted: #6b7280;
+  --df-avatar-bg: #f1f5f9;
+  --df-hover-overlay: rgb(255 255 255 / 0.6);
+
+  --df-shadow-sm: 0px 1px 1px rgba(0, 0, 0, 0.05);
+  --df-shadow-md: 0 4px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --df-shadow-lg: 0px 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --df-shadow-drawer: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+
+  --df-panel-border: #e8eaef;
+  --df-panel-border-strong: #e5e7eb;
+  --df-panel-divider: #f0f1f3;
+  --df-panel-divider-soft: #eef0f4;
+  --df-panel-hover: #f9fafb;
+  --df-panel-row-unread: #fafbfc;
+  --df-panel-row-unread-alt: #f7fafc;
+  --df-accent: #2563eb;
+  --df-accent-hover: #1d4ed8;
+  --df-accent-muted-bg: #f3f4f6;
+
+  --df-bell-border: #e8eaef;
+  --df-bell-border-active: #d4dce8;
+  --df-bell-bg: #f5f6f8;
+  --df-bell-bg-active: #eef2f7;
+  --df-bell-text: #5c6370;
+  --df-bell-text-active: #004191;
+  --df-bell-hover-border: #d8dce3;
+  --df-bell-hover-bg: #eef0f3;
+  --df-bell-hover-text: #374151;
+  --df-bell-ring: #f5f6f8;
+  --df-bell-ring-active: #eef2f7;
+  --df-badge: #e53935;
+
+  --df-scrollbar: #d1d5db;
+  --df-scrollbar-hover: #9ca3af;
+
+  --df-error: #ba1a1a;
+  --df-success: #10b981;
+  --df-warning: #b45309;
+  --df-danger-bg: #ffdad6;
+  --df-danger-text: #93000a;
+  --df-warning-bg: #fef3c7;
+
+  --df-auth-gradient: rgba(0, 88, 190, 0.03);
+  --df-toggle-bg: #f2f4f6;
+  --df-toggle-icon: #424753;
+
+  --df-header-glass: rgba(247, 249, 251, 0.8);
+  --df-filter-bar: rgba(247, 249, 251, 0.5);
+  --df-nav-tint: rgba(208, 225, 251, 0.5);
+  --df-nav-tint-soft: rgba(208, 225, 251, 0.3);
+  --df-brand-tint: rgba(0, 65, 145, 0.1);
+  --df-brand-tint-hover: rgba(0, 65, 145, 0.06);
+  --df-brand-ring: rgba(0, 65, 145, 0.3);
+  --df-warning-tint: rgba(180, 83, 9, 0.1);
+  --df-success-tint: rgba(16, 185, 129, 0.1);
+  --df-danger-tint: rgba(255, 218, 214, 0.3);
+  --df-avatar-overflow-bg: #d8e2ff;
+  --df-avatar-overflow-text: #001a42;
+  --df-illustration-glow: rgba(0, 65, 145, 0.05);
+  --df-illustration-from: #d4e3ff;
+  --df-illustration-via: #e8f0ff;
+  --df-illustration-to: #f7f9fb;
+  --df-activity-accent: #2170e4;
+  --df-activity-highlight: rgba(33, 112, 228, 0.1);
+  --df-border-faint: rgba(194, 198, 214, 0.5);
+  --df-chart-placeholder: rgba(224, 227, 229, 0.2);
+  --df-status-dot-muted: #727785;
+  --df-status-dot-neutral: #505f76;
+  --df-settings-active: rgba(0, 88, 190, 0.05);
+  --df-empty-state: rgba(242, 244, 246, 0.3);
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --df-primary: #4d9fff;
+  --df-primary-hover: #3b8fef;
+  --df-brand: #6eb3ff;
+  --df-brand-deep: #4d9fff;
+
+  --df-text: #f0f2f5;
+  --df-text-secondary: #c5cad4;
+  --df-text-muted: #8b93a6;
+
+  --df-border: #3d4556;
+  --df-surface: #0f1218;
+  --df-main: #141820;
+  --df-card: #1a1f2a;
+  --df-muted: #222833;
+  --df-subtle: #2c3340;
+  --df-table-header: #1e2430;
+  --df-pill: #2c3340;
+  --df-progress-track: #2c3340;
+
+  --df-nav-active: rgba(77, 159, 255, 0.18);
+  --df-nav-active-alt: rgba(77, 159, 255, 0.18);
+  --df-nav-active-text: #a8cfff;
+  --df-nav-active-text-alt: #a8cfff;
+
+  --df-icon-muted: #8b93a6;
+  --df-avatar-bg: #2c3340;
+  --df-hover-overlay: rgb(255 255 255 / 0.06);
+
+  --df-shadow-sm: 0px 1px 1px rgba(0, 0, 0, 0.35);
+  --df-shadow-md: 0 4px 24px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --df-shadow-lg: 0px 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --df-shadow-drawer: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  --df-panel-border: #2e3644;
+  --df-panel-border-strong: #353d4d;
+  --df-panel-divider: #252b38;
+  --df-panel-divider-soft: #252b38;
+  --df-panel-hover: #222833;
+  --df-panel-row-unread: #1e2430;
+  --df-panel-row-unread-alt: #1a1f2a;
+  --df-accent: #6eb3ff;
+  --df-accent-hover: #4d9fff;
+  --df-accent-muted-bg: #2c3340;
+
+  --df-bell-border: #353d4d;
+  --df-bell-border-active: #3d4a5c;
+  --df-bell-bg: #222833;
+  --df-bell-bg-active: #2a3342;
+  --df-bell-text: #9ca3af;
+  --df-bell-text-active: #6eb3ff;
+  --df-bell-hover-border: #404958;
+  --df-bell-hover-bg: #2a3342;
+  --df-bell-hover-text: #e5e7eb;
+  --df-bell-ring: #141820;
+  --df-bell-ring-active: #1a1f2a;
+  --df-badge: #ef5350;
+
+  --df-scrollbar: #4b5563;
+  --df-scrollbar-hover: #6b7280;
+
+  --df-error: #f87171;
+  --df-success: #34d399;
+  --df-warning: #fbbf24;
+  --df-danger-bg: rgba(239, 68, 68, 0.15);
+  --df-danger-text: #fca5a5;
+  --df-warning-bg: rgba(251, 191, 36, 0.12);
+
+  --df-auth-gradient: rgba(77, 159, 255, 0.08);
+  --df-toggle-bg: #222833;
+  --df-toggle-icon: #c5cad4;
+
+  --df-header-glass: rgba(20, 24, 32, 0.85);
+  --df-filter-bar: rgba(20, 24, 32, 0.65);
+  --df-nav-tint: rgba(77, 159, 255, 0.15);
+  --df-nav-tint-soft: rgba(77, 159, 255, 0.12);
+  --df-brand-tint: rgba(77, 159, 255, 0.15);
+  --df-brand-tint-hover: rgba(77, 159, 255, 0.1);
+  --df-brand-ring: rgba(77, 159, 255, 0.35);
+  --df-warning-tint: rgba(251, 191, 36, 0.15);
+  --df-success-tint: rgba(52, 211, 153, 0.15);
+  --df-danger-tint: rgba(239, 68, 68, 0.15);
+  --df-avatar-overflow-bg: #2a3a52;
+  --df-avatar-overflow-text: #a8cfff;
+  --df-illustration-glow: rgba(77, 159, 255, 0.08);
+  --df-illustration-from: #1e2a3d;
+  --df-illustration-via: #1a2435;
+  --df-illustration-to: #141820;
+  --df-activity-accent: #4d9fff;
+  --df-activity-highlight: rgba(77, 159, 255, 0.15);
+  --df-border-faint: rgba(61, 69, 86, 0.6);
+  --df-chart-placeholder: rgba(44, 51, 64, 0.5);
+  --df-status-dot-muted: #8b93a6;
+  --df-status-dot-neutral: #9ca3af;
+  --df-settings-active: rgba(77, 159, 255, 0.12);
+  --df-empty-state: rgba(34, 40, 51, 0.5);
+}
+
+html {
+  background-color: var(--df-surface);
+  color: var(--df-text);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+html.dark .theme-transition-surface {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}

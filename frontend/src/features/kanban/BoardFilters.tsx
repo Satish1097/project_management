@@ -8,7 +8,7 @@ const avatarColors = ['#6366f1', '#ec4899', '#f59e0b', '#94a3b8']
 
 export function BoardFilters() {
   return (
-    <div className="flex items-center justify-between border-b border-devflow-border bg-[rgba(247,249,251,0.5)] px-4 py-3 backdrop-blur-[2px]">
+    <div className="flex items-center justify-between border-b border-devflow-border filter-bar-glass px-4 py-3 backdrop-blur-[2px]">
       <div className="flex items-center gap-4">
         <div className="flex items-center">
           {boardFilters.assignees.slice(0, 3).map((name, i) => (
@@ -20,7 +20,7 @@ export function BoardFilters() {
               className={cnAvatarOverlap(i)}
             />
           ))}
-          <div className="-ml-2 flex size-8 items-center justify-center rounded-full border-2 border-devflow-surface bg-[#e6e8ea] text-caption font-semibold text-devflow-text-secondary">
+          <div className="-ml-2 flex size-8 items-center justify-center rounded-full border-2 border-devflow-surface bg-devflow-pill text-caption font-semibold text-devflow-text-secondary">
             +4
           </div>
         </div>
@@ -30,7 +30,7 @@ export function BoardFilters() {
             <button
               key={chip}
               type="button"
-              className="inline-flex items-center gap-1 rounded-lg border border-devflow-border bg-white px-[9px] py-[5px] text-body text-devflow-text-secondary"
+              className="inline-flex items-center gap-1 rounded-lg border border-devflow-border bg-devflow-card px-[9px] py-[5px] text-body text-devflow-text-secondary"
             >
               {chip}
               <ChevronDown className="size-2 text-devflow-text-muted" />

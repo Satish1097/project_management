@@ -5,9 +5,9 @@ const styles: Record<
   IssuePriority,
   { bg: string; text: string; label: string }
 > = {
-  high: { bg: 'bg-[#ffdad6]', text: 'text-[#ba1a1a]', label: 'HIGH' },
-  medium: { bg: 'bg-[#fef3c7]', text: 'text-[#b45309]', label: 'MEDIUM' },
-  low: { bg: 'bg-[#e6e8ea]', text: 'text-devflow-text-secondary', label: 'LOW' },
+  high: { bg: 'bg-devflow-danger-bg', text: 'text-devflow-error', label: 'HIGH' },
+  medium: { bg: 'bg-devflow-warning-bg', text: 'text-devflow-warning', label: 'MEDIUM' },
+  low: { bg: 'bg-devflow-pill', text: 'text-devflow-text-secondary', label: 'LOW' },
 }
 
 export function PriorityBadge({ priority }: { priority: IssuePriority }) {

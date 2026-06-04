@@ -18,8 +18,8 @@ export function TaskCard({ issue, columnId }: TaskCardProps) {
   const className = cn(
     'flex flex-col gap-1.5 rounded-lg border p-3',
     isDone
-      ? 'border-devflow-border bg-[#f2f4f6] opacity-80'
-      : 'border-devflow-border bg-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)]',
+      ? 'border-devflow-border bg-devflow-muted opacity-80'
+      : 'border-devflow-border bg-devflow-card shadow-devflow-sm',
     inProgress && 'border-l-4 border-l-devflow-primary pl-5',
   )
 
@@ -35,7 +35,7 @@ export function TaskCard({ issue, columnId }: TaskCardProps) {
           {issue.key}
         </span>
         {isDone ? (
-          <Check className="size-3 text-[#10b981]" strokeWidth={3} />
+          <Check className="size-3 text-devflow-success" strokeWidth={3} />
         ) : (
           issue.priority && <PriorityBadge priority={issue.priority} />
         )}
@@ -55,8 +55,8 @@ export function TaskCard({ issue, columnId }: TaskCardProps) {
           className={cn(
             'rounded-lg px-2 py-0.5 text-caption font-medium',
             isDone
-              ? 'bg-[#e6e8ea] text-devflow-text-secondary'
-              : 'bg-[rgba(208,225,251,0.5)] text-[#54647a]',
+              ? 'bg-devflow-pill text-devflow-text-secondary'
+              : 'bg-[var(--df-nav-tint)] text-devflow-nav-active-text-alt',
           )}
         >
           {issue.label}
@@ -66,7 +66,7 @@ export function TaskCard({ issue, columnId }: TaskCardProps) {
 
       {issue.progress !== undefined && (
         <div className="flex items-center gap-4 pt-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#eceef0]">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-devflow-table-header">
             <div
               className="h-full rounded-full bg-devflow-primary"
               style={{ width: `${issue.progress}%` }}

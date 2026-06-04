@@ -1,5 +1,5 @@
 /**
- * DevFlow layout & density scale — compact SaaS dashboard (Figma-aligned).
+ * HKPMS layout & density scale — compact SaaS dashboard (Figma-aligned).
  * Use semantic layout utilities; avoid one-off large padding in pages.
  */
 
@@ -24,7 +24,11 @@
   }
 
   .app-header {
-    @apply sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b border-devflow-border px-4;
+    @apply sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b border-devflow-border bg-devflow-card px-4;
+  }
+
+  .app-header-context {
+    @apply h-auto min-h-12 items-center py-1.5;
   }
 
   .page-main {
@@ -36,11 +40,11 @@
   }
 
   .ui-card {
-    @apply rounded-lg border border-devflow-border bg-white p-3 shadow-[0px_1px_1px_rgba(0,0,0,0.05)];
+    @apply rounded-lg border border-devflow-border bg-devflow-card p-3 shadow-devflow-sm;
   }
 
   .ui-card-muted {
-    @apply rounded-lg border border-devflow-border bg-[#f2f4f6] p-3;
+    @apply rounded-lg border border-devflow-border bg-devflow-muted p-3;
   }
 
   .nav-item {
@@ -49,5 +53,13 @@
 
   .btn-compact {
     @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-btn;
+  }
+
+  .header-glass {
+    background-color: var(--df-header-glass);
+  }
+
+  .filter-bar-glass {
+    background-color: var(--df-filter-bar);
   }
 }

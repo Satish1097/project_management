@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './styles/theme.css';
 @import './styles/typography.css';
 @import './styles/layout.css';
 
@@ -6,13 +7,66 @@
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  --color-devflow-primary: #0058be;
-  --color-devflow-text: #191c1e;
-  --color-devflow-text-secondary: #424754;
-  --color-devflow-text-muted: #727785;
-  --color-devflow-border: #c2c6d6;
-  --color-devflow-surface: #f7f9fb;
-  --color-devflow-card: #ffffff;
+  --color-devflow-primary: var(--df-primary);
+  --color-devflow-primary-hover: var(--df-primary-hover);
+  --color-devflow-brand: var(--df-brand);
+  --color-devflow-brand-deep: var(--df-brand-deep);
+  --color-devflow-text: var(--df-text);
+  --color-devflow-text-secondary: var(--df-text-secondary);
+  --color-devflow-text-muted: var(--df-text-muted);
+  --color-devflow-border: var(--df-border);
+  --color-devflow-surface: var(--df-surface);
+  --color-devflow-main: var(--df-main);
+  --color-devflow-card: var(--df-card);
+  --color-devflow-muted: var(--df-muted);
+  --color-devflow-subtle: var(--df-subtle);
+  --color-devflow-table-header: var(--df-table-header);
+  --color-devflow-pill: var(--df-pill);
+  --color-devflow-progress-track: var(--df-progress-track);
+  --color-devflow-nav-active: var(--df-nav-active);
+  --color-devflow-nav-active-alt: var(--df-nav-active-alt);
+  --color-devflow-nav-active-text: var(--df-nav-active-text);
+  --color-devflow-nav-active-text-alt: var(--df-nav-active-text-alt);
+  --color-devflow-icon-muted: var(--df-icon-muted);
+  --color-devflow-avatar-bg: var(--df-avatar-bg);
+  --color-devflow-hover-overlay: var(--df-hover-overlay);
+  --color-devflow-panel-border: var(--df-panel-border);
+  --color-devflow-panel-border-strong: var(--df-panel-border-strong);
+  --color-devflow-panel-divider: var(--df-panel-divider);
+  --color-devflow-panel-divider-soft: var(--df-panel-divider-soft);
+  --color-devflow-panel-hover: var(--df-panel-hover);
+  --color-devflow-panel-row-unread: var(--df-panel-row-unread);
+  --color-devflow-panel-row-unread-alt: var(--df-panel-row-unread-alt);
+  --color-devflow-accent: var(--df-accent);
+  --color-devflow-accent-hover: var(--df-accent-hover);
+  --color-devflow-accent-muted-bg: var(--df-accent-muted-bg);
+  --color-devflow-bell-border: var(--df-bell-border);
+  --color-devflow-bell-border-active: var(--df-bell-border-active);
+  --color-devflow-bell-bg: var(--df-bell-bg);
+  --color-devflow-bell-bg-active: var(--df-bell-bg-active);
+  --color-devflow-bell-text: var(--df-bell-text);
+  --color-devflow-bell-text-active: var(--df-bell-text-active);
+  --color-devflow-bell-hover-border: var(--df-bell-hover-border);
+  --color-devflow-bell-hover-bg: var(--df-bell-hover-bg);
+  --color-devflow-bell-hover-text: var(--df-bell-hover-text);
+  --color-devflow-bell-ring: var(--df-bell-ring);
+  --color-devflow-bell-ring-active: var(--df-bell-ring-active);
+  --color-devflow-badge: var(--df-badge);
+  --color-devflow-scrollbar: var(--df-scrollbar);
+  --color-devflow-scrollbar-hover: var(--df-scrollbar-hover);
+  --color-devflow-error: var(--df-error);
+  --color-devflow-success: var(--df-success);
+  --color-devflow-warning: var(--df-warning);
+  --color-devflow-danger-bg: var(--df-danger-bg);
+  --color-devflow-danger-text: var(--df-danger-text);
+  --color-devflow-warning-bg: var(--df-warning-bg);
+  --color-devflow-toggle-bg: var(--df-toggle-bg);
+  --color-devflow-toggle-icon: var(--df-toggle-icon);
+
+  --shadow-devflow-sm: var(--df-shadow-sm);
+  --shadow-devflow-md: var(--df-shadow-md);
+  --shadow-devflow-lg: var(--df-shadow-lg);
+  --shadow-devflow-drawer: var(--df-shadow-drawer);
 }
 
 @layer base {
@@ -34,6 +88,8 @@
     font-size: 0.875rem;
     font-weight: 400;
     line-height: 1.55;
+    background-color: var(--df-surface);
+    color: var(--df-text);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

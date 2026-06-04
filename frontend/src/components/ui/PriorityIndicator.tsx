@@ -6,10 +6,10 @@ const config: Record<
   TaskPriority,
   { icon: typeof ChevronsUp; className: string }
 > = {
-  high: { icon: ChevronsUp, className: 'text-[#ba1a1a]' },
-  medium: { icon: ChevronUp, className: 'text-[#004191]' },
-  low: { icon: ChevronDown, className: 'text-[#b45309]' },
-  none: { icon: Minus, className: 'text-[#727784]' },
+  high: { icon: ChevronsUp, className: 'text-devflow-error' },
+  medium: { icon: ChevronUp, className: 'text-devflow-brand' },
+  low: { icon: ChevronDown, className: 'text-devflow-warning' },
+  none: { icon: Minus, className: 'text-devflow-text-muted' },
 }
 
 export function PriorityIndicator({ priority }: { priority: TaskPriority }) {

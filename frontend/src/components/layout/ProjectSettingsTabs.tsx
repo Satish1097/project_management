@@ -22,7 +22,7 @@ export function ProjectSettingsTabs() {
           className={cn(
             'px-4 py-3 text-nav',
             pathname === tab.path
-              ? 'border-b-2 border-[#004191] font-bold text-[#004191]'
+              ? 'border-b-2 border-devflow-brand font-bold text-devflow-brand'
               : 'font-medium text-devflow-text-secondary',
           )}
         >

@@ -13,27 +13,27 @@ type TaskListTableProps = {
 
 export function TaskListTable({ tasks }: TaskListTableProps) {
   return (
-    <div className="overflow-hidden rounded-lg border border-devflow-border bg-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-      <div className={cn(GRID, 'border-b border-devflow-border bg-[#eceef0] px-4 py-2')}>
-        <span className="text-center text-table-header uppercase tracking-wide text-[#424753]">
+    <div className="overflow-hidden rounded-lg border border-devflow-border bg-devflow-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
+      <div className={cn(GRID, 'border-b border-devflow-border bg-devflow-table-header px-4 py-2')}>
+        <span className="text-center text-table-header uppercase tracking-wide text-devflow-text-secondary">
           !
         </span>
-        <span className="text-table-header uppercase tracking-wide text-[#424753]">
+        <span className="text-table-header uppercase tracking-wide text-devflow-text-secondary">
           ID
         </span>
-        <span className="text-table-header uppercase tracking-wide text-[#424753]">
+        <span className="text-table-header uppercase tracking-wide text-devflow-text-secondary">
           Title
         </span>
-        <span className="text-table-header uppercase tracking-wide text-[#424753]">
+        <span className="text-table-header uppercase tracking-wide text-devflow-text-secondary">
           Status
         </span>
-        <span className="text-table-header uppercase tracking-wide text-[#424753]">
+        <span className="text-table-header uppercase tracking-wide text-devflow-text-secondary">
           Project
         </span>
-        <span className="text-table-header uppercase tracking-wide text-[#424753]">
+        <span className="text-table-header uppercase tracking-wide text-devflow-text-secondary">
           Labels
         </span>
-        <span className="text-right text-table-header uppercase tracking-wide text-[#424753]">
+        <span className="text-right text-table-header uppercase tracking-wide text-devflow-text-secondary">
           Due Date
         </span>
       </div>
@@ -50,14 +50,14 @@ export function TaskListTable({ tasks }: TaskListTableProps) {
             )}
           >
             <PriorityIndicator priority={task.priority} />
-            <span className="font-mono text-caption font-medium tracking-[0.24px] text-[#727784]">
+            <span className="font-mono text-caption font-medium tracking-[0.24px] text-devflow-text-muted">
               {task.key}
             </span>
             <p className="text-body font-medium text-devflow-text">
               {task.title}
             </p>
             <IssueStatusBadge status={task.status} />
-            <div className="flex items-center gap-1 text-body text-[#424753]">
+            <div className="flex items-center gap-1 text-body text-devflow-text-secondary">
               <ProjectIcon className="size-3.5 shrink-0" strokeWidth={1.75} />
               <span className="truncate">{task.project}</span>
             </div>
@@ -66,8 +66,8 @@ export function TaskListTable({ tasks }: TaskListTableProps) {
               className={cn(
                 'text-right text-table',
                 task.dueOverdue
-                  ? 'font-bold text-[#ba1a1a]'
-                  : 'text-[#424753]',
+                  ? 'font-bold text-devflow-error'
+                  : 'text-devflow-text-secondary',
               )}
             >
               {task.dueDate}

@@ -5,23 +5,35 @@ const config: Record<
   TaskStatus,
   { label: string; bg: string; dot: string; text: string }
 > = {
-  in_progress: {
-    label: 'IN PROGRESS',
-    bg: 'bg-[rgba(180,83,9,0.1)]',
-    dot: 'bg-[#b45309]',
-    text: 'text-[#b45309]',
+  backlog: {
+    label: 'BACKLOG',
+    bg: 'bg-devflow-nav-active',
+    dot: 'bg-[var(--df-status-dot-neutral)]',
+    text: 'text-devflow-nav-active-text',
   },
   todo: {
     label: 'TODO',
-    bg: 'bg-[rgba(0,65,145,0.1)]',
-    dot: 'bg-[#004191]',
-    text: 'text-[#004191]',
+    bg: 'bg-[var(--df-brand-tint)]',
+    dot: 'bg-devflow-brand-deep',
+    text: 'text-devflow-brand',
   },
-  backlog: {
-    label: 'BACKLOG',
-    bg: 'bg-[#d4e3ff]',
-    dot: 'bg-[#505f76]',
-    text: 'text-[#56657c]',
+  in_progress: {
+    label: 'IN PROGRESS',
+    bg: 'bg-[var(--df-warning-tint)]',
+    dot: 'bg-devflow-warning',
+    text: 'text-devflow-warning',
+  },
+  review: {
+    label: 'REVIEW',
+    bg: 'bg-[var(--df-brand-tint)]',
+    dot: 'bg-devflow-primary',
+    text: 'text-devflow-primary',
+  },
+  done: {
+    label: 'DONE',
+    bg: 'bg-devflow-muted',
+    dot: 'bg-devflow-success',
+    text: 'text-devflow-success',
   },
 }
 
