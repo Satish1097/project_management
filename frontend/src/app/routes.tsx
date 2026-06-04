@@ -36,6 +36,9 @@ import { ProjectsListPage } from '@/features/projects/ProjectsListPage'
 import { ProjectOverviewPage } from '@/features/projects/ProjectOverviewPage'
 import { ProjectSprintsPage } from '@/features/projects/ProjectSprintsPage'
 import { ProjectPlaceholderPage } from '@/features/projects/ProjectPlaceholderPage'
+import { ProjectBacklogPage } from '@/features/projects/ProjectBacklogPage'
+import { SprintDetailPage } from '@/features/projects/SprintDetailPage'
+import { SprintPlanningPage } from '@/features/projects/SprintPlanningPage'
 import { SprintBoardPage } from '@/features/projects/SprintBoardPage'
 import { SprintListPage } from '@/features/projects/SprintListPage'
 import { SprintActivityPage } from '@/features/projects/SprintActivityPage'
@@ -82,16 +85,13 @@ export const router = createBrowserRouter([
             element: <ProjectShell />,
             children: [
               { index: true, element: <ProjectOverviewPage /> },
-              {
-                path: 'backlog',
-                element: (
-                  <ProjectPlaceholderPage
-                    title="Backlog"
-                    description="Prioritize and groom issues before they enter a sprint."
-                  />
-                ),
-              },
+              { path: 'backlog', element: <ProjectBacklogPage /> },
               { path: 'sprints', element: <ProjectSprintsPage /> },
+              { path: 'sprints/:sprintId', element: <SprintDetailPage /> },
+              {
+                path: 'sprints/:sprintId/planning',
+                element: <SprintPlanningPage />,
+              },
               {
                 path: 'team',
                 element: (

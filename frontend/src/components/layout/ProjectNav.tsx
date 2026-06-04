@@ -3,7 +3,6 @@ import {
   projectBacklogPath,
   projectOverviewPath,
   projectReleasesPath,
-  projectReportsPath,
   projectSettingsPath,
   projectSprintsPath,
   projectTeamPath,
@@ -19,7 +18,6 @@ const navItems = [
   { label: 'Board', segment: 'board' },
   { label: 'Releases', segment: 'releases' },
   { label: 'Team', segment: 'team' },
-  { label: 'Reports', segment: 'reports' },
   { label: 'Settings', segment: 'settings' },
 ] as const
 
@@ -48,8 +46,6 @@ export function ProjectNav({ compact = false }: ProjectNavProps) {
         return projectTeamPath(projectId)
       case 'releases':
         return projectReleasesPath(projectId)
-      case 'reports':
-        return projectReportsPath(projectId)
       case 'settings':
         return projectSettingsPath(projectId)
     }
@@ -61,12 +57,13 @@ export function ProjectNav({ compact = false }: ProjectNavProps) {
       return pathname === base
     }
     if (segment === 'board') {
-      return /\/sprints\/[^/]+\/board/.test(pathname)
+      return /\/sprints\/[^/]+\/(board|list|activity)(?:\/|$)/.test(pathname)
     }
     if (segment === 'sprints') {
       return (
-        pathname.includes('/sprints') &&
-        !/\/sprints\/[^/]+\/(board|list|activity)/.test(pathname)
+        /\/projects\/[^/]+\/sprints\/?$/.test(pathname) ||
+        (/\/projects\/[^/]+\/sprints\/[^/]+/.test(pathname) &&
+          !/\/sprints\/[^/]+\/(board|list|activity)(?:\/|$)/.test(pathname))
       )
     }
     return pathname.startsWith(pathFor(segment))

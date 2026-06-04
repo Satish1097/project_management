@@ -3,6 +3,7 @@ import type { Project } from '@/types/projects'
 export const mockProjects: Project[] = [
   {
     id: '1',
+    key: 'MOB',
     name: 'Mobile App',
     description:
       'Redesigning the cross-platform experience for iOS and Android users.',
@@ -22,6 +23,7 @@ export const mockProjects: Project[] = [
   },
   {
     id: '2',
+    key: 'MKT',
     name: 'Marketing Site',
     description: 'New landing pages for the Q3 product launch campaign.',
     status: 'planning',
@@ -36,6 +38,7 @@ export const mockProjects: Project[] = [
   },
   {
     id: '3',
+    key: 'API',
     name: 'API Service',
     description: 'Migrating legacy monolithic endpoints to a microservice mesh.',
     status: 'at_risk',
@@ -53,6 +56,7 @@ export const mockProjects: Project[] = [
   },
   {
     id: '4',
+    key: 'INT',
     name: 'Internal Tools',
     description: 'Legacy admin dashboard — maintenance mode only.',
     status: 'archived',

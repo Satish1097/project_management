@@ -6,7 +6,11 @@ const filterChips = ['Assignee', 'Priority', 'Label'] as const
 
 const avatarColors = ['#6366f1', '#ec4899', '#f59e0b', '#94a3b8']
 
-export function BoardFilters() {
+type BoardFiltersProps = {
+  onCreateIssue?: () => void
+}
+
+export function BoardFilters({ onCreateIssue }: BoardFiltersProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-devflow-border filter-bar-glass px-4 py-2 backdrop-blur-[2px]">
       <div className="flex min-w-0 flex-wrap items-center gap-3">
@@ -47,6 +51,7 @@ export function BoardFilters() {
 
       <button
         type="button"
+        onClick={onCreateIssue}
         className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-devflow-primary px-4 py-1.5 text-btn text-white shadow-devflow-sm"
       >
         <Plus className="size-4" strokeWidth={2} />

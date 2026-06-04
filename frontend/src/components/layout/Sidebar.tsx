@@ -16,6 +16,7 @@ import { SidebarBrand } from '@/components/brand/SidebarBrand'
 import { useSidebar } from '@/contexts/SidebarContext'
 import { layout } from '@/constants/layout'
 import { ROUTES, isProjectsArea } from '@/constants/routes'
+import { useCreateIssue } from '@/contexts/CreateIssueContext'
 import { cn } from '@/utils/cn'
 
 const navItems = [
@@ -30,6 +31,7 @@ const navItems = [
 export function Sidebar() {
   const { pathname } = useLocation()
   const { collapsed, toggle } = useSidebar()
+  const { openCreateIssue } = useCreateIssue()
 
   return (
     <aside className={cn(layout.shellSidebar, 'justify-between overflow-hidden')}>
@@ -49,6 +51,7 @@ export function Sidebar() {
         <button
           type="button"
           title="New Issue"
+          onClick={() => openCreateIssue()}
           className={cn(
             'flex items-center rounded-lg bg-devflow-primary text-btn text-white shadow-devflow-sm hover:opacity-95',
             collapsed

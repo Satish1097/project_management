@@ -7,7 +7,8 @@ import {
   type ProjectFilterId,
   type ProjectViewMode,
 } from '@/components/ui/ProjectFilters'
-import { mockProjects } from '@/services/mockProjects'
+import { useProjects } from '@/contexts/ProjectsContext'
+import { CreateProjectDrawer } from '@/features/projects/CreateProjectDrawer'
 import { ActivityFeed } from '@/features/dashboard/ActivityFeed'
 import { getActiveSprint, getTeamCount } from '@/services/projectData'
 import {
@@ -17,15 +18,17 @@ import {
 import { projectOverviewPath } from '@/constants/routes'
 
 export function ProjectsListPage() {
+  const { projects } = useProjects()
   const [activeFilter, setActiveFilter] = useState<ProjectFilterId>('all')
   const [viewMode, setViewMode] = useState<ProjectViewMode>('grid')
+  const [createOpen, setCreateOpen] = useState(false)
 
   const filteredProjects = useMemo(
-    () => sortProjectsByName(filterProjects(mockProjects, activeFilter)),
-    [activeFilter],
+    () => sortProjectsByName(filterProjects(projects, activeFilter)),
+    [projects, activeFilter],
   )
 
-  const hasAnyProjects = mockProjects.length > 0
+  const hasAnyProjects = projects.length > 0
 
   return (
     <>
@@ -41,6 +44,7 @@ export function ProjectsListPage() {
             </div>
             <button
               type="button"
+              onClick={() => setCreateOpen(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-devflow-primary px-4 py-2 text-btn text-white shadow-devflow-sm transition-opacity hover:opacity-95"
             >
               <Plus className="size-5" strokeWidth={2} />
@@ -102,17 +106,19 @@ export function ProjectsListPage() {
               </button>
             </div>
           ) : (
-            <ProjectsEmptyState />
+            <ProjectsEmptyState onCreate={() => setCreateOpen(true)} />
           )}
         </div>
 
         <ActivityFeed variant="secondary" />
       </main>
+
+      <CreateProjectDrawer open={createOpen} onClose={() => setCreateOpen(false)} />
     </>
   )
 }
 
-function ProjectsEmptyState() {
+function ProjectsEmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-devflow-border bg-[var(--df-empty-state)] px-6 py-12 text-center">
       <FolderKanban className="mb-3 size-9 text-devflow-text-muted" />
@@ -122,6 +128,7 @@ function ProjectsEmptyState() {
       </p>
       <button
         type="button"
+        onClick={onCreate}
         className="mt-5 inline-flex items-center gap-2 rounded-lg bg-devflow-primary px-4 py-2 text-btn text-white shadow-devflow-sm transition-opacity hover:opacity-95"
       >
         <Plus className="size-4" strokeWidth={2} />

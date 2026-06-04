@@ -71,4 +71,17 @@
   .filter-bar-glass {
     background-color: var(--df-filter-bar);
   }
+
+  .drawer-panel-enter {
+    animation: drawer-slide-in 0.28s ease-out;
+  }
+}
+
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }

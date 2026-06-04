@@ -13,6 +13,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { SidebarBrand } from '@/components/brand/SidebarBrand'
 import { layout } from '@/constants/layout'
 import { ROUTES } from '@/constants/routes'
+import { useCreateIssue } from '@/contexts/CreateIssueContext'
 import { cn } from '@/utils/cn'
 
 const navItems = [
@@ -26,6 +27,7 @@ const navItems = [
 
 export function EmptyWorkspaceSidebar() {
   const { pathname } = useLocation()
+  const { openCreateIssue } = useCreateIssue()
 
   return (
     <aside className={cn(layout.shellSidebar, 'px-3 py-3')}>
@@ -35,6 +37,7 @@ export function EmptyWorkspaceSidebar() {
 
       <button
         type="button"
+        onClick={() => openCreateIssue()}
         className="my-3 flex w-full items-center justify-center gap-1 rounded-lg bg-devflow-brand-deep py-1.5 text-btn text-white"
       >
         <Plus className="size-2.5" strokeWidth={2.5} />

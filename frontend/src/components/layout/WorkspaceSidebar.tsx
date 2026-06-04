@@ -18,6 +18,7 @@ import {
   resolveWorkspaceActiveNav,
   type WorkspaceNavId,
 } from '@/constants/routes'
+import { useCreateIssue } from '@/contexts/CreateIssueContext'
 import { cn } from '@/utils/cn'
 
 const navItems: {
@@ -36,6 +37,7 @@ const navItems: {
 
 export function WorkspaceSidebar() {
   const { pathname } = useLocation()
+  const { openCreateIssue } = useCreateIssue()
   const activeNav = resolveWorkspaceActiveNav(pathname)
 
   const resolveActive = (id: WorkspaceNavId, path: string) => {
@@ -71,6 +73,7 @@ export function WorkspaceSidebar() {
       <div className="pt-4">
         <button
           type="button"
+          onClick={() => openCreateIssue()}
           className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-devflow-brand-deep py-1.5 text-btn text-white shadow-devflow-sm"
         >
           <Plus className="size-2.5" strokeWidth={2.5} />

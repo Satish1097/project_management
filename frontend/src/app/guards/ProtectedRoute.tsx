@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { ROUTES } from '@/constants/routes'
+import { CreateIssueProvider } from '@/contexts/CreateIssueContext'
 import { useAuth } from '@/features/auth/AuthProvider'
 
 export function ProtectedRoute() {
@@ -16,5 +17,9 @@ export function ProtectedRoute() {
     )
   }
 
-  return <Outlet />
+  return (
+    <CreateIssueProvider>
+      <Outlet />
+    </CreateIssueProvider>
+  )
 }

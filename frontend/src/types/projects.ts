@@ -10,6 +10,8 @@ export type ProjectMember = {
 
 export type Project = {
   id: string
+  /** Jira-style project key (e.g. MOB, API) */
+  key?: string
   name: string
   description: string
   status: ProjectStatus

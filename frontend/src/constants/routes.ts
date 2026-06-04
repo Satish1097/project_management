@@ -70,6 +70,14 @@ export function projectSettingsPath(projectId: string) {
   return `${projectPath(projectId)}/settings`
 }
 
+export function sprintDetailPath(projectId: string, sprintId: string) {
+  return `${projectPath(projectId)}/sprints/${sprintId}`
+}
+
+export function sprintPlanningPath(projectId: string, sprintId: string) {
+  return `${projectPath(projectId)}/sprints/${sprintId}/planning`
+}
+
 export function sprintBoardPath(projectId: string, sprintId: string) {
   return `${projectPath(projectId)}/sprints/${sprintId}/board`
 }
@@ -167,6 +175,19 @@ export function parseProjectRoute(pathname: string): {
   return { projectId: match[1], sprintId: match[2] }
 }
 
+export type SprintModuleTab =
+  | 'Overview'
+  | 'Board'
+  | 'List'
+  | 'Activity'
+  | 'Planning'
+
+export function isSprintModulePath(pathname: string): boolean {
+  return /\/projects\/[^/]+\/sprints\/[^/]+(\/(board|list|activity|planning))?\/?$/.test(
+    pathname,
+  )
+}
+
 export function isSprintViewPath(pathname: string): boolean {
   return /\/sprints\/[^/]+\/(board|list|activity)(?:\/|$)/.test(pathname)
 }
@@ -177,5 +198,16 @@ export function resolveSprintViewTab(
   if (pathname.endsWith('/list')) return 'List'
   if (pathname.endsWith('/activity')) return 'Activity'
   if (/\/sprints\/[^/]+\/board(?:\/|$)/.test(pathname)) return 'Board'
+  return undefined
+}
+
+export function resolveSprintModuleTab(
+  pathname: string,
+): SprintModuleTab | undefined {
+  if (pathname.endsWith('/planning')) return 'Planning'
+  if (pathname.endsWith('/list')) return 'List'
+  if (pathname.endsWith('/activity')) return 'Activity'
+  if (/\/sprints\/[^/]+\/board(?:\/|$)/.test(pathname)) return 'Board'
+  if (/\/projects\/[^/]+\/sprints\/[^/]+\/?$/.test(pathname)) return 'Overview'
   return undefined
 }

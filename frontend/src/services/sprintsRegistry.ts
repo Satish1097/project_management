@@ -1,0 +1,54 @@
+import { mockSprints } from '@/services/mockSprints'
+import type { Sprint } from '@/types/sprints'
+import { formatDateRange } from '@/utils/sprintDates'
+import { syncSprintIssueCounts } from '@/services/issuesRegistry'
+
+let sprints: Sprint[] = [...mockSprints]
+
+function hydrate(sprint: Sprint): Sprint {
+  const synced = syncSprintIssueCounts(sprint)
+  return {
+    ...synced,
+    dateRange: formatDateRange(synced.startDate, synced.endDate),
+  }
+}
+
+export function getSprints(): Sprint[] {
+  return sprints.map(hydrate)
+}
+
+export function getSprintsForProjectRegistry(projectId: string): Sprint[] {
+  return getSprints().filter((s) => s.projectId === projectId)
+}
+
+export function getSprintByIdRegistry(
+  projectId: string,
+  sprintId: string,
+): Sprint | undefined {
+  return getSprints().find(
+    (s) => s.projectId === projectId && s.id === sprintId,
+  )
+}
+
+export function addSprintToRegistry(sprint: Sprint): void {
+  sprints = [...sprints, hydrate(sprint)]
+}
+
+export function updateSprintInRegistry(
+  sprintId: string,
+  patch: Partial<Sprint>,
+): void {
+  sprints = sprints.map((s) =>
+    s.id === sprintId ? hydrate({ ...s, ...patch }) : s,
+  )
+}
+
+export function replaceSprintsForProject(
+  projectId: string,
+  next: Sprint[],
+): void {
+  sprints = [
+    ...sprints.filter((s) => s.projectId !== projectId),
+    ...next.map(hydrate),
+  ]
+}

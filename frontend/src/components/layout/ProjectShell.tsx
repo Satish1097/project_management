@@ -2,17 +2,19 @@ import { Link, Navigate, Outlet, useLocation, useParams } from 'react-router-dom
 import { LayoutGrid, Users } from 'lucide-react'
 import {
   ROUTES,
-  isSprintViewPath,
-  resolveSprintViewTab,
+  isSprintModulePath,
+  resolveSprintModuleTab,
   sprintActivityPath,
   sprintAdvancedBoardPath,
   sprintBoardPath,
+  sprintDetailPath,
   sprintListPath,
+  sprintPlanningPath,
 } from '@/constants/routes'
+import { SprintModuleTabs } from '@/components/layout/SprintModuleTabs'
 import { AvatarGroup } from '@/components/ui/AvatarGroup'
 import { ProjectStatusBadge } from '@/components/ui/ProjectStatusBadge'
 import { ProjectNav } from '@/components/layout/ProjectNav'
-import { SprintViewTabs } from '@/components/layout/SprintViewTabs'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { Avatar } from '@/components/ui/Avatar'
@@ -35,8 +37,8 @@ export function ProjectShell() {
     ? getSprintById(projectId, sprintMatch[1])
     : undefined
   const headerSprint = viewingSprint ?? activeSprint
-  const isSprintView = isSprintViewPath(pathname)
-  const sprintTab = resolveSprintViewTab(pathname)
+  const isSprintModule = isSprintModulePath(pathname)
+  const sprintModuleTab = resolveSprintModuleTab(pathname)
 
   if (!project) {
     return <Navigate to={ROUTES.projects} replace />
@@ -58,7 +60,7 @@ export function ProjectShell() {
                 <h1 className="truncate text-page-title text-devflow-text">
                   {project.name}
                 </h1>
-                {!isSprintView && (
+                {!isSprintModule && (
                   <ProjectStatusBadge status={project.status} size="sm" />
                 )}
               </div>
@@ -71,7 +73,7 @@ export function ProjectShell() {
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            {!isSprintView && (
+            {!isSprintModule && (
               <>
                 <div className="hidden items-center gap-2 sm:flex">
                   <Users className="size-4 text-devflow-text-secondary" />
@@ -112,14 +114,16 @@ export function ProjectShell() {
           </div>
         </div>
 
-        {isSprintView && sprintTab && sprintId && (
-          <SprintViewTabs
-            activeTab={sprintTab}
+        {isSprintModule && sprintModuleTab && sprintId && (
+          <SprintModuleTabs
+            activeTab={sprintModuleTab}
+            overviewPath={sprintDetailPath(projectId, sprintId)}
             boardPath={sprintBoardPath(projectId, sprintId)}
             listPath={sprintListPath(projectId, sprintId)}
             activityPath={sprintActivityPath(projectId, sprintId)}
+            planningPath={sprintPlanningPath(projectId, sprintId)}
             trailing={
-              sprintTab === 'Board' ? (
+              sprintModuleTab === 'Board' ? (
                 <Link
                   to={sprintAdvancedBoardPath(projectId, sprintId)}
                   className="text-caption text-devflow-text-secondary hover:text-devflow-primary"
@@ -131,7 +135,7 @@ export function ProjectShell() {
           />
         )}
 
-        <ProjectNav compact={isSprintView} />
+        <ProjectNav compact={isSprintModule} />
       </header>
       <Outlet />
     </>
