@@ -43,12 +43,7 @@ export function IssueDetailDrawerPage() {
         <BoardFilters />
         <main className="grid grid-cols-3 gap-4 p-4">
           {kanbanColumns.map((col) => (
-            <KanbanColumn
-              key={col.id}
-              column={col}
-              projectId={projectId}
-              sprintId={sprintId}
-            />
+            <KanbanColumn key={col.id} column={col} />
           ))}
         </main>
       </div>

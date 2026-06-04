@@ -12,12 +12,14 @@ import {
   assignIssueToSprint,
   getIssues,
   moveIssuesToSprint,
+  updateIssueInRegistry,
 } from '@/services/issuesRegistry'
 import type { ProjectIssue } from '@/types/issues'
 
 type IssuesContextValue = {
   issues: ProjectIssue[]
   addIssue: (issue: ProjectIssue) => void
+  updateIssue: (issueId: string, patch: Partial<ProjectIssue>) => void
   assignToSprint: (issueId: string, sprintId: string | null) => void
   moveManyToSprint: (issueIds: string[], sprintId: string | null) => void
   refresh: () => void
@@ -42,6 +44,14 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
     [refresh],
   )
 
+  const updateIssue = useCallback(
+    (issueId: string, patch: Partial<ProjectIssue>) => {
+      updateIssueInRegistry(issueId, patch)
+      refresh()
+    },
+    [refresh],
+  )
+
   const assignToSprint = useCallback(
     (issueId: string, sprintId: string | null) => {
       assignIssueToSprint(issueId, sprintId)
@@ -59,8 +69,15 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo(
-    () => ({ issues, addIssue, assignToSprint, moveManyToSprint, refresh }),
-    [issues, addIssue, assignToSprint, moveManyToSprint, refresh],
+    () => ({
+      issues,
+      addIssue,
+      updateIssue,
+      assignToSprint,
+      moveManyToSprint,
+      refresh,
+    }),
+    [issues, addIssue, updateIssue, assignToSprint, moveManyToSprint, refresh],
   )
 
   return (

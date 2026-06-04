@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { ROUTES } from '@/constants/routes'
 import { CreateIssueProvider } from '@/contexts/CreateIssueContext'
+import { IssueDetailProvider } from '@/contexts/IssueDetailContext'
 import { useAuth } from '@/features/auth/AuthProvider'
 
 export function ProtectedRoute() {
@@ -19,7 +20,9 @@ export function ProtectedRoute() {
 
   return (
     <CreateIssueProvider>
-      <Outlet />
+      <IssueDetailProvider>
+        <Outlet />
+      </IssueDetailProvider>
     </CreateIssueProvider>
   )
 }

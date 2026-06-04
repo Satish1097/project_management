@@ -1,23 +1,13 @@
-import { Link, Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
-import { LayoutGrid, Users } from 'lucide-react'
-import {
-  ROUTES,
-  isSprintModulePath,
-  resolveSprintModuleTab,
-  sprintActivityPath,
-  sprintAdvancedBoardPath,
-  sprintBoardPath,
-  sprintDetailPath,
-  sprintListPath,
-  sprintPlanningPath,
-} from '@/constants/routes'
-import { SprintModuleTabs } from '@/components/layout/SprintModuleTabs'
+import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
+import { LayoutGrid, Plus, Users } from 'lucide-react'
+import { ROUTES } from '@/constants/routes'
 import { AvatarGroup } from '@/components/ui/AvatarGroup'
 import { ProjectStatusBadge } from '@/components/ui/ProjectStatusBadge'
 import { ProjectNav } from '@/components/layout/ProjectNav'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { Avatar } from '@/components/ui/Avatar'
+import { useCreateIssue } from '@/contexts/CreateIssueContext'
 import {
   formatSprintMetaLine,
   getActiveSprint,
@@ -37,34 +27,30 @@ export function ProjectShell() {
     ? getSprintById(projectId, sprintMatch[1])
     : undefined
   const headerSprint = viewingSprint ?? activeSprint
-  const isSprintModule = isSprintModulePath(pathname)
-  const sprintModuleTab = resolveSprintModuleTab(pathname)
+  const { openCreateIssue } = useCreateIssue()
 
   if (!project) {
     return <Navigate to={ROUTES.projects} replace />
   }
 
   const teamCount = getTeamCount(project)
-  const sprintId = sprintMatch?.[1]
 
   return (
     <>
       <header className="sticky top-0 z-10 shrink-0 border-b border-devflow-border bg-devflow-card">
-        <div className="flex items-center justify-between gap-4 px-4 py-2.5">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--df-nav-tint)] text-devflow-primary">
+        <div className="flex items-center justify-between gap-3 px-4 py-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--df-nav-tint)] text-devflow-primary">
               <LayoutGrid className="size-4" strokeWidth={1.75} />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate text-page-title text-devflow-text">
+                <h1 className="truncate text-lg font-semibold leading-tight text-devflow-text">
                   {project.name}
                 </h1>
-                {!isSprintModule && (
-                  <ProjectStatusBadge status={project.status} size="sm" />
-                )}
+                <ProjectStatusBadge status={project.status} size="sm" />
               </div>
-              <p className="mt-0.5 truncate text-body text-devflow-text-secondary/75">
+              <p className="truncate text-caption text-devflow-text-secondary">
                 {headerSprint
                   ? formatSprintMetaLine(headerSprint)
                   : 'No active sprint'}
@@ -72,37 +58,38 @@ export function ProjectShell() {
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-3">
-            {!isSprintModule && (
-              <>
-                <div className="hidden items-center gap-2 sm:flex">
-                  <Users className="size-4 text-devflow-text-secondary" />
-                  <span className="text-caption text-devflow-text-secondary">
-                    {teamCount} members
-                  </span>
-                  <AvatarGroup
-                    members={project.members}
-                    extra={project.extraMembers}
+          <div className="flex shrink-0 items-center gap-2.5">
+            <div className="hidden items-center gap-2 lg:flex">
+              <Users className="size-3.5 text-devflow-text-secondary" />
+              <span className="text-caption text-devflow-text-secondary">
+                {teamCount}
+              </span>
+              <AvatarGroup
+                members={project.members}
+                extra={project.extraMembers}
+              />
+            </div>
+            {project.progress !== undefined && (
+              <div className="hidden w-20 xl:block">
+                <div className="mb-0.5 flex justify-between text-caption text-devflow-text-secondary">
+                  <span>{project.progress}%</span>
+                </div>
+                <div className="h-1 overflow-hidden rounded-full bg-devflow-table-header">
+                  <div
+                    className="h-full rounded-full bg-devflow-success"
+                    style={{ width: `${project.progress}%` }}
                   />
                 </div>
-                {project.progress !== undefined && (
-                  <div className="hidden w-24 md:block">
-                    <div className="mb-0.5 flex justify-between text-caption text-devflow-text-secondary">
-                      <span>Progress</span>
-                      <span className="font-medium text-devflow-text">
-                        {project.progress}%
-                      </span>
-                    </div>
-                    <div className="h-1 overflow-hidden rounded-full bg-devflow-table-header">
-                      <div
-                        className="h-full rounded-full bg-devflow-success"
-                        style={{ width: `${project.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </>
+              </div>
             )}
+            <button
+              type="button"
+              onClick={() => openCreateIssue()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-devflow-primary px-3 py-1.5 text-btn text-white shadow-devflow-sm hover:opacity-95"
+            >
+              <Plus className="size-3.5" strokeWidth={2.5} />
+              <span className="hidden sm:inline">Create Issue</span>
+            </button>
             <ThemeToggle />
             <NotificationBell />
             <Avatar
@@ -114,28 +101,7 @@ export function ProjectShell() {
           </div>
         </div>
 
-        {isSprintModule && sprintModuleTab && sprintId && (
-          <SprintModuleTabs
-            activeTab={sprintModuleTab}
-            overviewPath={sprintDetailPath(projectId, sprintId)}
-            boardPath={sprintBoardPath(projectId, sprintId)}
-            listPath={sprintListPath(projectId, sprintId)}
-            activityPath={sprintActivityPath(projectId, sprintId)}
-            planningPath={sprintPlanningPath(projectId, sprintId)}
-            trailing={
-              sprintModuleTab === 'Board' ? (
-                <Link
-                  to={sprintAdvancedBoardPath(projectId, sprintId)}
-                  className="text-caption text-devflow-text-secondary hover:text-devflow-primary"
-                >
-                  Advanced board
-                </Link>
-              ) : undefined
-            }
-          />
-        )}
-
-        <ProjectNav compact={isSprintModule} />
+        <ProjectNav />
       </header>
       <Outlet />
     </>

@@ -1,3 +1,4 @@
+import { useOpenIssueFromTask } from '@/contexts/IssueDetailContext'
 import { IssueStatusBadge } from '@/components/ui/IssueStatusBadge'
 import { LabelBadge } from '@/components/ui/LabelBadge'
 import { PriorityIndicator } from '@/components/ui/PriorityIndicator'
@@ -12,6 +13,8 @@ type TaskListTableProps = {
 }
 
 export function TaskListTable({ tasks }: TaskListTableProps) {
+  const openIssue = useOpenIssueFromTask()
+
   return (
     <div className="overflow-hidden rounded-lg border border-devflow-border bg-devflow-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
       <div className={cn(GRID, 'border-b border-devflow-border bg-devflow-table-header px-4 py-2')}>
@@ -43,9 +46,18 @@ export function TaskListTable({ tasks }: TaskListTableProps) {
         return (
           <div
             key={task.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => openIssue(task)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                openIssue(task)
+              }
+            }}
             className={cn(
               GRID,
-              'px-4 py-3',
+              'cursor-pointer px-4 py-3 transition-colors hover:bg-devflow-surface/80',
               index < tasks.length - 1 && 'border-b border-devflow-border',
             )}
           >

@@ -1,11 +1,12 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
-import { WorkspaceEmptyShell } from '@/components/layout/WorkspaceEmptyShell'
-import { WorkspaceShell } from '@/components/layout/WorkspaceShell'
 import { ProjectShell } from '@/components/layout/ProjectShell'
 import {
   DEFAULT_BOARD_CONTEXT,
   ROUTES,
+  projectSettingsGeneralPath,
+  projectSettingsLabelsPath,
+  projectSettingsMembersPath,
   sprintAdvancedBoardPath,
   sprintIssueDetailEnhancedPath,
   sprintIssueDetailPath,
@@ -21,10 +22,15 @@ import { NotFoundPage } from '@/features/errors/NotFoundPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { AdvancedBoardPage } from '@/features/kanban/AdvancedBoardPage'
 import { EmptyWorkspacePage } from '@/features/workspace/EmptyWorkspacePage'
+import { WorkspaceModulePlaceholderPage } from '@/features/workspace/WorkspaceModulePlaceholderPage'
+import { WorkspaceSprintsPage } from '@/features/sprints/WorkspaceSprintsPage'
 import { MyTasksPage } from '@/features/tasks/MyTasksPage'
-import { ProjectSettingsPage } from '@/features/settings/ProjectSettingsPage'
+import { ProjectSettingsLayout } from '@/components/layout/ProjectSettingsLayout'
+import { ProjectSettingsGeneralPage } from '@/features/settings/ProjectSettingsGeneralPage'
+import { ProjectSettingsMembersPage } from '@/features/settings/ProjectSettingsMembersPage'
 import { ProjectSettingsLabelsPage } from '@/features/settings/ProjectSettingsLabelsPage'
-import { WorkspaceSettingsPage } from '@/features/settings/WorkspaceSettingsPage'
+import { ProjectSettingsStatusesPage } from '@/features/settings/ProjectSettingsStatusesPage'
+import { ProjectSettingsIntegrationsPage } from '@/features/settings/ProjectSettingsIntegrationsPage'
 import { IssueDetailDrawerPage } from '@/features/issues/IssueDetailDrawerPage'
 import { EnhancedIssueDrawerPage } from '@/features/issues/EnhancedIssueDrawerPage'
 import { NotificationCenterPage } from '@/features/notifications/NotificationCenterPage'
@@ -50,8 +56,7 @@ const { projectId: defaultProjectId, sprintId: defaultSprintId } =
 /**
  * Route tree:
  * - Guest auth routes (login, signup, forgot-password) with AuthLayout
- * - Protected app routes (ops Sidebar layout)
- * - Protected workspace routes (WorkspaceSidebar layout)
+ * - Protected app routes (unified AppShell + Sidebar)
  * - Protected full-page routes (board overlays, no shell)
  * - Public error routes
  */
@@ -79,6 +84,20 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <DashboardPage /> },
+          { path: 'tasks', element: <MyTasksPage /> },
+          { path: 'search', element: <GlobalSearchPage /> },
+          { path: 'notifications', element: <NotificationCenterPage /> },
+          { path: 'sprints', element: <WorkspaceSprintsPage /> },
+          {
+            path: 'roadmaps',
+            element: (
+              <WorkspaceModulePlaceholderPage
+                title="Roadmaps"
+                description="Timeline and initiative planning across projects."
+              />
+            ),
+          },
+          { path: 'workspace/empty', element: <EmptyWorkspacePage /> },
           { path: 'projects', element: <ProjectsListPage /> },
           {
             path: 'projects/:projectId',
@@ -121,12 +140,21 @@ export const router = createBrowserRouter([
               },
               {
                 path: 'settings',
-                element: (
-                  <ProjectPlaceholderPage
-                    title="Settings"
-                    description="Project identity, workflow, and integrations."
-                  />
-                ),
+                element: <ProjectSettingsLayout />,
+                children: [
+                  {
+                    index: true,
+                    element: <Navigate to="general" replace />,
+                  },
+                  { path: 'general', element: <ProjectSettingsGeneralPage /> },
+                  { path: 'members', element: <ProjectSettingsMembersPage /> },
+                  { path: 'statuses', element: <ProjectSettingsStatusesPage /> },
+                  { path: 'labels', element: <ProjectSettingsLabelsPage /> },
+                  {
+                    path: 'integrations',
+                    element: <ProjectSettingsIntegrationsPage />,
+                  },
+                ],
               },
               { path: 'sprints/:sprintId/board', element: <SprintBoardPage /> },
               { path: 'sprints/:sprintId/list', element: <SprintListPage /> },
@@ -138,7 +166,21 @@ export const router = createBrowserRouter([
           },
           {
             path: 'projects/settings',
-            element: <ProjectSettingsPage />,
+            element: (
+              <Navigate
+                to={projectSettingsGeneralPath(DEFAULT_BOARD_CONTEXT.projectId)}
+                replace
+              />
+            ),
+          },
+          {
+            path: 'projects/settings/labels',
+            element: (
+              <Navigate
+                to={projectSettingsLabelsPath(DEFAULT_BOARD_CONTEXT.projectId)}
+                replace
+              />
+            ),
           },
           { path: 'operations', element: <OperationsDashboardPage /> },
           { path: 'qa', element: <QAManagementPage /> },
@@ -154,24 +196,15 @@ export const router = createBrowserRouter([
               />
             ),
           },
-        ],
-      },
-
-      {
-        element: <WorkspaceShell />,
-        children: [
-          { path: 'tasks', element: <MyTasksPage /> },
-          { path: 'search', element: <GlobalSearchPage /> },
-          { path: 'notifications', element: <NotificationCenterPage /> },
-          { path: 'workspace/settings', element: <WorkspaceSettingsPage /> },
-          { path: 'projects/settings/labels', element: <ProjectSettingsLabelsPage /> },
-        ],
-      },
-
-      {
-        element: <WorkspaceEmptyShell />,
-        children: [
-          { path: 'workspace/empty', element: <EmptyWorkspacePage /> },
+          {
+            path: 'workspace/settings',
+            element: (
+              <Navigate
+                to={projectSettingsMembersPath(DEFAULT_BOARD_CONTEXT.projectId)}
+                replace
+              />
+            ),
+          },
         ],
       },
 

@@ -3,9 +3,11 @@ import {
   projectBacklogPath,
   projectOverviewPath,
   projectReleasesPath,
+  projectSettingsGeneralPath,
   projectSettingsPath,
   projectSprintsPath,
   projectTeamPath,
+  sprintActivityPath,
   sprintBoardPath,
 } from '@/constants/routes'
 import { getActiveSprint } from '@/services/projectData'
@@ -14,18 +16,15 @@ import { cn } from '@/utils/cn'
 const navItems = [
   { label: 'Overview', segment: '' },
   { label: 'Backlog', segment: 'backlog' },
-  { label: 'Sprints', segment: 'sprints' },
   { label: 'Board', segment: 'board' },
+  { label: 'Sprints', segment: 'sprints' },
+  { label: 'Activity', segment: 'activity' },
   { label: 'Releases', segment: 'releases' },
   { label: 'Team', segment: 'team' },
   { label: 'Settings', segment: 'settings' },
 ] as const
 
-type ProjectNavProps = {
-  compact?: boolean
-}
-
-export function ProjectNav({ compact = false }: ProjectNavProps) {
+export function ProjectNav() {
   const { projectId = '' } = useParams()
   const { pathname } = useLocation()
   const activeSprint = getActiveSprint(projectId)
@@ -38,6 +37,10 @@ export function ProjectNav({ compact = false }: ProjectNavProps) {
         return activeSprint
           ? sprintBoardPath(projectId, activeSprint.id)
           : projectSprintsPath(projectId)
+      case 'activity':
+        return activeSprint
+          ? sprintActivityPath(projectId, activeSprint.id)
+          : projectSprintsPath(projectId)
       case 'backlog':
         return projectBacklogPath(projectId)
       case 'sprints':
@@ -47,7 +50,7 @@ export function ProjectNav({ compact = false }: ProjectNavProps) {
       case 'releases':
         return projectReleasesPath(projectId)
       case 'settings':
-        return projectSettingsPath(projectId)
+        return projectSettingsGeneralPath(projectId)
     }
   }
 
@@ -57,24 +60,29 @@ export function ProjectNav({ compact = false }: ProjectNavProps) {
       return pathname === base
     }
     if (segment === 'board') {
-      return /\/sprints\/[^/]+\/(board|list|activity)(?:\/|$)/.test(pathname)
+      return /\/sprints\/[^/]+\/board(?:\/|$)/.test(pathname)
+    }
+    if (segment === 'activity') {
+      return /\/sprints\/[^/]+\/activity(?:\/|$)/.test(pathname)
     }
     if (segment === 'sprints') {
       return (
         /\/projects\/[^/]+\/sprints\/?$/.test(pathname) ||
         (/\/projects\/[^/]+\/sprints\/[^/]+/.test(pathname) &&
-          !/\/sprints\/[^/]+\/(board|list|activity)(?:\/|$)/.test(pathname))
+          !/\/sprints\/[^/]+\/(board|list|activity|planning)(?:\/|$)/.test(
+            pathname,
+          ))
       )
+    }
+    if (segment === 'settings') {
+      return pathname.startsWith(projectSettingsPath(projectId))
     }
     return pathname.startsWith(pathFor(segment))
   }
 
   return (
     <nav
-      className={cn(
-        'flex flex-wrap items-center gap-0.5 border-t border-devflow-border/60 px-4',
-        compact ? 'py-0' : 'py-0.5',
-      )}
+      className="-mb-px flex items-center gap-0.5 overflow-x-auto border-t border-devflow-border/60 px-4"
       aria-label="Project navigation"
     >
       {navItems.map(({ label, segment }) => (
@@ -82,10 +90,9 @@ export function ProjectNav({ compact = false }: ProjectNavProps) {
           key={label}
           to={pathFor(segment)}
           className={cn(
-            'text-nav transition-colors',
-            compact ? 'px-2.5 py-1.5' : 'px-3 py-2',
+            'relative whitespace-nowrap px-3 py-2 text-nav transition-colors',
             isActive(segment)
-              ? 'font-medium text-devflow-primary'
+              ? 'font-medium text-devflow-primary after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-devflow-primary'
               : 'text-devflow-text-secondary hover:text-devflow-text',
           )}
         >

@@ -1,23 +1,36 @@
-import { GitBranch, Settings, Users } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
-import { ROUTES } from '@/constants/routes'
+import { GitBranch, Plug, Settings, Tags, Users } from 'lucide-react'
+import { Link, useLocation, useParams } from 'react-router-dom'
+import {
+  projectSettingsGeneralPath,
+  projectSettingsIntegrationsPath,
+  projectSettingsLabelsPath,
+  projectSettingsMembersPath,
+  projectSettingsStatusesPath,
+} from '@/constants/routes'
 import { cn } from '@/utils/cn'
 
-const items = [
-  { label: 'General', icon: Settings, path: ROUTES.workspaceProjectSettings },
-  { label: 'Members', icon: Users, path: ROUTES.workspaceSettings },
-  { label: 'Statuses', icon: GitBranch, path: '#' },
-] as const
-
 export function SettingsSubNav() {
+  const { projectId = '' } = useParams()
   const { pathname } = useLocation()
+
+  const items = [
+    { label: 'General', icon: Settings, path: projectSettingsGeneralPath(projectId) },
+    { label: 'Members', icon: Users, path: projectSettingsMembersPath(projectId) },
+    { label: 'Statuses', icon: GitBranch, path: projectSettingsStatusesPath(projectId) },
+    { label: 'Labels', icon: Tags, path: projectSettingsLabelsPath(projectId) },
+    {
+      label: 'Integrations',
+      icon: Plug,
+      path: projectSettingsIntegrationsPath(projectId),
+    },
+  ] as const
 
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-devflow-border bg-devflow-surface px-3 py-3">
       <div className="pb-6">
         <h2 className="px-4 text-section-title text-devflow-text">Settings</h2>
         <p className="px-4 text-body text-devflow-text-secondary">
-          Manage your workspace
+          Manage this project
         </p>
       </div>
       <nav className="flex flex-col gap-1">

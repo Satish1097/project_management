@@ -6,11 +6,8 @@ import {
   Search,
   User,
 } from 'lucide-react'
-import {
-  DEFAULT_BOARD_CONTEXT,
-  ROUTES,
-  sprintIssueDetailPath,
-} from '@/constants/routes'
+import { ROUTES } from '@/constants/routes'
+import { useIssueDetail } from '@/contexts/IssueDetailContext'
 
 const results = [
   {
@@ -50,6 +47,8 @@ const typeIcons = {
 }
 
 export function GlobalSearchPage() {
+  const { openIssueDetail } = useIssueDetail()
+
   return (
     <div className="relative min-h-screen bg-devflow-muted">
       <div className="p-4 opacity-40">
@@ -77,18 +76,47 @@ export function GlobalSearchPage() {
             </p>
             {results.map((item) => {
               const Icon = typeIcons[item.type as keyof typeof typeIcons]
+              const className =
+                'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-devflow-surface'
+
+              if (item.type === 'issue') {
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      item.key
+                        ? openIssueDetail({ issueKey: item.key })
+                        : undefined
+                    }
+                    className={className}
+                  >
+                    <div className="flex size-8 items-center justify-center rounded-lg bg-devflow-muted">
+                      <Icon className="size-4 text-devflow-text-secondary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        {item.key && (
+                          <span className="font-mono text-caption text-devflow-text-muted">
+                            {item.key}
+                          </span>
+                        )}
+                        <span className="truncate text-body font-medium text-devflow-text">
+                          {item.title}
+                        </span>
+                      </div>
+                      <p className="text-caption text-devflow-text-muted">{item.meta}</p>
+                    </div>
+                    <ArrowRight className="size-4 shrink-0 text-devflow-text-muted" />
+                  </button>
+                )
+              }
+
               return (
                 <Link
                   key={item.id}
-                  to={
-                    item.type === 'issue'
-                      ? sprintIssueDetailPath(
-                          DEFAULT_BOARD_CONTEXT.projectId,
-                          DEFAULT_BOARD_CONTEXT.sprintId,
-                        )
-                      : ROUTES.dashboard
-                  }
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-devflow-surface"
+                  to={ROUTES.dashboard}
+                  className={className}
                 >
                   <div className="flex size-8 items-center justify-center rounded-lg bg-devflow-muted">
                     <Icon className="size-4 text-devflow-text-secondary" />

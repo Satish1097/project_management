@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { Plus, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { PlanningIssueCard } from '@/features/sprints/PlanningIssueCard'
 import { useIssues } from '@/contexts/IssuesContext'
-import { useCreateIssue } from '@/contexts/CreateIssueContext'
 import { getProjectById, getSprintsForProject } from '@/services/projectData'
 import { sprintPlanningPath } from '@/constants/routes'
 import { SelectField } from '@/components/ui/SelectField'
@@ -12,7 +11,6 @@ export function ProjectBacklogPage() {
   const { projectId = '' } = useParams()
   const project = getProjectById(projectId)
   const { issues, assignToSprint } = useIssues()
-  const { openCreateIssue } = useCreateIssue()
   const [query, setQuery] = useState('')
   const [targetSprintId, setTargetSprintId] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -65,21 +63,11 @@ export function ProjectBacklogPage() {
   return (
     <main className="page-main">
       <div className="page-stack min-w-0 flex-1">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-page-title text-devflow-text">Backlog</h2>
-            <p className="mt-0.5 text-body text-devflow-text-secondary">
-              Unscheduled work — assign tickets to a sprint when ready.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => openCreateIssue()}
-            className="inline-flex items-center gap-2 rounded-lg bg-devflow-primary px-4 py-2 text-btn text-white shadow-devflow-sm hover:opacity-95"
-          >
-            <Plus className="size-4" strokeWidth={2} />
-            Create Issue
-          </button>
+        <div>
+          <h2 className="text-lg font-semibold text-devflow-text">Backlog</h2>
+          <p className="mt-0.5 text-body text-devflow-text-secondary">
+            Unscheduled work — assign tickets to a sprint when ready.
+          </p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">

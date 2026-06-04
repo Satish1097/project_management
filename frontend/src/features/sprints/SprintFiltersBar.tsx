@@ -5,6 +5,11 @@ import { cn } from '@/utils/cn'
 export type SprintFilterStatus = SprintStatus | 'all'
 export type SprintSortKey = 'date' | 'status' | 'name'
 
+export type SprintProjectFilterOption = {
+  id: string
+  label: string
+}
+
 type SprintFiltersBarProps = {
   query: string
   onQueryChange: (q: string) => void
@@ -12,7 +17,19 @@ type SprintFiltersBarProps = {
   onStatusChange: (s: SprintFilterStatus) => void
   sort: SprintSortKey
   onSortChange: (s: SprintSortKey) => void
+  /** Workspace sprints: hide cancelled/paused and use "Planning" label */
+  variant?: 'project' | 'workspace'
+  projectFilter?: string
+  onProjectFilterChange?: (projectId: string) => void
+  projectOptions?: SprintProjectFilterOption[]
 }
+
+const projectStatusFilters: { id: SprintFilterStatus; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'active', label: 'Active' },
+  { id: 'planned', label: 'Planning' },
+  { id: 'completed', label: 'Completed' },
+]
 
 const statusFilters: { id: SprintFilterStatus; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -29,36 +46,44 @@ export function SprintFiltersBar({
   onStatusChange,
   sort,
   onSortChange,
+  variant = 'project',
+  projectFilter = 'all',
+  onProjectFilterChange,
+  projectOptions,
 }: SprintFiltersBarProps) {
+  const filters =
+    variant === 'workspace' ? projectStatusFilters : statusFilters
+
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="relative max-w-xs flex-1">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-devflow-text-muted" />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Search sprints…"
-          className="w-full rounded-lg border border-devflow-border bg-devflow-surface py-2 pl-9 pr-3 text-input text-devflow-text outline-none focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/20"
-        />
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-1">
-          {statusFilters.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => onStatusChange(f.id)}
-              className={cn(
-                'rounded-md px-2.5 py-1 text-caption transition-colors',
-                status === f.id
-                  ? 'bg-[var(--df-nav-tint)] font-medium text-devflow-primary'
-                  : 'text-devflow-text-secondary hover:bg-devflow-muted',
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative max-w-xs flex-1">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-devflow-text-muted" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="Search sprints…"
+            className="w-full rounded-lg border border-devflow-border bg-devflow-surface py-2 pl-9 pr-3 text-input text-devflow-text outline-none focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/20"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-1">
+            {filters.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => onStatusChange(f.id)}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-caption transition-colors',
+                  status === f.id
+                    ? 'bg-[var(--df-nav-tint)] font-medium text-devflow-primary'
+                    : 'text-devflow-text-secondary hover:bg-devflow-muted',
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
         </div>
         <select
           value={sort}
@@ -70,7 +95,25 @@ export function SprintFiltersBar({
           <option value="status">Sort by status</option>
           <option value="name">Sort by name</option>
         </select>
+        </div>
       </div>
+      {variant === 'workspace' && projectOptions && onProjectFilterChange && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-caption text-devflow-text-muted">Project</span>
+          <select
+            value={projectFilter}
+            onChange={(e) => onProjectFilterChange(e.target.value)}
+            className="rounded-lg border border-devflow-border bg-devflow-surface px-3 py-1.5 text-caption text-devflow-text"
+            aria-label="Filter by project"
+          >
+            {projectOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   )
 }

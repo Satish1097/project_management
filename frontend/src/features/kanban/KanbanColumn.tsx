@@ -4,18 +4,12 @@ import { TaskCard } from './TaskCard'
 
 type KanbanColumnProps = {
   column: KanbanColumnType
-  projectId?: string
-  sprintId?: string
 }
 
-export function KanbanColumn({
-  column,
-  projectId,
-  sprintId,
-}: KanbanColumnProps) {
+export function KanbanColumn({ column }: KanbanColumnProps) {
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <div className="flex items-center justify-between px-1">
+    <section className="flex min-w-0 flex-col gap-2.5 rounded-lg bg-devflow-muted/40 p-2">
+      <div className="flex items-center justify-between px-0.5">
         <div className="flex items-center gap-2">
           <span
             className="size-2 shrink-0 rounded-full"
@@ -37,14 +31,12 @@ export function KanbanColumn({
         </button>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2.5">
         {column.issues.map((issue) => (
           <TaskCard
             key={issue.id}
             issue={issue}
             columnId={column.id}
-            projectId={projectId}
-            sprintId={sprintId}
           />
         ))}
       </div>

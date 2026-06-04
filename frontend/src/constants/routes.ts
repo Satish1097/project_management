@@ -12,6 +12,8 @@ export const ROUTES = {
   dashboard: '/',
   myTasks: '/tasks',
   projects: '/projects',
+  sprints: '/sprints',
+  roadmaps: '/roadmaps',
   workspaceEmpty: '/workspace/empty',
   search: '/search',
   notifications: '/notifications',
@@ -70,6 +72,30 @@ export function projectSettingsPath(projectId: string) {
   return `${projectPath(projectId)}/settings`
 }
 
+export function projectSettingsGeneralPath(projectId: string) {
+  return `${projectSettingsPath(projectId)}/general`
+}
+
+export function projectSettingsMembersPath(projectId: string) {
+  return `${projectSettingsPath(projectId)}/members`
+}
+
+export function projectSettingsStatusesPath(projectId: string) {
+  return `${projectSettingsPath(projectId)}/statuses`
+}
+
+export function projectSettingsLabelsPath(projectId: string) {
+  return `${projectSettingsPath(projectId)}/labels`
+}
+
+export function projectSettingsIntegrationsPath(projectId: string) {
+  return `${projectSettingsPath(projectId)}/integrations`
+}
+
+export function isProjectSettingsPath(pathname: string, projectId: string): boolean {
+  return pathname.startsWith(`${projectSettingsPath(projectId)}/`)
+}
+
 export function sprintDetailPath(projectId: string, sprintId: string) {
   return `${projectPath(projectId)}/sprints/${sprintId}`
 }
@@ -110,8 +136,8 @@ export function sprintIssueDetailEnhancedPath(
 
 /** Default board context for mock/demo links */
 export const DEFAULT_BOARD_CONTEXT = {
-  projectId: '3',
-  sprintId: 'sprint-15',
+  projectId: '1',
+  sprintId: 'sprint-42',
 } as const
 
 export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES]
@@ -136,33 +162,70 @@ export function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTE_PATHS.includes(pathname as AppRoute)
 }
 
-export type WorkspaceNavId =
-  | 'search'
-  | 'inbox'
-  | 'myIssues'
+export type SidebarNavId =
+  | 'dashboard'
+  | 'myTasks'
   | 'projects'
-  | 'cycles'
+  | 'sprints'
+  | 'qa'
+  | 'releases'
   | 'roadmaps'
+  | 'settings'
+
+/** Workspace-level Sprints module (not project-scoped /projects/:id/sprints). */
+export function isSprintsArea(pathname: string): boolean {
+  return (
+    pathname === ROUTES.sprints ||
+    pathname.startsWith(`${ROUTES.sprints}/`)
+  )
+}
+
+export function isRoadmapsArea(pathname: string): boolean {
+  return (
+    pathname === ROUTES.roadmaps ||
+    pathname.startsWith(`${ROUTES.roadmaps}/`)
+  )
+}
+
+/** /projects/:projectId/... — project workspace (overview, sprints, settings, etc.). */
+export function isProjectContextPath(pathname: string): boolean {
+  const match = pathname.match(/^\/projects\/([^/]+)/)
+  if (!match) return false
+  // Legacy workspace path without a project id: /projects/settings
+  return match[1] !== 'settings'
+}
+
+/** /projects/:projectId/settings/* — project configuration context. */
+export function isProjectSettingsRoute(pathname: string): boolean {
+  return (
+    /^\/projects\/[^/]+\/settings(?:\/|$)/.test(pathname) ||
+    pathname === ROUTES.workspaceProjectSettings ||
+    pathname.startsWith(`${ROUTES.workspaceProjectSettings}/`)
+  )
+}
+
+/** Global workspace settings — not project-scoped settings. */
+export function isGlobalSettingsPath(pathname: string): boolean {
+  return (
+    pathname === ROUTES.workspaceSettings ||
+    pathname.startsWith(`${ROUTES.workspaceSettings}/`) ||
+    pathname === '/settings' ||
+    pathname.startsWith('/settings/')
+  )
+}
+
+/** Sidebar Settings item: project settings or workspace/global settings. */
+export function isSidebarSettingsActive(pathname: string): boolean {
+  return isProjectSettingsRoute(pathname) || isGlobalSettingsPath(pathname)
+}
 
 export function isProjectsArea(pathname: string): boolean {
   return (
     pathname === ROUTES.projects ||
-    pathname.startsWith('/projects/') &&
-      !pathname.startsWith('/projects/settings')
+    (isProjectContextPath(pathname) && !isProjectSettingsRoute(pathname))
   )
 }
 
-export function resolveWorkspaceActiveNav(
-  pathname: string,
-): WorkspaceNavId | undefined {
-  if (pathname === ROUTES.search) return 'search'
-  if (pathname === ROUTES.notifications) return 'inbox'
-  if (pathname === ROUTES.myTasks) return 'myIssues'
-  if (isProjectsArea(pathname) || pathname === ROUTES.workspaceEmpty) {
-    return 'projects'
-  }
-  return undefined
-}
 
 export function parseProjectRoute(pathname: string): {
   projectId?: string

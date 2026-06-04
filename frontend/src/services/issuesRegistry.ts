@@ -9,6 +9,26 @@ export function getIssues(): ProjectIssue[] {
   return issues
 }
 
+export function getIssueById(issueId: string): ProjectIssue | undefined {
+  return issues.find((i) => i.id === issueId)
+}
+
+export function getIssueByKey(key: string): ProjectIssue | undefined {
+  const normalized = key.trim().toUpperCase()
+  return issues.find((i) => i.key.toUpperCase() === normalized)
+}
+
+export function updateIssueInRegistry(
+  issueId: string,
+  patch: Partial<ProjectIssue>,
+): ProjectIssue | undefined {
+  const index = issues.findIndex((i) => i.id === issueId)
+  if (index < 0) return undefined
+  const updated = { ...issues[index], ...patch }
+  issues = [...issues.slice(0, index), updated, ...issues.slice(index + 1)]
+  return updated
+}
+
 export function generateIssueKey(
   projectKey: string,
   projectId: string,

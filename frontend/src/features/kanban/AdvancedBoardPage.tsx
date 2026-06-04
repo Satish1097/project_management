@@ -143,11 +143,7 @@ export function AdvancedBoardPage() {
                   </p>
                 </div>
               ) : (
-                <KanbanColumn
-                  column={column}
-                  projectId={projectId}
-                  sprintId={sprintId}
-                />
+                <KanbanColumn column={column} />
               )}
             </div>
           ))}

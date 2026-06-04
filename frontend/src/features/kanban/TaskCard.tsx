@@ -1,9 +1,5 @@
-import { Link } from 'react-router-dom'
 import { Check } from 'lucide-react'
-import {
-  DEFAULT_BOARD_CONTEXT,
-  sprintIssueDetailPath,
-} from '@/constants/routes'
+import { useIssueDetail } from '@/contexts/IssueDetailContext'
 import { Avatar } from '@/components/ui/Avatar'
 import { PriorityBadge } from '@/components/ui/PriorityBadge'
 import type { KanbanIssue } from '@/types/kanban'
@@ -12,16 +8,10 @@ import { cn } from '@/utils/cn'
 type TaskCardProps = {
   issue: KanbanIssue
   columnId: string
-  projectId?: string
-  sprintId?: string
 }
 
-export function TaskCard({
-  issue,
-  columnId,
-  projectId = DEFAULT_BOARD_CONTEXT.projectId,
-  sprintId = DEFAULT_BOARD_CONTEXT.sprintId,
-}: TaskCardProps) {
+export function TaskCard({ issue, columnId }: TaskCardProps) {
+  const { openIssueDetail } = useIssueDetail()
   const isDone = issue.done || columnId === 'done'
   const inProgress = columnId === 'in_progress'
 
@@ -56,14 +46,21 @@ export function TaskCard({
         {issue.title}
       </p>
 
-      <div className="flex items-center justify-between">
-        {issue.label && (
-          <span className="rounded bg-devflow-pill px-2 py-0.5 text-caption-label text-devflow-text-secondary">
+      <div className="flex min-h-6 items-center justify-between gap-2">
+        {issue.label ? (
+          <span className="rounded bg-devflow-pill px-2 py-0.5 text-caption font-medium uppercase tracking-wide text-devflow-text-secondary">
             {issue.label}
           </span>
+        ) : (
+          <span />
         )}
         {issue.assignee && (
-          <Avatar name={issue.assignee.name} color={issue.assignee.color} size={24} />
+          <Avatar
+            name={issue.assignee.name}
+            color={issue.assignee.color}
+            size={24}
+            className="shrink-0"
+          />
         )}
         {isDone && (
           <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-devflow-success text-white">
@@ -88,16 +85,20 @@ export function TaskCard({
     </>
   )
 
-  if (issue.key === 'DF-101') {
-    return (
-      <Link
-        to={sprintIssueDetailPath(projectId, sprintId)}
-        className={cn('block', className)}
-      >
-        {content}
-      </Link>
-    )
-  }
-
-  return <article className={className}>{content}</article>
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => openIssueDetail({ issueId: issue.id })}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          openIssueDetail({ issueId: issue.id })
+        }
+      }}
+      className={cn(className, 'cursor-pointer transition-shadow hover:shadow-devflow-md')}
+    >
+      {content}
+    </article>
+  )
 }

@@ -1,4 +1,6 @@
 import { GripVertical } from 'lucide-react'
+import { useIssueDetail } from '@/contexts/IssueDetailContext'
+import { useIssueCardClick } from '@/hooks/useIssueCardClick'
 import { Avatar } from '@/components/ui/Avatar'
 import { PriorityIndicator } from '@/components/ui/PriorityIndicator'
 import type { ProjectIssue } from '@/types/issues'
@@ -19,13 +21,27 @@ export function PlanningIssueCard({
   onDragEnd,
   compact,
 }: PlanningIssueCardProps) {
+  const { openIssueDetail } = useIssueDetail()
+  const { onClick, onKeyDown, onDragStart: onCardDragStart, onDragEnd: onCardDragEnd } =
+    useIssueCardClick(() => openIssueDetail({ issueId: issue.id }))
+
   return (
     <div
+      role="button"
+      tabIndex={0}
       draggable={draggable}
-      onDragStart={() => onDragStart?.(issue.id)}
-      onDragEnd={onDragEnd}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
+      onDragStart={() => {
+        onCardDragStart()
+        onDragStart?.(issue.id)
+      }}
+      onDragEnd={() => {
+        onCardDragEnd()
+        onDragEnd?.()
+      }}
       className={cn(
-        'flex cursor-grab items-start gap-2 rounded-lg border border-devflow-border bg-devflow-card p-2.5 shadow-devflow-sm transition-shadow active:cursor-grabbing active:shadow-devflow-md',
+        'flex cursor-grab items-start gap-2 rounded-lg border border-devflow-border bg-devflow-card p-2.5 shadow-devflow-sm transition-shadow hover:shadow-devflow-md active:cursor-grabbing active:shadow-devflow-md',
         compact && 'p-2',
       )}
     >
