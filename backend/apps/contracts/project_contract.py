@@ -1,10 +1,12 @@
 """
 Project module contract — DTOs and narrow read interfaces.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
+
+from apps.contracts.workflow_contract import WorkflowStatusDTO
 
 
 @dataclass(frozen=True)
@@ -38,6 +40,18 @@ class ProjectMemberDTO:
     user_id: UUID
     role: str
     joined_at: Optional[datetime] = None
+
+
+@dataclass(frozen=True)
+class ProjectBoardContextDTO:
+    project_id: UUID
+    active_sprint_id: Optional[UUID] = None
+    workflow_statuses: list[WorkflowStatusDTO] = field(default_factory=list)
+
+
+def get_project_board_context(project_id: UUID) -> Optional[ProjectBoardContextDTO]:
+    """Stub — implemented in apps.projects selectors (Phase 3 Slice 6)."""
+    raise NotImplementedError
 
 
 def get_project_by_id(project_id: UUID) -> Optional[ProjectDTO]:

@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     "apps.organizations",
     "apps.projects",
     "apps.issues",
+    "apps.sprints",
+    "apps.workflow",
     "apps.comments",
     "apps.activities",
     "apps.common",
