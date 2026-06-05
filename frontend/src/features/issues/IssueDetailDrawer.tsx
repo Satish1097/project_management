@@ -70,11 +70,13 @@ function workflowToTaskStatus(status?: IssueWorkflowStatus): TaskStatus {
       return 'backlog'
     case 'review':
       return 'review'
+    case 'testing':
+      return 'testing'
+    case 'blocked':
+      return 'blocked'
     case 'done':
       return 'done'
     case 'in_progress':
-    case 'testing':
-    case 'blocked':
       return 'in_progress'
     default:
       return 'todo'

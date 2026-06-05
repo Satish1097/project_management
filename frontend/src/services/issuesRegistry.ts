@@ -1,6 +1,5 @@
 import { mockIssues } from '@/services/mockIssues'
 import type { ProjectIssue } from '@/types/issues'
-import type { KanbanColumn, KanbanIssue } from '@/types/kanban'
 import type { Sprint } from '@/types/sprints'
 
 let issues: ProjectIssue[] = [...mockIssues]
@@ -91,50 +90,3 @@ export function syncSprintIssueCounts(sprint: Sprint): Sprint {
   }
 }
 
-export function getKanbanColumnsForSprint(
-  projectId: string,
-  sprintId: string,
-): KanbanColumn[] {
-  const sprintIssues = getSprintIssues(projectId, sprintId)
-  const columns: KanbanColumn[] = [
-    {
-      id: 'todo',
-      title: 'TODO',
-      dotColor: '#727785',
-      count: 0,
-      issues: [],
-    },
-    {
-      id: 'in_progress',
-      title: 'IN PROGRESS',
-      dotColor: '#0058be',
-      count: 0,
-      issues: [],
-    },
-    {
-      id: 'done',
-      title: 'DONE',
-      dotColor: '#10b981',
-      count: 0,
-      issues: [],
-    },
-  ]
-
-  for (const issue of sprintIssues) {
-    const col = columns.find((c) => c.id === issue.status) ?? columns[0]
-    const kanbanIssue: KanbanIssue = {
-      id: issue.id,
-      key: issue.key,
-      title: issue.title,
-      priority: issue.priority,
-      label: issue.label,
-      assignee: issue.assignee,
-      progress: issue.progress,
-      done: issue.done,
-    }
-    col.issues.push(kanbanIssue)
-    col.count = col.issues.length
-  }
-
-  return columns
-}

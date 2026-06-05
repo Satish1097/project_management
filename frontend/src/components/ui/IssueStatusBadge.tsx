@@ -29,6 +29,18 @@ const config: Record<
     dot: 'bg-devflow-primary',
     text: 'text-devflow-primary',
   },
+  testing: {
+    label: 'TESTING',
+    bg: 'bg-[var(--df-brand-tint)]',
+    dot: 'bg-[var(--df-kanban-status-testing)]',
+    text: 'text-devflow-primary',
+  },
+  blocked: {
+    label: 'BLOCKED',
+    bg: 'bg-devflow-danger-bg',
+    dot: 'bg-devflow-error',
+    text: 'text-devflow-error',
+  },
   done: {
     label: 'DONE',
     bg: 'bg-devflow-muted',

@@ -7,6 +7,8 @@ export type TaskStatus =
   | 'todo'
   | 'in_progress'
   | 'review'
+  | 'testing'
+  | 'blocked'
   | 'done'
 
 export type TaskAssignee = {

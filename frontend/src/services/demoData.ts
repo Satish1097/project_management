@@ -458,9 +458,11 @@ function buildSprintIssues(seed: SprintIssueSeed): ProjectIssue[] {
         : status === 'done'
           ? 'done'
           : status === 'in_progress'
-            ? i % 2 === 0
-              ? 'in_progress'
-              : 'review'
+            ? i % 3 === 0
+              ? 'testing'
+              : i % 2 === 0
+                ? 'in_progress'
+                : 'review'
             : i % 5 === 0
               ? 'backlog'
               : 'todo',

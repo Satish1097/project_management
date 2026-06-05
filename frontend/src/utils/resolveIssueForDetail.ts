@@ -4,7 +4,13 @@ import type { Task, TaskStatus } from '@/types/tasks'
 
 function mapTaskStatusToBoard(status: TaskStatus): IssueBoardStatus {
   if (status === 'done') return 'done'
-  if (status === 'in_progress' || status === 'review') return 'in_progress'
+  if (
+    status === 'in_progress' ||
+    status === 'review' ||
+    status === 'testing'
+  ) {
+    return 'in_progress'
+  }
   return 'todo'
 }
 
@@ -27,12 +33,7 @@ export function projectIssueFromTask(task: Task): ProjectIssue {
     labels: [task.label.toLowerCase()],
     assignee: task.assignee,
     priority: mapTaskPriority(task.priority),
-    workflowStatus:
-      task.status === 'backlog'
-        ? 'backlog'
-        : task.status === 'review'
-          ? 'review'
-          : task.status,
+    workflowStatus: task.status as ProjectIssue['workflowStatus'],
     description: undefined,
     dueDate: task.dueDate,
   }

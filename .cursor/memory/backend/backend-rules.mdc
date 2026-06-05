@@ -1,0 +1,15 @@
+Tech Stack:
+- Django
+- DRF
+- PostgreSQL
+- Redis
+- Celery
+- JWT auth
+- Service-based architecture
+
+Coding Standards:
+- Use select_related/prefetch_related
+- Avoid N+1 queries
+- Use serializers only for validation
+- Business logic in services
+- Fat models/views are not allowed
