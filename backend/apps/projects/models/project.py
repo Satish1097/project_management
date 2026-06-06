@@ -43,6 +43,7 @@ class Project(BaseModel):
         default=ProjectVisibility.ORGANIZATION,
     )
     archived_at = models.DateTimeField(null=True, blank=True)
+    next_issue_number = models.PositiveIntegerField(default=0)
 
     class Meta:
         verbose_name = "project"

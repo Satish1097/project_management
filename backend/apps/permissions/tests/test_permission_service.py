@@ -181,6 +181,185 @@ class TestProjectPermissions:
         assert permission_service.can_manage_workflow(superuser.id, project.id) is False
 
 
+@pytest.mark.django_db
+class TestPhase3IssuePermissions:
+    def test_can_create_issue_by_role(self, superuser, project, user, other_user):
+        add_project_member(
+            project_id=project.id,
+            user_id=user.id,
+            added_by=superuser,
+            role=ProjectRole.DEVELOPER,
+        )
+        add_project_member(
+            project_id=project.id,
+            user_id=other_user.id,
+            added_by=superuser,
+            role=ProjectRole.VIEWER,
+        )
+
+        assert permission_service.can_create_issue(superuser.id, project.id) is True
+        assert permission_service.can_create_issue(user.id, project.id) is True
+        assert permission_service.can_create_issue(other_user.id, project.id) is False
+
+    def test_can_assign_issue_qa_denied_developer_allowed(
+        self,
+        superuser,
+        project,
+        user,
+        other_user,
+    ):
+        add_project_member(
+            project_id=project.id,
+            user_id=user.id,
+            added_by=superuser,
+            role=ProjectRole.DEVELOPER,
+        )
+        add_project_member(
+            project_id=project.id,
+            user_id=other_user.id,
+            added_by=superuser,
+            role=ProjectRole.QA,
+        )
+
+        assert permission_service.can_assign_issue(user.id, project.id) is True
+        assert permission_service.can_assign_issue(other_user.id, project.id) is False
+
+    def test_can_transition_issue_viewer_denied(self, superuser, project, user):
+        add_project_member(
+            project_id=project.id,
+            user_id=user.id,
+            added_by=superuser,
+            role=ProjectRole.VIEWER,
+        )
+
+        assert (
+            permission_service.can_transition_issue(
+                user.id,
+                project.id,
+                "todo",
+                "in_progress",
+            )
+            is False
+        )
+
+    def test_can_transition_issue_developer_cannot_approve(
+        self,
+        superuser,
+        project,
+        user,
+    ):
+        add_project_member(
+            project_id=project.id,
+            user_id=user.id,
+            added_by=superuser,
+            role=ProjectRole.DEVELOPER,
+        )
+
+        assert (
+            permission_service.can_transition_issue(
+                user.id,
+                project.id,
+                "in_review",
+                "done",
+            )
+            is False
+        )
+        assert (
+            permission_service.can_transition_issue(
+                superuser.id,
+                project.id,
+                "in_review",
+                "done",
+            )
+            is True
+        )
+
+    def test_can_transition_issue_reopen_restricted(
+        self,
+        superuser,
+        project,
+        user,
+        other_user,
+    ):
+        add_project_member(
+            project_id=project.id,
+            user_id=user.id,
+            added_by=superuser,
+            role=ProjectRole.DEVELOPER,
+        )
+        add_project_member(
+            project_id=project.id,
+            user_id=other_user.id,
+            added_by=superuser,
+            role=ProjectRole.QA,
+        )
+
+        assert (
+            permission_service.can_transition_issue(
+                user.id,
+                project.id,
+                "done",
+                "in_review",
+            )
+            is False
+        )
+        assert (
+            permission_service.can_transition_issue(
+                other_user.id,
+                project.id,
+                "done",
+                "in_review",
+            )
+            is False
+        )
+        assert (
+            permission_service.can_transition_issue(
+                superuser.id,
+                project.id,
+                "done",
+                "in_review",
+            )
+            is True
+        )
+
+
+@pytest.mark.django_db
+class TestPhase3SprintPermissions:
+    def test_can_manage_sprint_manager_allowed_developer_denied(
+        self,
+        superuser,
+        project,
+        user,
+    ):
+        add_project_member(
+            project_id=project.id,
+            user_id=user.id,
+            added_by=superuser,
+            role=ProjectRole.DEVELOPER,
+        )
+
+        assert permission_service.can_manage_sprint(superuser.id, project.id) is True
+        assert permission_service.can_manage_sprint(user.id, project.id) is False
+
+    def test_can_plan_sprint_developer_and_qa(self, superuser, project, user, other_user):
+        add_project_member(
+            project_id=project.id,
+            user_id=user.id,
+            added_by=superuser,
+            role=ProjectRole.DEVELOPER,
+        )
+        add_project_member(
+            project_id=project.id,
+            user_id=other_user.id,
+            added_by=superuser,
+            role=ProjectRole.QA,
+        )
+
+        assert permission_service.can_plan_sprint(user.id, project.id) is True
+        assert permission_service.can_plan_sprint(other_user.id, project.id) is True
+        assert permission_service.can_plan_sprint(superuser.id, project.id) is True
+
+
 @pytest.fixture
 def organization(superuser):
     from apps.organizations.services import create_organization

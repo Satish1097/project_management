@@ -71,6 +71,30 @@ def test_context_returns_user_organizations_and_projects(authenticated_client, u
 
 
 @pytest.mark.django_db
+def test_context_includes_is_superuser(authenticated_client, user):
+    response = authenticated_client.get(CONTEXT_URL)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["user"]["is_superuser"] is False
+
+
+@pytest.mark.django_db
+def test_context_superuser_flag(api_client, superuser):
+    login = api_client.post(
+        "/api/auth/login",
+        {"email": superuser.email, "password": VALID_PASSWORD},
+        format="json",
+    )
+    access = login.json()["data"]["tokens"]["access"]
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+    response = api_client.get(CONTEXT_URL)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["user"]["is_superuser"] is True
+
+
+@pytest.mark.django_db
 def test_context_empty_for_user_without_memberships(authenticated_client, user):
     response = authenticated_client.get(CONTEXT_URL)
 

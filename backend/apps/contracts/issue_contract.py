@@ -1,7 +1,8 @@
 """
 Issue module contract — DTOs and narrow read/write interfaces.
 
-Implementation deferred to Phase 3 Slice 4+.
+Read methods delegate to apps.issues selectors (Phase 3 Slice 6).
+Write methods implemented in later slices.
 """
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -50,41 +51,74 @@ class IssueKanbanDTO:
 
 
 def get_issue_by_id(issue_id: UUID) -> Optional[IssueDetailDTO]:
-    """Stub — implemented in apps.issues selectors (Phase 3 Slice 6)."""
-    raise NotImplementedError
+    from apps.issues.selectors import select_issue_by_id
+
+    return select_issue_by_id(issue_id)
 
 
 def get_issues_for_project(project_id: UUID) -> list[IssueSummaryDTO]:
-    """Stub — implemented in apps.issues selectors (Phase 3 Slice 6)."""
-    raise NotImplementedError
+    from apps.issues.selectors import select_issues_for_project
+
+    return select_issues_for_project(project_id)
 
 
 def get_backlog_issues(project_id: UUID) -> list[IssueSummaryDTO]:
-    """Stub — implemented in apps.issues selectors (Phase 3 Slice 6)."""
-    raise NotImplementedError
+    from apps.issues.selectors import select_backlog_issues
+
+    return select_backlog_issues(project_id)
 
 
 def get_kanban_board(
     project_id: UUID,
     sprint_id: Optional[UUID] = None,
 ) -> IssueKanbanDTO:
-    """Stub — implemented in apps.issues selectors (Phase 3 Slice 6)."""
-    raise NotImplementedError
+    from apps.issues.selectors import select_kanban_board
+
+    return select_kanban_board(project_id, sprint_id=sprint_id)
 
 
 def get_sprint_issues(sprint_id: UUID) -> list[IssueSummaryDTO]:
-    """Stub — implemented in apps.issues selectors (Phase 3 Slice 6)."""
-    raise NotImplementedError
+    from apps.issues.selectors import select_sprint_issues
+
+    return select_sprint_issues(sprint_id)
 
 
-def apply_status_change(issue_id: UUID, status_slug: str) -> None:
-    """Stub — called by workflow.TransitionService (Phase 3 Slice 4)."""
-    raise NotImplementedError
+def apply_status_change(
+    issue_id: UUID,
+    to_status_slug: str,
+    actor_id: UUID,
+) -> None:
+    """
+    Apply a workflow status change to an issue.
+
+    Delegates to workflow.TransitionService via lazy import — no ORM in this
+    module. Called by the transition API facade and by issue_service.
+    """
+    from apps.issues.exceptions import IssueNotFoundError
+    from apps.issues.models import Issue
+    from apps.workflow.services.transition_service import (
+        transition_service as _ts,
+    )
+
+    try:
+        issue = Issue.objects.select_related("status").get(pk=issue_id)
+    except Issue.DoesNotExist:
+        raise IssueNotFoundError(f"Issue '{issue_id}' not found.")
+
+    _ts.transition_issue(issue, to_status_slug, actor_id)
 
 
 def bulk_set_sprint(
     issue_ids: list[UUID],
     sprint_id: Optional[UUID],
 ) -> int:
-    """Stub — implemented in apps.issues services (Phase 3 Slice 7)."""
-    raise NotImplementedError
+    """
+    Move a list of issues to a sprint (or backlog when sprint_id is None).
+
+    Delegates to issue_service.bulk_move_issues_to_sprint via lazy import.
+    Permission check is the caller's responsibility.
+    Returns the count of updated rows.
+    """
+    from apps.issues.services.issue_service import bulk_move_issues_to_sprint
+
+    return bulk_move_issues_to_sprint(issue_ids, sprint_id)

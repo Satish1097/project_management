@@ -19,6 +19,12 @@ urlpatterns = [
     path("api/", include("apps.organizations.api.urls")),
     # Projects (Phase 2)
     path("api/", include("apps.projects.api.urls")),
+    # Issues (Phase 3)
+    path("api/", include("apps.issues.api.urls")),
+    # Sprints (Phase 3)
+    path("api/", include("apps.sprints.api.urls")),
+    # Workflow (Phase 3)
+    path("api/", include("apps.workflow.api.urls")),
     # OpenAPI / Swagger / ReDoc
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

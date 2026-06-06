@@ -30,6 +30,7 @@ def _user_to_dto(user: User) -> UserDTO:
         display_name=display_name,
         avatar=avatar,
         timezone=timezone,
+        is_superuser=user.is_superuser,
     )
 
 

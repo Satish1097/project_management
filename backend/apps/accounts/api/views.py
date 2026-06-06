@@ -33,6 +33,7 @@ def _user_to_data(user: UserDTO) -> dict:
         "display_name": user.display_name,
         "avatar": user.avatar,
         "timezone": user.timezone,
+        "is_superuser": user.is_superuser,
     }
 
 

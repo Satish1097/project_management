@@ -119,11 +119,92 @@ def _handle_projects_domain_error(exc):
     )
 
 
+def _handle_issues_domain_error(exc):
+    from apps.issues.exceptions import (
+        ArchivedProjectIssueError,
+        IssueAssignmentError,
+        IssueError,
+        IssueNotFoundError,
+        IssueTransitionError,
+        IssueValidationError,
+    )
+
+    if not isinstance(exc, IssueError):
+        return None
+
+    status_map = {
+        IssueNotFoundError: status.HTTP_404_NOT_FOUND,
+        ArchivedProjectIssueError: status.HTTP_403_FORBIDDEN,
+        IssueAssignmentError: status.HTTP_403_FORBIDDEN,
+        IssueTransitionError: status.HTTP_400_BAD_REQUEST,
+        IssueValidationError: status.HTTP_400_BAD_REQUEST,
+    }
+    status_code = status_map.get(type(exc), status.HTTP_403_FORBIDDEN)
+    return error_response(
+        message=str(exc),
+        errors={"detail": str(exc)},
+        status=status_code,
+    )
+
+
+def _handle_sprints_domain_error(exc):
+    from apps.sprints.exceptions import (
+        ArchivedProjectSprintError,
+        SprintAlreadyActiveError,
+        SprintCompletionError,
+        SprintError,
+        SprintNotFoundError,
+    )
+
+    if not isinstance(exc, SprintError):
+        return None
+
+    status_map = {
+        SprintNotFoundError: status.HTTP_404_NOT_FOUND,
+        SprintAlreadyActiveError: status.HTTP_409_CONFLICT,
+        ArchivedProjectSprintError: status.HTTP_403_FORBIDDEN,
+        SprintCompletionError: status.HTTP_400_BAD_REQUEST,
+    }
+    status_code = status_map.get(type(exc), status.HTTP_403_FORBIDDEN)
+    return error_response(
+        message=str(exc),
+        errors={"detail": str(exc)},
+        status=status_code,
+    )
+
+
+def _handle_workflow_domain_error(exc):
+    from apps.workflow.exceptions import (
+        ForbiddenWorkflowTransitionError,
+        InvalidWorkflowTransitionError,
+        WorkflowError,
+        WorkflowStatusNotFoundError,
+    )
+
+    if not isinstance(exc, WorkflowError):
+        return None
+
+    status_map = {
+        WorkflowStatusNotFoundError: status.HTTP_404_NOT_FOUND,
+        InvalidWorkflowTransitionError: status.HTTP_400_BAD_REQUEST,
+        ForbiddenWorkflowTransitionError: status.HTTP_403_FORBIDDEN,
+    }
+    status_code = status_map.get(type(exc), status.HTTP_400_BAD_REQUEST)
+    return error_response(
+        message=str(exc),
+        errors={"detail": str(exc)},
+        status=status_code,
+    )
+
+
 def custom_exception_handler(exc, context):
     for handler in (
         _handle_accounts_domain_error,
         _handle_organizations_domain_error,
         _handle_projects_domain_error,
+        _handle_issues_domain_error,
+        _handle_sprints_domain_error,
+        _handle_workflow_domain_error,
     ):
         domain_response = handler(exc)
         if domain_response is not None:

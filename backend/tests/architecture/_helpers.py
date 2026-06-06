@@ -16,6 +16,8 @@ LEGACY_APPS = {
     "organizations",
     "projects",
     "issues",
+    "sprints",
+    "workflow",
     "comments",
     "activities",
     "common",

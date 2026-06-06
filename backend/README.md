@@ -103,6 +103,64 @@ python manage.py bootstrap_organization
 
 Creates `internal` / **Internal Organization** owned by the first superuser when no organization exists.
 
+### Phase 3 — Issues + Sprints + Workflow
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/api/projects/{project_id}/issues` | Bearer (member) | List project issues |
+| `POST` | `/api/projects/{project_id}/issues` | Bearer (create issue) | Create issue |
+| `GET` | `/api/issues/{issue_id}` | Bearer (member) | Issue detail |
+| `PATCH` | `/api/issues/{issue_id}` | Bearer (edit issue) | Update issue fields |
+| `POST` | `/api/issues/{issue_id}/assign` | Bearer (assign issue) | Assign or unassign |
+| `POST` | `/api/issues/{issue_id}/transition` | Bearer (transition) | Change workflow status |
+| `POST` | `/api/issues/{issue_id}/move-sprint` | Bearer (plan sprint) | Move issue to sprint/backlog |
+| `GET` | `/api/projects/{project_id}/backlog` | Bearer (member) | Backlog issues |
+| `GET` | `/api/projects/{project_id}/kanban` | Bearer (member) | Kanban board (backlog scope) |
+| `GET` | `/api/sprints/{sprint_id}/board` | Bearer (member) | Sprint kanban board |
+| `GET` | `/api/projects/{project_id}/sprints` | Bearer (member) | List sprints |
+| `POST` | `/api/projects/{project_id}/sprints` | Bearer (plan sprint) | Create sprint |
+| `GET` | `/api/sprints/{sprint_id}` | Bearer (member) | Sprint detail |
+| `PATCH` | `/api/sprints/{sprint_id}` | Bearer (manage sprint) | Update sprint |
+| `POST` | `/api/sprints/{sprint_id}/start` | Bearer (manage sprint) | Start sprint |
+| `POST` | `/api/sprints/{sprint_id}/complete` | Bearer (manage sprint) | Complete sprint |
+| `POST` | `/api/sprints/{sprint_id}/move-issues` | Bearer (plan sprint) | Bulk move issues |
+| `GET` | `/api/projects/{project_id}/workflow` | Bearer (member) | Read-only workflow config |
+
+Seed default workflow for existing projects (idempotent):
+
+```bash
+python manage.py seed_project_workflows
+```
+
+Safe to rerun — projects that already have workflow statuses are skipped.
+
+**Create issue example:**
+
+```bash
+curl -X POST http://localhost:8000/api/projects/{project_id}/issues \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Implement login API","issue_type":"task","priority":"medium"}'
+```
+
+**Transition issue example:**
+
+```bash
+curl -X POST http://localhost:8000/api/issues/{issue_id}/transition \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{"target_status_id":"{status_uuid}"}'
+```
+
+**Create sprint example:**
+
+```bash
+curl -X POST http://localhost:8000/api/projects/{project_id}/sprints \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Sprint 1","goal":"Auth shell","start_date":"2026-06-10","end_date":"2026-06-24"}'
+```
+
 ## PostgreSQL setup
 
 Set in `.env`:
@@ -216,6 +274,9 @@ python manage.py createsuperuser
 
 # Bootstrap default organization (after superuser exists)
 python manage.py bootstrap_organization
+
+# Seed default workflow for existing projects (idempotent)
+python manage.py seed_project_workflows
 
 # Make migrations (after adding models)
 python manage.py makemigrations

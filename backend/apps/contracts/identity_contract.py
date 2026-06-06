@@ -17,6 +17,7 @@ class UserDTO:
     display_name: str
     avatar: str | None
     timezone: str | None
+    is_superuser: bool = False
 
 
 def get_user_by_id(user_id: UUID) -> UserDTO | None:
