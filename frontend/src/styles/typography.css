@@ -1,0 +1,68 @@
+/**
+ * HKPMS typography scale — matches Figma / SaaS UI spec.
+ * Use semantic utilities; avoid ad-hoc text-[Npx] sizes in components.
+ */
+
+@theme {
+  --text-page-title: 1.5rem; /* 24px */
+  --text-page-title--line-height: 1.2;
+  --text-page-title--font-weight: 700;
+
+  --text-section-title: 1rem; /* 16px */
+  --text-section-title--line-height: 1.3;
+  --text-section-title--font-weight: 600;
+
+  --text-card-title: 1rem; /* 16px */
+  --text-card-title--line-height: 1.4;
+  --text-card-title--font-weight: 600;
+
+  --text-body: 0.875rem; /* 14px */
+  --text-body--line-height: 1.55;
+  --text-body--font-weight: 400;
+
+  --text-caption: 0.75rem; /* 12px */
+  --text-caption--line-height: 1.5;
+  --text-caption--font-weight: 400;
+
+  --text-btn: 0.875rem; /* 14px */
+  --text-btn--line-height: 1.5;
+  --text-btn--font-weight: 500;
+
+  --text-nav: 0.875rem; /* 14px */
+  --text-nav--line-height: 1.43;
+  --text-nav--font-weight: 500;
+
+  --text-input: 0.875rem; /* 14px */
+  --text-input--line-height: 1.5;
+  --text-input--font-weight: 400;
+
+  --text-table: 0.8125rem; /* 13px */
+  --text-table--line-height: 1.5;
+  --text-table--font-weight: 400;
+
+  --text-table-header: 0.875rem; /* 14px */
+  --text-table-header--line-height: 1.4;
+  --text-table-header--font-weight: 600;
+
+  --text-metric: 1.125rem; /* 18px — KPI values, not page titles */
+  --text-metric--line-height: 1.2;
+  --text-metric--font-weight: 700;
+
+  --text-brand: 1rem; /* 16px — sidebar wordmark */
+  --text-brand--line-height: 1.4;
+  --text-brand--font-weight: 700;
+}
+
+@utility text-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+@utility text-caption-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

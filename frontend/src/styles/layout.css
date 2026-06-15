@@ -1,0 +1,271 @@
+/**
+ * HKPMS layout & density scale — compact SaaS dashboard (Figma-aligned).
+ * Use semantic layout utilities; avoid one-off large padding in pages.
+ */
+
+@theme {
+  --width-sidebar: 17.5rem; /* 280px */
+  --width-sidebar-collapsed: 4rem; /* 64px */
+  --height-header: 3rem; /* 48px */
+  --spacing-page: 1rem; /* 16px */
+  --spacing-section: 1rem;
+  --spacing-card: 0.75rem; /* 12px */
+  --spacing-card-lg: 1rem; /* 16px */
+  --spacing-stack: 1rem;
+  --radius-card: 0.5rem; /* 8px — rounded-lg */
+  --spacing-sidebar-section: 1rem; /* 16px between nav sections */
+  --spacing-sidebar-nav: 0.5rem; /* 8px between nav items */
+  --height-sidebar-context: 3.125rem; /* 50px — fixed selector card height */
+}
+
+@layer components {
+  .shell-sidebar {
+    @apply fixed left-0 top-0 z-20 flex h-svh flex-col overflow-hidden border-r border-devflow-border bg-devflow-surface transition-[width] duration-200 ease-out;
+    width: var(--width-sidebar);
+  }
+
+  .shell-main {
+    @apply flex min-h-screen min-w-0 flex-col transition-[margin] duration-200 ease-out;
+    margin-left: var(--width-sidebar);
+  }
+
+  .shell-layout--collapsed .shell-sidebar {
+    width: var(--width-sidebar-collapsed);
+  }
+
+  .shell-layout--collapsed .shell-main {
+    margin-left: var(--width-sidebar-collapsed);
+  }
+
+  .app-header {
+    @apply sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b border-devflow-border bg-devflow-card px-4;
+  }
+
+  .app-header-context {
+    @apply h-auto min-h-12 items-center py-1.5;
+  }
+
+  .page-main {
+    @apply flex flex-1 gap-4 p-4;
+  }
+
+  .page-stack {
+    @apply flex flex-col gap-4;
+  }
+
+  .ui-card {
+    @apply rounded-lg border border-devflow-border bg-devflow-card p-3 shadow-devflow-sm;
+  }
+
+  .ui-card-muted {
+    @apply rounded-lg border border-devflow-border bg-devflow-muted p-3;
+  }
+
+  /* ─── Sidebar layout zones ─────────────────────────────────────────────── */
+
+  .sidebar-header {
+    @apply shrink-0 border-b border-devflow-border px-3 pb-3 pt-3;
+    @apply dark:border-zinc-800;
+  }
+
+  .sidebar-nav-scroll {
+    @apply flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-3;
+    gap: var(--spacing-sidebar-section);
+    padding-top: var(--spacing-sidebar-section);
+    padding-bottom: var(--spacing-sidebar-section);
+  }
+
+  .sidebar-footer {
+    @apply shrink-0 border-t border-devflow-border px-3 py-2;
+    @apply dark:border-zinc-800;
+  }
+
+  /* ─── Sidebar context selectors ────────────────────────────────────────── */
+
+  .sidebar-context-panel {
+    @apply flex w-full shrink-0 flex-col;
+    gap: var(--spacing-sidebar-nav);
+    min-height: calc(var(--height-sidebar-context) * 2 + var(--spacing-sidebar-nav));
+  }
+
+  .sidebar-context-panel--single {
+    min-height: var(--height-sidebar-context);
+  }
+
+  .sidebar-context-selector {
+    @apply flex w-full shrink-0 flex-col justify-center rounded-md border border-devflow-border bg-devflow-card px-2;
+    @apply dark:border-zinc-800 dark:bg-zinc-900;
+    height: var(--height-sidebar-context);
+  }
+
+  .sidebar-context-selector--collapsed {
+    @apply relative flex h-8 w-8 shrink-0 items-center justify-center p-0;
+    min-height: unset;
+  }
+
+  .sidebar-context-label {
+    @apply mb-0.5 block text-[10px] font-semibold uppercase leading-none tracking-wider text-devflow-text-muted;
+    @apply dark:text-zinc-500;
+  }
+
+  .sidebar-context-select-row {
+    @apply relative flex h-[22px] min-w-0 items-center;
+  }
+
+  .sidebar-context-select,
+  .sidebar-context-value {
+    @apply w-full truncate bg-transparent text-[13px] font-semibold leading-none text-devflow-text outline-none;
+    @apply dark:text-zinc-200;
+  }
+
+  .sidebar-context-select {
+    @apply appearance-none pr-5;
+  }
+
+  .sidebar-context-value {
+    @apply block pr-5 text-devflow-text-secondary;
+    @apply dark:text-zinc-400;
+  }
+
+  .sidebar-context-value--placeholder {
+    @apply font-normal text-devflow-text-muted;
+    @apply dark:text-zinc-500;
+  }
+
+  .sidebar-context-chevron {
+    @apply pointer-events-none absolute right-0 top-1/2 size-3.5 -translate-y-1/2 shrink-0 text-devflow-text-muted;
+    @apply dark:text-zinc-500;
+  }
+
+  .sidebar-context-select--collapsed {
+    @apply absolute inset-0 cursor-pointer opacity-0;
+  }
+
+  .sidebar-context-create-btn {
+    @apply mt-0.5 w-full rounded-md border border-devflow-border bg-devflow-card py-1 text-center text-[12px] font-medium text-devflow-text transition-colors;
+    @apply hover:bg-devflow-muted dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800;
+  }
+
+  .sidebar-context-selector--menu {
+    @apply relative z-30;
+  }
+
+  .sidebar-workspace-menu {
+    @apply absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-devflow-border bg-devflow-card py-1 shadow-devflow-lg;
+    @apply dark:border-zinc-700 dark:bg-zinc-900;
+  }
+
+  .sidebar-workspace-menu-heading {
+    @apply px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-devflow-text-muted;
+    @apply dark:text-zinc-500;
+  }
+
+  .sidebar-workspace-menu-item {
+    @apply flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] text-devflow-text transition-colors;
+    @apply hover:bg-devflow-muted dark:text-zinc-200 dark:hover:bg-zinc-800;
+  }
+
+  .sidebar-workspace-menu-item--active {
+    @apply font-semibold;
+  }
+
+  .sidebar-workspace-menu-check {
+    @apply size-3.5 shrink-0 text-devflow-primary;
+  }
+
+  .sidebar-workspace-menu-check--empty {
+    @apply size-3.5 shrink-0 opacity-0;
+  }
+
+  .sidebar-workspace-menu-divider {
+    @apply my-1 border-t border-devflow-border dark:border-zinc-700;
+  }
+
+  .sidebar-workspace-menu-create {
+    @apply flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[13px] font-medium text-devflow-primary transition-colors;
+    @apply hover:bg-devflow-muted dark:hover:bg-zinc-800;
+  }
+
+  /* ─── Sidebar navigation ───────────────────────────────────────────────── */
+
+  .sidebar-section {
+    @apply flex flex-col;
+    gap: var(--spacing-sidebar-nav);
+  }
+
+  .sidebar-section-label {
+    @apply mb-0.5 px-2.5 text-xs font-semibold uppercase leading-none tracking-wider text-devflow-text-muted;
+    @apply dark:text-zinc-500;
+  }
+
+  .sidebar-section-items {
+    @apply flex flex-col;
+    gap: var(--spacing-sidebar-nav);
+  }
+
+  .sidebar-nav-item {
+    @apply relative flex min-h-8 w-full items-center gap-2 rounded-md px-2.5 text-[13px] leading-none text-devflow-text-secondary transition-colors;
+    @apply hover:bg-devflow-muted hover:text-devflow-text;
+    @apply dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-300;
+  }
+
+  .sidebar-nav-item--collapsed {
+    @apply h-8 w-8 justify-center px-0;
+  }
+
+  .sidebar-nav-item--active {
+    @apply bg-[var(--df-nav-tint-soft)] font-medium text-devflow-text;
+    @apply dark:bg-zinc-900 dark:text-zinc-100;
+  }
+
+  .sidebar-nav-item--active::before {
+    content: '';
+    @apply absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded-full bg-devflow-primary;
+  }
+
+  .shell-layout--collapsed .sidebar-nav-item--active::before {
+    display: none;
+  }
+
+  .sidebar-nav-icon {
+    @apply size-[18px] shrink-0 text-devflow-icon-muted;
+  }
+
+  .sidebar-nav-item--active .sidebar-nav-icon {
+    @apply text-devflow-primary;
+  }
+
+  .sidebar-nav-item:disabled {
+    @apply pointer-events-none opacity-40;
+  }
+
+  /* Legacy nav-item alias used outside sidebar */
+  .nav-item {
+    @apply flex items-center gap-2 rounded-md px-2.5 py-1;
+  }
+
+  .btn-compact {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-btn;
+  }
+
+  .header-glass {
+    background-color: var(--df-header-glass);
+  }
+
+  .filter-bar-glass {
+    background-color: var(--df-filter-bar);
+  }
+
+  .drawer-panel-enter {
+    animation: drawer-slide-in 0.28s ease-out;
+  }
+}
+
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}

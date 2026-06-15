@@ -1,0 +1,124 @@
+"""
+Issue module contract — DTOs and narrow read/write interfaces.
+
+Read methods delegate to apps.issues selectors (Phase 3 Slice 6).
+Write methods implemented in later slices.
+"""
+from dataclasses import dataclass, field
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Optional
+from uuid import UUID
+
+
+@dataclass(frozen=True)
+class IssueSummaryDTO:
+    id: UUID
+    project_id: UUID
+    key: str
+    title: str
+    issue_type: str
+    priority: str
+    status_slug: str
+    position: Decimal
+    assignee_id: Optional[UUID] = None
+    sprint_id: Optional[UUID] = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class IssueDetailDTO(IssueSummaryDTO):
+    description: str
+    reporter_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    story_points: Optional[int] = None
+    due_date: Optional[date] = None
+    labels: list[str] = field(default_factory=list)
+    parent_issue_id: Optional[UUID] = None
+
+
+@dataclass(frozen=True)
+class IssueBoardColumnDTO:
+    status_slug: str
+    status_name: str
+    issues: list[IssueSummaryDTO] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class IssueKanbanDTO:
+    project_id: UUID
+    columns: list[IssueBoardColumnDTO] = field(default_factory=list)
+
+
+def get_issue_by_id(issue_id: UUID) -> Optional[IssueDetailDTO]:
+    from apps.issues.selectors import select_issue_by_id
+
+    return select_issue_by_id(issue_id)
+
+
+def get_issues_for_project(project_id: UUID) -> list[IssueSummaryDTO]:
+    from apps.issues.selectors import select_issues_for_project
+
+    return select_issues_for_project(project_id)
+
+
+def get_backlog_issues(project_id: UUID) -> list[IssueSummaryDTO]:
+    from apps.issues.selectors import select_backlog_issues
+
+    return select_backlog_issues(project_id)
+
+
+def get_kanban_board(
+    project_id: UUID,
+    sprint_id: Optional[UUID] = None,
+) -> IssueKanbanDTO:
+    from apps.issues.selectors import select_kanban_board
+
+    return select_kanban_board(project_id, sprint_id=sprint_id)
+
+
+def get_sprint_issues(sprint_id: UUID) -> list[IssueSummaryDTO]:
+    from apps.issues.selectors import select_sprint_issues
+
+    return select_sprint_issues(sprint_id)
+
+
+def apply_status_change(
+    issue_id: UUID,
+    to_status_slug: str,
+    actor_id: UUID,
+) -> None:
+    """
+    Apply a workflow status change to an issue.
+
+    Delegates to workflow.TransitionService via lazy import — no ORM in this
+    module. Called by the transition API facade and by issue_service.
+    """
+    from apps.issues.exceptions import IssueNotFoundError
+    from apps.issues.models import Issue
+    from apps.workflow.services.transition_service import (
+        transition_service as _ts,
+    )
+
+    try:
+        issue = Issue.objects.select_related("status").get(pk=issue_id)
+    except Issue.DoesNotExist:
+        raise IssueNotFoundError(f"Issue '{issue_id}' not found.")
+
+    _ts.transition_issue(issue, to_status_slug, actor_id)
+
+
+def bulk_set_sprint(
+    issue_ids: list[UUID],
+    sprint_id: Optional[UUID],
+) -> int:
+    """
+    Move a list of issues to a sprint (or backlog when sprint_id is None).
+
+    Delegates to issue_service.bulk_move_issues_to_sprint via lazy import.
+    Permission check is the caller's responsibility.
+    Returns the count of updated rows.
+    """
+    from apps.issues.services.issue_service import bulk_move_issues_to_sprint
+
+    return bulk_move_issues_to_sprint(issue_ids, sprint_id)
