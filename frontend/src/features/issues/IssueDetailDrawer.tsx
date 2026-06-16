@@ -30,23 +30,32 @@ import {
   ISSUE_STATUS_OPTIONS,
   STORY_POINT_OPTIONS,
 } from '@/constants/issueOptions'
-import { getIssue as apiGetIssue } from '@/api/issues'
+import {
+  getIssue as apiGetIssue,
+  transitionIssue as apiTransitionIssue,
+} from '@/api/issues'
 import { ApiError } from '@/api/types'
+import { getWorkflow, type WorkflowStatusApi } from '@/api/workflow'
 import { refreshKanbanBoard } from '@/features/kanban/kanbanRefreshBridge'
 import { useIssues } from '@/contexts/IssuesContext'
 import {
   getIssueDetailExtras,
   updateIssueDetailExtras,
 } from '@/services/issueDetailStore'
-import { getIssueById, updateIssueInRegistry } from '@/services/issuesRegistry'
+import {
+  getIssueById,
+  updateIssueInRegistry,
+  upsertApiIssue,
+} from '@/services/issuesRegistry'
 import { isApiIssueId, mapIssueDetailToUi } from '@/services/mapIssueApi'
 import { getProjectById, getSprintById } from '@/services/projectData'
 import { mockMembers } from '@/services/mockMembers'
 import type { IssueDetailExtras, IssueComment } from '@/types/issueDetail'
-import type {
-  IssuePriorityLevel,
-  IssueWorkflowStatus,
-  ProjectIssue,
+import {
+  mapWorkflowToBoardStatus,
+  type IssuePriorityLevel,
+  type IssueWorkflowStatus,
+  type ProjectIssue,
 } from '@/types/issues'
 import type { TaskStatus } from '@/types/tasks'
 import { cn } from '@/utils/cn'
@@ -117,6 +126,9 @@ export function IssueDetailDrawer({
   const [detailLoading, setDetailLoading] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [workflowStatuses, setWorkflowStatuses] = useState<WorkflowStatusApi[]>([])
+  const [workflowLoading, setWorkflowLoading] = useState(false)
+  const [transitioningStatus, setTransitioningStatus] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const initialSnapshotRef = useRef('')
   const loadedWorkflowStatusRef = useRef<IssueWorkflowStatus | undefined>(undefined)
@@ -181,6 +193,38 @@ export function IssueDetailDrawer({
     setDirty(false)
     initialSnapshotRef.current = JSON.stringify({ issue, detail })
   }, [open, issue])
+
+  useEffect(() => {
+    if (!open || !issue?.projectId) {
+      setWorkflowStatuses([])
+      return
+    }
+
+    let active = true
+    setWorkflowLoading(true)
+
+    void getWorkflow(issue.projectId)
+      .then((workflow) => {
+        if (!active) return
+        setWorkflowStatuses(
+          [...workflow.statuses].sort((a, b) => a.order - b.order),
+        )
+      })
+      .catch((error: unknown) => {
+        if (!active) return
+        const message =
+          error instanceof ApiError ? error.message : 'Failed to load workflow statuses.'
+        setSaveError(message)
+        setWorkflowStatuses([])
+      })
+      .finally(() => {
+        if (active) setWorkflowLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [open, issue?.projectId])
 
   const requestClose = useCallback(() => {
     if (dirty) {
@@ -273,6 +317,74 @@ export function IssueDetailDrawer({
       return { ...prev, ...patch }
     })
   }, [])
+
+  const handleStatusChange = useCallback(
+    async (selectedStatus: string) => {
+      if (!draft) return
+
+      if (!persisted) {
+        const status = selectedStatus as IssueWorkflowStatus
+        patchDraft({
+          workflowStatus: status,
+          status: mapWorkflowToBoardStatus(status),
+        })
+        return
+      }
+
+      const targetStatus = workflowStatuses.find(
+        (status) => status.id === selectedStatus,
+      )
+      if (!targetStatus || targetStatus.slug === draft.workflowStatus) return
+
+      setTransitioningStatus(true)
+      setSaveError(null)
+
+      try {
+        await apiTransitionIssue(draft.id, targetStatus.id)
+        const refreshedDetail = await apiGetIssue(draft.id)
+        const refreshed = mapIssueDetailToUi(refreshedDetail, draft.projectId)
+        const nextDraft = dirty
+          ? {
+              ...draft,
+              workflowStatus: refreshed.workflowStatus,
+              status: refreshed.status,
+              done: refreshed.done,
+            }
+          : refreshed
+
+        upsertApiIssue(refreshed)
+        loadedWorkflowStatusRef.current = refreshed.workflowStatus
+        setDraft(nextDraft)
+        onIssueUpdated(refreshed)
+        await loadBacklog(draft.projectId)
+        if (draft.sprintId) {
+          await loadSprintIssues(draft.projectId, draft.sprintId)
+        }
+        refreshKanbanBoard()
+
+        if (!dirty) {
+          setDirty(false)
+          initialSnapshotRef.current = JSON.stringify({ issue: refreshed })
+        }
+      } catch (error) {
+        const message =
+          error instanceof ApiError ? error.message : 'Failed to transition issue.'
+        setSaveError(message)
+      } finally {
+        setTransitioningStatus(false)
+      }
+    },
+    [
+      dirty,
+      draft,
+      loadBacklog,
+      loadSprintIssues,
+      onIssueUpdated,
+      patchDraft,
+      persisted,
+      workflowStatuses,
+    ],
+  )
 
   const patchExtras = useCallback(
     (patch: Partial<IssueDetailExtras>) => {
@@ -471,7 +583,11 @@ export function IssueDetailDrawer({
                     extras={extras}
                     projectName={project?.name}
                     sprintName={sprint?.name}
-                    readOnlyStatus={persisted}
+                    persistedStatus={persisted}
+                    workflowStatuses={workflowStatuses}
+                    statusLoading={workflowLoading}
+                    statusTransitioning={transitioningStatus}
+                    onStatusChange={handleStatusChange}
                     onPatch={patchDraft}
                   />
                 </div>
@@ -688,7 +804,11 @@ export function IssueDetailDrawer({
                   extras={extras}
                   projectName={project?.name}
                   sprintName={sprint?.name}
-                  readOnlyStatus={persisted}
+                  persistedStatus={persisted}
+                  workflowStatuses={workflowStatuses}
+                  statusLoading={workflowLoading}
+                  statusTransitioning={transitioningStatus}
+                  onStatusChange={handleStatusChange}
                   onPatch={patchDraft}
                 />
               </div>
@@ -742,7 +862,11 @@ type MetadataPanelProps = {
   extras: IssueDetailExtras
   projectName?: string
   sprintName?: string
-  readOnlyStatus?: boolean
+  persistedStatus?: boolean
+  workflowStatuses?: WorkflowStatusApi[]
+  statusLoading?: boolean
+  statusTransitioning?: boolean
+  onStatusChange?: (status: string) => void
   onPatch: (patch: Partial<ProjectIssue>) => void
 }
 
@@ -751,7 +875,11 @@ function MetadataPanel({
   extras,
   projectName,
   sprintName,
-  readOnlyStatus = false,
+  persistedStatus = false,
+  workflowStatuses = [],
+  statusLoading = false,
+  statusTransitioning = false,
+  onStatusChange,
   onPatch,
 }: MetadataPanelProps) {
   const assigneeId = memberIdFromAssignee(draft)
@@ -762,6 +890,39 @@ function MetadataPanel({
       : draft.priority === 'low'
         ? 'low'
         : 'medium')
+  const currentWorkflowStatus = draft.workflowStatus ?? 'todo'
+  const selectedWorkflowStatus = workflowStatuses.find(
+    (status) => status.slug === currentWorkflowStatus,
+  )
+  const useWorkflowOptions = persistedStatus && workflowStatuses.length > 0
+  const currentStatusLabel =
+    ISSUE_STATUS_OPTIONS.find((option) => option.value === currentWorkflowStatus)
+      ?.label ?? currentWorkflowStatus
+  const statusOptions = useWorkflowOptions
+    ? [
+        ...(selectedWorkflowStatus
+          ? []
+          : [{ value: currentWorkflowStatus, label: currentStatusLabel }]),
+        ...workflowStatuses.map((status) => ({
+          value: status.id,
+          label: status.name,
+        })),
+      ]
+    : ISSUE_STATUS_OPTIONS.map((option) => ({
+        value: option.value,
+        label: option.label,
+      }))
+  const statusValue =
+    useWorkflowOptions && selectedWorkflowStatus
+      ? selectedWorkflowStatus.id
+      : currentWorkflowStatus
+  const statusDisabled =
+    statusTransitioning || (persistedStatus && (statusLoading || !useWorkflowOptions))
+  const statusHint = statusTransitioning
+    ? 'Updating status…'
+    : statusLoading
+      ? 'Loading workflow statuses…'
+      : undefined
 
   return (
     <div className="space-y-3">
@@ -812,25 +973,14 @@ function MetadataPanel({
       <MetaField label="Status">
         <SelectField
           label="Status"
-          value={draft.workflowStatus ?? 'todo'}
-          disabled={readOnlyStatus}
+          value={statusValue}
+          disabled={statusDisabled}
+          hint={statusHint}
           onChange={(e) => {
-            if (readOnlyStatus) return
-            const status = e.target.value as IssueWorkflowStatus
-            const boardStatus =
-              status === 'done'
-                ? 'done'
-                : status === 'in_progress' ||
-                    status === 'review' ||
-                    status === 'testing'
-                  ? 'in_progress'
-                  : 'todo'
-            onPatch({ workflowStatus: status, status: boardStatus })
+            if (statusDisabled) return
+            onStatusChange?.(e.target.value)
           }}
-          options={ISSUE_STATUS_OPTIONS.map((o) => ({
-            value: o.value,
-            label: o.label,
-          }))}
+          options={statusOptions}
         />
       </MetaField>
 

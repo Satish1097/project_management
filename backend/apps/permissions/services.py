@@ -10,13 +10,8 @@ All authorization flows through PermissionService; no inline role checks elsewhe
 
 from uuid import UUID
 
-
-
 from apps.contracts.membership_contract import get_project_role, user_has_project_access
-
 from apps.contracts.organization_contract import get_organization_member, is_organization_member
-
-
 
 _ORG_MANAGE_ROLES = frozenset({"owner", "admin"})
 

@@ -10,6 +10,7 @@ from apps.issues.api.serializers import (
     IssueCreateSerializer,
     IssueMoveSprintSerializer,
     IssueSerializer,
+    IssueTransitionSerializer,
     IssueUpdateSerializer,
 )
 from apps.issues.exceptions import IssueNotFoundError
@@ -23,6 +24,7 @@ from apps.permissions.drf_permissions import Authenticated
 from apps.permissions.services import permission_service
 from apps.projects.exceptions import ProjectAccessDeniedError, ProjectNotFoundError
 from apps.projects.selectors import select_project_by_id
+from apps.workflow.services import transition_service
 
 
 class IssueBulkAssignSprintSerializer(serializers.Serializer):
@@ -189,6 +191,21 @@ class IssueAssignSprintView(APIView):
             user=request.user,
             issue_id=issue_id,
             sprint_id=serializer.validated_data.get("sprint_id"),
+        )
+        return success_response(data={"issue": IssueSerializer(issue).data})
+
+
+class IssueTransitionView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(request=IssueTransitionSerializer, responses=IssueSerializer, tags=["issues"])
+    def post(self, request, issue_id: UUID):
+        serializer = IssueTransitionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        issue = transition_service.transition_issue(
+            request.user,
+            issue_id,
+            serializer.validated_data["to_status_id"],
         )
         return success_response(data={"issue": IssueSerializer(issue).data})
 

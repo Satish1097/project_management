@@ -5,6 +5,7 @@ from apps.issues.api.views import (
     IssueBulkAssignSprintView,
     IssueDetailView,
     IssueListCreateView,
+    IssueTransitionView,
     ProjectKanbanCompatibilityView,
 )
 
@@ -21,6 +22,11 @@ urlpatterns = [
         name="issue-bulk-assign-sprint",
     ),
     path("issues/<uuid:issue_id>", IssueDetailView.as_view(), name="issue-detail"),
+    path(
+        "issues/<uuid:issue_id>/transition",
+        IssueTransitionView.as_view(),
+        name="issue-transition",
+    ),
     path(
         "issues/<uuid:issue_id>/assign-sprint",
         IssueAssignSprintView.as_view(),

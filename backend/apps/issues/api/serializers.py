@@ -125,7 +125,7 @@ class IssueAssignSerializer(serializers.Serializer):
 
 
 class IssueTransitionSerializer(serializers.Serializer):
-    target_status_id = serializers.UUIDField()
+    to_status_id = serializers.UUIDField()
 
 
 class IssueMoveSprintSerializer(serializers.Serializer):

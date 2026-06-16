@@ -276,19 +276,23 @@ export async function getKanban(projectId: string): Promise<KanbanBoardApi> {
 
 export async function transitionIssue(
   issueId: string,
-  transitionSlug: string,
-  projectId: string,
+  toStatusId: string,
+  projectId?: string,
 ): Promise<IssueApi> {
   try {
-    const workflow = await getWorkflow(projectId)
-    const targetStatusId = statusIdForSlug(workflow, transitionSlug)
-    if (!targetStatusId) {
-      throw new ApiError(`Unknown status "${transitionSlug}".`)
+    let targetStatusId = toStatusId
+    if (projectId) {
+      const workflow = await getWorkflow(projectId)
+      const statusId = statusIdForSlug(workflow, toStatusId)
+      if (!statusId) {
+        throw new ApiError(`Unknown status "${toStatusId}".`)
+      }
+      targetStatusId = statusId
     }
 
     const { data } = await apiClient.post<ApiResponse<{ issue: IssueApi }>>(
       `/issues/${issueId}/transition`,
-      { target_status_id: targetStatusId },
+      { to_status_id: targetStatusId },
     )
     return data.data.issue
   } catch (error) {
