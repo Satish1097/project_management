@@ -1,41 +1,70 @@
 """
-Issue write services — create, update, assign, transition, move sprint.
+Issue Core write services — create, update, sprint assignment.
 
 All authorization flows through PermissionService; no inline role checks.
-Transition logic is delegated to workflow.TransitionService via contract only.
+No transition or board logic in this module.
 """
 from decimal import Decimal
 from uuid import UUID
 
 from django.db import transaction
-from django.db.models import Max
 
-from apps.contracts.issue_contract import IssueDetailDTO
-from apps.contracts.membership_contract import get_project_member
-from apps.contracts.workflow_contract import get_status_by_slug
 from apps.issues.exceptions import (
     ArchivedProjectIssueError,
-    IssueAssignmentError,
     IssueError,
     IssueNotFoundError,
     IssueValidationError,
 )
-from apps.issues.models import Issue, IssueType
-from apps.issues.selectors import select_issue_by_id
+from apps.issues.models import Issue, IssueType, Priority
+from apps.issues.selectors import get_issue_by_id
+from apps.label.models import Label
 from apps.permissions.services import permission_service
 from apps.projects.models import Project, ProjectStatus
+from apps.sprints.exceptions import SprintNotFoundError
+from apps.sprints.models import Sprint
+from apps.workflow.exceptions import WorkflowStatusNotFoundError
+from apps.workflow.selectors import get_default_status
 
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
+_FORBIDDEN_UPDATE_FIELDS = frozenset(
+    {
+        "key",
+        "status",
+        "status_id",
+        "project",
+        "project_id",
+        "reporter",
+        "reporter_id",
+        "id",
+        "created_at",
+        "updated_at",
+    }
+)
+
+_ALLOWED_UPDATE_FIELDS = frozenset(
+    {
+        "title",
+        "description",
+        "type",
+        "priority",
+        "sprint",
+        "sprint_id",
+        "assignee",
+        "assignee_id",
+        "labels",
+        "label_ids",
+        "due_date",
+        "estimate_hours",
+        "story_points",
+    }
+)
 
 
 def _get_issue_or_raise(issue_id: UUID) -> Issue:
-    try:
-        return Issue.objects.select_related("status", "project").get(pk=issue_id)
-    except Issue.DoesNotExist:
+    issue = get_issue_by_id(issue_id)
+    if issue is None:
         raise IssueNotFoundError(f"Issue '{issue_id}' not found.")
+    return issue
 
 
 def _get_project_or_raise(project_id: UUID) -> Project:
@@ -52,363 +81,239 @@ def _reject_archived_project(project: Project) -> None:
         raise ArchivedProjectIssueError("Archived projects are read-only.")
 
 
-def _end_of_column_position(
-    project_id: UUID,
-    status_id: UUID,
-    sprint_id: UUID | None,
-) -> Decimal:
-    qs = Issue.objects.filter(project_id=project_id, status_id=status_id)
-    if sprint_id is None:
-        qs = qs.filter(sprint__isnull=True)
-    else:
-        qs = qs.filter(sprint_id=sprint_id)
-    max_pos = qs.aggregate(m=Max("position"))["m"]
-    return (max_pos + Decimal("1000")) if max_pos is not None else Decimal("1000")
+def _validate_issue_type(issue_type: str) -> None:
+    if issue_type not in IssueType.values:
+        raise IssueValidationError(f"Invalid issue type: '{issue_type}'.")
 
 
-# ---------------------------------------------------------------------------
-# create_issue
-# ---------------------------------------------------------------------------
+def _validate_priority(priority: str) -> None:
+    if priority not in Priority.values:
+        raise IssueValidationError(f"Invalid priority: '{priority}'.")
 
 
-def create_issue(
-    *,
-    project_id: UUID,
-    title: str,
-    actor_id: UUID,
-    description: str = "",
-    issue_type: str = IssueType.TASK,
-    priority: str = "medium",
-    assignee_id: UUID | None = None,
-    sprint_id: UUID | None = None,
-    parent_issue_id: UUID | None = None,
-    story_points: int | None = None,
-    due_date=None,
-    labels: list[str] | None = None,
-) -> IssueDetailDTO:
-    """
-    Create a new issue for the project.
-
-    Flow:
-      - validate project exists
-      - reject archived project
-      - permission_service.can_create_issue()
-      - validate issue_type / parent_issue rules
-      - validate sprint membership and status
-      - resolve default workflow status (todo)
-      - atomically increment Project.next_issue_number
-      - generate key {PROJECT_KEY}-{number}
-      - position at end of column
-      - create Issue
-      - return IssueDetailDTO
-    """
-    project = _get_project_or_raise(project_id)
-    _reject_archived_project(project)
-
-    if not permission_service.can_create_issue(actor_id, project_id):
-        raise IssueError("Permission denied: cannot create issues in this project.")
-
-    # Validate issue_type / parent_issue consistency
-    if issue_type == IssueType.SUBTASK and parent_issue_id is None:
-        raise IssueValidationError("Subtask requires a parent issue.")
-    if issue_type != IssueType.SUBTASK and parent_issue_id is not None:
-        raise IssueValidationError("Only subtasks may have a parent issue.")
-
-    if parent_issue_id is not None:
-        try:
-            parent = Issue.objects.get(pk=parent_issue_id)
-        except Issue.DoesNotExist:
-            raise IssueNotFoundError(f"Parent issue '{parent_issue_id}' not found.")
-        if parent.project_id != project_id:
-            raise IssueValidationError("Parent issue must belong to the same project.")
-        if parent.issue_type == IssueType.SUBTASK:
-            raise IssueValidationError(
-                "Cannot nest subtasks — maximum depth is one level."
-            )
-
-    # Validate sprint (if provided)
-    if sprint_id is not None:
-        from apps.sprints.exceptions import SprintNotFoundError
-        from apps.sprints.models import Sprint, SprintStatus
-
-        try:
-            sprint_obj = Sprint.objects.get(pk=sprint_id)
-        except Sprint.DoesNotExist:
-            raise SprintNotFoundError(f"Sprint '{sprint_id}' not found.")
-        if sprint_obj.project_id != project_id:
-            raise IssueValidationError("Sprint must belong to the same project.")
-        if sprint_obj.status == SprintStatus.COMPLETED:
-            raise IssueValidationError("Cannot assign issue to a completed sprint.")
-
-    # Resolve default workflow status (todo)
-    status_dto = get_status_by_slug(project_id, "todo")
-    if status_dto is None:
-        from apps.workflow.exceptions import WorkflowStatusNotFoundError
-
-        raise WorkflowStatusNotFoundError(
-            "Default 'todo' workflow status not found for project. "
-            "Ensure workflow is seeded."
-        )
-
-    with transaction.atomic():
-        locked_project = Project.objects.select_for_update().get(pk=project_id)
-        locked_project.next_issue_number += 1
-        locked_project.save(update_fields=["next_issue_number"])
-        number = locked_project.next_issue_number
-        key = f"{locked_project.key}-{number}"
-
-        position = _end_of_column_position(project_id, status_dto.id, sprint_id)
-
-        issue = Issue.objects.create(
-            project_id=project_id,
-            number=number,
-            key=key,
-            title=title.strip(),
-            description=description,
-            status_id=status_dto.id,
-            priority=priority,
-            issue_type=issue_type,
-            reporter_id=actor_id,
-            assignee_id=assignee_id,
-            sprint_id=sprint_id,
-            parent_issue_id=parent_issue_id,
-            story_points=story_points,
-            due_date=due_date,
-            labels=labels or [],
-            position=position,
-            created_by_id=actor_id,
-            updated_by_id=actor_id,
-        )
-
-    result = select_issue_by_id(issue.pk)
-    assert result is not None
-    return result
+def _validate_sprint(project_id: UUID, sprint_id: UUID) -> Sprint:
+    try:
+        sprint = Sprint.objects.get(pk=sprint_id)
+    except Sprint.DoesNotExist:
+        raise SprintNotFoundError(f"Sprint '{sprint_id}' not found.")
+    if sprint.project_id != project_id:
+        raise IssueValidationError("Sprint must belong to the same project.")
+    return sprint
 
 
-# ---------------------------------------------------------------------------
-# update_issue
-# ---------------------------------------------------------------------------
+def _validate_label_ids(project_id: UUID, label_ids: list[UUID]) -> list[Label]:
+    if not label_ids:
+        return []
 
-
-_SENTINEL = object()
-
-
-def update_issue(
-    *,
-    issue_id: UUID,
-    actor_id: UUID,
-    title: str | None = None,
-    description: str | None = None,
-    priority: str | None = None,
-    story_points=_SENTINEL,
-    due_date=_SENTINEL,
-    labels: list[str] | None = None,
-    parent_issue_id=_SENTINEL,
-) -> IssueDetailDTO:
-    """
-    Update allowed fields on an existing issue.
-
-    Allowed: title, description, priority, story_points, due_date, labels,
-             parent_issue.
-    NOT allowed: status (use transition endpoint), sprint (use move-sprint endpoint).
-    """
-    issue = _get_issue_or_raise(issue_id)
-    _reject_archived_project(issue.project)
-
-    if not permission_service.can_edit_issue(actor_id, issue.project_id):
-        raise IssueError("Permission denied: cannot edit this issue.")
-
-    update_fields = ["updated_by_id", "updated_at"]
-
-    if title is not None:
-        issue.title = title.strip()
-        update_fields.append("title")
-    if description is not None:
-        issue.description = description
-        update_fields.append("description")
-    if priority is not None:
-        issue.priority = priority
-        update_fields.append("priority")
-    if story_points is not _SENTINEL:
-        issue.story_points = story_points
-        update_fields.append("story_points")
-    if due_date is not _SENTINEL:
-        issue.due_date = due_date
-        update_fields.append("due_date")
-    if labels is not None:
-        issue.labels = labels
-        update_fields.append("labels")
-
-    if parent_issue_id is not _SENTINEL:
-        if parent_issue_id is None:
-            if issue.issue_type == IssueType.SUBTASK:
-                raise IssueValidationError("Cannot remove parent from a subtask.")
-            issue.parent_issue_id = None
-            update_fields.append("parent_issue_id")
-        else:
-            try:
-                parent = Issue.objects.get(pk=parent_issue_id)
-            except Issue.DoesNotExist:
-                raise IssueNotFoundError(
-                    f"Parent issue '{parent_issue_id}' not found."
-                )
-            if parent.project_id != issue.project_id:
-                raise IssueValidationError(
-                    "Parent issue must belong to the same project."
-                )
-            if parent.issue_type == IssueType.SUBTASK:
-                raise IssueValidationError(
-                    "Cannot nest subtasks — maximum depth is one level."
-                )
-            issue.parent_issue_id = parent_issue_id
-            update_fields.append("parent_issue_id")
-
-    issue.updated_by_id = actor_id
-    issue.save(update_fields=update_fields)
-
-    result = select_issue_by_id(issue_id)
-    assert result is not None
-    return result
-
-
-# ---------------------------------------------------------------------------
-# assign_issue
-# ---------------------------------------------------------------------------
-
-
-def assign_issue(
-    *,
-    issue_id: UUID,
-    assignee_id: UUID | None,
-    actor_id: UUID,
-) -> IssueDetailDTO:
-    """
-    Assign (or unassign) an issue.
-
-    Rules:
-      - permission_service.can_assign_issue()
-      - assignee must be a ProjectMember
-      - viewer role cannot be assignee
-    """
-    issue = _get_issue_or_raise(issue_id)
-    _reject_archived_project(issue.project)
-
-    if not permission_service.can_assign_issue(actor_id, issue.project_id):
-        raise IssueAssignmentError(
-            "Permission denied: cannot assign issues in this project."
-        )
-
-    if assignee_id is not None:
-        member = get_project_member(assignee_id, issue.project_id)
-        if member is None:
-            raise IssueAssignmentError(
-                f"User '{assignee_id}' is not a member of this project."
-            )
-        if not permission_service.can_be_assigned(assignee_id, issue.project_id):
-            raise IssueAssignmentError("Viewers cannot be assigned to issues.")
-
-    issue.assignee_id = assignee_id
-    issue.updated_by_id = actor_id
-    issue.save(update_fields=["assignee_id", "updated_by_id", "updated_at"])
-
-    result = select_issue_by_id(issue_id)
-    assert result is not None
-    return result
-
-
-# ---------------------------------------------------------------------------
-# transition_issue
-# ---------------------------------------------------------------------------
-
-
-def transition_issue(
-    *,
-    issue_id: UUID,
-    to_status_slug: str,
-    actor_id: UUID,
-) -> IssueDetailDTO:
-    """
-    Transition an issue to a new workflow status.
-
-    Delegates ONLY to workflow.TransitionService via contract — no inline
-    workflow logic here.
-    """
-    from apps.contracts.issue_contract import apply_status_change
-
-    apply_status_change(issue_id, to_status_slug, actor_id)
-
-    result = select_issue_by_id(issue_id)
-    if result is None:
-        raise IssueNotFoundError(f"Issue '{issue_id}' not found.")
-    return result
-
-
-# ---------------------------------------------------------------------------
-# move_issue_to_sprint
-# ---------------------------------------------------------------------------
-
-
-def move_issue_to_sprint(
-    *,
-    issue_id: UUID,
-    sprint_id: UUID | None,
-    actor_id: UUID,
-) -> IssueDetailDTO:
-    """
-    Move an issue to a sprint or to the backlog (sprint_id=None).
-
-    Rules:
-      - permission_service.can_plan_sprint()
-      - sprint must be in same project
-      - cannot assign to completed sprint
-      - repositioned to end of current status column in new context
-    """
-    issue = _get_issue_or_raise(issue_id)
-    _reject_archived_project(issue.project)
-
-    if not permission_service.can_plan_sprint(actor_id, issue.project_id):
-        raise IssueError("Permission denied: cannot plan sprint for this project.")
-
-    if sprint_id is not None:
-        from apps.sprints.exceptions import SprintNotFoundError
-        from apps.sprints.models import Sprint, SprintStatus
-
-        try:
-            sprint_obj = Sprint.objects.get(pk=sprint_id)
-        except Sprint.DoesNotExist:
-            raise SprintNotFoundError(f"Sprint '{sprint_id}' not found.")
-        if sprint_obj.project_id != issue.project_id:
-            raise IssueValidationError("Sprint must belong to the same project.")
-        if sprint_obj.status == SprintStatus.COMPLETED:
-            raise IssueValidationError("Cannot move issue to a completed sprint.")
-
-    issue.sprint_id = sprint_id
-    issue.position = _end_of_column_position(
-        issue.project_id, issue.status_id, sprint_id
+    labels = list(
+        Label.objects.filter(pk__in=label_ids, project_id=project_id, is_archived=False)
     )
-    issue.updated_by_id = actor_id
-    issue.save(update_fields=["sprint_id", "position", "updated_by_id", "updated_at"])
-
-    result = select_issue_by_id(issue_id)
-    assert result is not None
-    return result
-
-
-# ---------------------------------------------------------------------------
-# bulk_move_issues_to_sprint  (internal — called via issue_contract.bulk_set_sprint)
-# ---------------------------------------------------------------------------
+    if len(labels) != len(set(label_ids)):
+        raise IssueValidationError(
+            "One or more labels are invalid, archived, or not in this project."
+        )
+    return labels
 
 
-def bulk_move_issues_to_sprint(
-    issue_ids: list[UUID],
-    sprint_id: UUID | None,
-) -> int:
-    """
-    Move multiple issues to a sprint (or backlog).
+def _resolve_default_status(project_id: UUID):
+    default_status = get_default_status(project_id)
+    if default_status is None:
+        raise WorkflowStatusNotFoundError(
+            "Default workflow status not found for project. Ensure workflow is seeded."
+        )
+    return default_status
 
-    Internal function — permission check is the caller's responsibility.
-    Returns the count of updated rows.
-    """
-    if not issue_ids:
-        return 0
-    return Issue.objects.filter(pk__in=issue_ids).update(sprint_id=sprint_id)
+
+def _next_issue_key(project_id: UUID) -> str:
+    locked_project = Project.objects.select_for_update().get(pk=project_id)
+    locked_project.next_issue_number += 1
+    locked_project.save(update_fields=["next_issue_number"])
+    return f"{locked_project.key}-{locked_project.next_issue_number}"
+
+
+class IssueService:
+    def create_issue(
+        self,
+        user,
+        project_id: UUID,
+        title: str,
+        description: str | None = None,
+        type: str = IssueType.TASK,
+        priority: str = Priority.MEDIUM,
+        sprint_id: UUID | None = None,
+        assignee_id: UUID | None = None,
+        label_ids: list[UUID] | None = None,
+        due_date=None,
+        estimate_hours: Decimal | float | None = None,
+        story_points: int | None = None,
+    ) -> Issue:
+        project = _get_project_or_raise(project_id)
+        _reject_archived_project(project)
+
+        if not permission_service.can_edit_issue(user.id, project_id):
+            raise IssueError("Permission denied: cannot create issues in this project.")
+
+        normalized_title = title.strip()
+        if not normalized_title:
+            raise IssueValidationError("Title is required.")
+
+        _validate_issue_type(type)
+        _validate_priority(priority)
+
+        if sprint_id is not None:
+            _validate_sprint(project_id, sprint_id)
+
+        labels = _validate_label_ids(project_id, label_ids or [])
+        default_status = _resolve_default_status(project_id)
+
+        with transaction.atomic():
+            key = _next_issue_key(project_id)
+            issue = Issue.objects.create(
+                project_id=project_id,
+                key=key,
+                title=normalized_title,
+                description=description or "",
+                type=type,
+                priority=priority,
+                status_id=default_status.id,
+                sprint_id=sprint_id,
+                assignee_id=assignee_id,
+                reporter_id=user.id,
+                due_date=due_date,
+                estimate_hours=estimate_hours,
+                story_points=story_points,
+            )
+            if labels:
+                issue.labels.set(labels)
+
+        return get_issue_by_id(issue.pk) or issue
+
+    def update_issue(self, user, issue_id: UUID, **fields) -> Issue:
+        issue = _get_issue_or_raise(issue_id)
+        _reject_archived_project(issue.project)
+
+        if not permission_service.can_edit_issue(user.id, issue.project_id):
+            raise IssueError("Permission denied: cannot edit this issue.")
+
+        forbidden = set(fields) & _FORBIDDEN_UPDATE_FIELDS
+        if forbidden:
+            raise IssueValidationError(
+                f"Cannot update fields: {', '.join(sorted(forbidden))}."
+            )
+
+        unknown = set(fields) - _ALLOWED_UPDATE_FIELDS
+        if unknown:
+            raise IssueValidationError(
+                f"Unknown or unsupported fields: {', '.join(sorted(unknown))}."
+            )
+
+        update_fields: list[str] = []
+        label_ids = fields.pop("label_ids", fields.pop("labels", None))
+
+        if "title" in fields:
+            normalized_title = fields["title"].strip() if fields["title"] else ""
+            if not normalized_title:
+                raise IssueValidationError("Title cannot be empty.")
+            issue.title = normalized_title
+            update_fields.append("title")
+
+        if "description" in fields:
+            issue.description = fields["description"] or ""
+            update_fields.append("description")
+
+        if "type" in fields:
+            _validate_issue_type(fields["type"])
+            issue.type = fields["type"]
+            update_fields.append("type")
+
+        if "priority" in fields:
+            _validate_priority(fields["priority"])
+            issue.priority = fields["priority"]
+            update_fields.append("priority")
+
+        sprint_value = fields.get("sprint_id", fields.get("sprint"))
+        if "sprint_id" in fields or "sprint" in fields:
+            if sprint_value is not None:
+                _validate_sprint(issue.project_id, sprint_value)
+            issue.sprint_id = sprint_value
+            update_fields.append("sprint_id")
+
+        assignee_value = fields.get("assignee_id", fields.get("assignee"))
+        if "assignee_id" in fields or "assignee" in fields:
+            issue.assignee_id = assignee_value
+            update_fields.append("assignee_id")
+
+        if "due_date" in fields:
+            issue.due_date = fields["due_date"]
+            update_fields.append("due_date")
+
+        if "estimate_hours" in fields:
+            issue.estimate_hours = fields["estimate_hours"]
+            update_fields.append("estimate_hours")
+
+        if "story_points" in fields:
+            issue.story_points = fields["story_points"]
+            update_fields.append("story_points")
+
+        if update_fields:
+            update_fields.append("updated_at")
+            issue.save(update_fields=update_fields)
+
+        if label_ids is not None:
+            labels = _validate_label_ids(issue.project_id, label_ids)
+            issue.labels.set(labels)
+
+        refreshed = get_issue_by_id(issue_id)
+        return refreshed or issue
+
+    def assign_sprint(self, user, issue_id: UUID, sprint_id: UUID | None) -> Issue:
+        issue = _get_issue_or_raise(issue_id)
+        _reject_archived_project(issue.project)
+
+        if not permission_service.can_edit_issue(user.id, issue.project_id):
+            raise IssueError("Permission denied: cannot edit this issue.")
+
+        if sprint_id is not None:
+            _validate_sprint(issue.project_id, sprint_id)
+
+        issue.sprint_id = sprint_id
+        issue.save(update_fields=["sprint_id", "updated_at"])
+
+        refreshed = get_issue_by_id(issue_id)
+        return refreshed or issue
+
+    def bulk_assign_sprint(
+        self,
+        user,
+        issue_ids: list[UUID],
+        sprint_id: UUID | None,
+    ) -> int:
+        if not issue_ids:
+            return 0
+
+        issues = list(
+            Issue.objects.filter(pk__in=issue_ids).select_related("project")
+        )
+        found_ids = {issue.id for issue in issues}
+        missing = [issue_id for issue_id in issue_ids if issue_id not in found_ids]
+        if missing:
+            raise IssueNotFoundError(f"Issue '{missing[0]}' not found.")
+
+        project_ids = {issue.project_id for issue in issues}
+        if len(project_ids) > 1:
+            raise IssueValidationError("All issues must belong to the same project.")
+
+        project_id = next(iter(project_ids))
+        if sprint_id is not None:
+            _validate_sprint(project_id, sprint_id)
+
+        for issue in issues:
+            _reject_archived_project(issue.project)
+            if not permission_service.can_edit_issue(user.id, issue.project_id):
+                raise IssueError("Permission denied: cannot edit this issue.")
+
+        with transaction.atomic():
+            return Issue.objects.filter(pk__in=issue_ids).update(sprint_id=sprint_id)
+
+
+issue_service = IssueService()

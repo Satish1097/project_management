@@ -2,24 +2,24 @@ from django.conf import settings
 from django.db import models
 
 from apps.foundation.models.base import BaseModel
+from apps.label.models import Label
 from apps.projects.models import Project
 from apps.sprints.models import Sprint
 from apps.workflow.models import WorkflowStatus
 
 
+class IssueType(models.TextChoices):
+    TASK = "task", "Task"
+    BUG = "bug", "Bug"
+    STORY = "story", "Story"
+    EPIC = "epic", "Epic"
+
+
 class Priority(models.TextChoices):
-    LOWEST = "lowest", "Lowest"
     LOW = "low", "Low"
     MEDIUM = "medium", "Medium"
     HIGH = "high", "High"
-    HIGHEST = "highest", "Highest"
-
-
-class IssueType(models.TextChoices):
-    TASK = "task", "Task"
-    STORY = "story", "Story"
-    BUG = "bug", "Bug"
-    SUBTASK = "subtask", "Subtask"
+    CRITICAL = "critical", "Critical"
 
 
 class Issue(BaseModel):
@@ -28,36 +28,23 @@ class Issue(BaseModel):
         on_delete=models.PROTECT,
         related_name="issues",
     )
-    number = models.PositiveIntegerField()
-    key = models.CharField(max_length=50, unique=True, db_index=True)
+    key = models.CharField(max_length=50)
     title = models.CharField(max_length=500)
     description = models.TextField(blank=True)
-    status = models.ForeignKey(
-        WorkflowStatus,
-        on_delete=models.PROTECT,
-        related_name="issues",
+    type = models.CharField(
+        max_length=20,
+        choices=IssueType.choices,
+        default=IssueType.TASK,
     )
     priority = models.CharField(
         max_length=20,
         choices=Priority.choices,
         default=Priority.MEDIUM,
     )
-    issue_type = models.CharField(
-        max_length=20,
-        choices=IssueType.choices,
-        default=IssueType.TASK,
-    )
-    reporter = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    status = models.ForeignKey(
+        WorkflowStatus,
         on_delete=models.PROTECT,
-        related_name="reported_issues",
-    )
-    assignee = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="assigned_issues",
+        related_name="issues",
     )
     sprint = models.ForeignKey(
         Sprint,
@@ -66,38 +53,44 @@ class Issue(BaseModel):
         blank=True,
         related_name="issues",
     )
-    parent_issue = models.ForeignKey(
-        "self",
-        on_delete=models.PROTECT,
+    labels = models.ManyToManyField(
+        Label,
+        blank=True,
+        related_name="issues",
+    )
+    assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="subtasks",
+        related_name="assigned_issues",
     )
-    story_points = models.DecimalField(
-        max_digits=6,
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reported_issues",
+    )
+    due_date = models.DateField(null=True, blank=True)
+    estimate_hours = models.DecimalField(
+        max_digits=8,
         decimal_places=2,
         null=True,
         blank=True,
     )
-    due_date = models.DateField(null=True, blank=True)
-    labels = models.JSONField(default=list)
-    position = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+    story_points = models.IntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = "issue"
         verbose_name_plural = "issues"
         constraints = [
             models.UniqueConstraint(
-                fields=["project", "number"],
-                name="issues_issue_project_number_uniq",
+                fields=["project", "key"],
+                name="issues_issue_project_key_uniq",
             ),
         ]
         indexes = [
             models.Index(fields=["project", "status"]),
             models.Index(fields=["project", "sprint"]),
             models.Index(fields=["project", "assignee"]),
-            models.Index(fields=["project", "position"]),
+            models.Index(fields=["project", "priority"]),
         ]
-
-    def __str__(self):
-        return self.key

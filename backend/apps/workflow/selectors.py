@@ -4,14 +4,15 @@ Read-only workflow selectors for apps.workflow.
 from uuid import UUID
 
 from django.db.models import QuerySet
-from django.utils.text import slugify
 
 from apps.contracts.workflow_contract import (
     WorkflowConfigDTO,
     WorkflowStatusDTO,
     WorkflowTransitionDTO,
 )
+from apps.workflow.constants import DEFAULT_STATUS_SLUG
 from apps.workflow.models import WorkflowScheme, WorkflowStatus, WorkflowTransition
+from apps.workflow.slug_utils import status_slug
 
 
 def get_project_workflow(project_id: UUID) -> WorkflowScheme | None:
@@ -80,9 +81,7 @@ def get_allowed_transitions(
 
 
 def _status_slug(status: WorkflowStatus) -> str:
-    # Keep legacy slug-compatible behavior for contract callers.
-    base = status.category or status.name
-    return slugify(base).replace("-", "_")
+    return status_slug(name=status.name, category=status.category)
 
 
 def _to_status_dto(status: WorkflowStatus) -> WorkflowStatusDTO:
@@ -93,7 +92,7 @@ def _to_status_dto(status: WorkflowStatus) -> WorkflowStatusDTO:
         category=status.category,
         position=status.order,
         is_default=status.is_default,
-        is_terminal=status.category == "done",
+        is_terminal=_status_slug(status) == "done",
     )
 
 
@@ -122,6 +121,10 @@ def select_status_by_slug(project_id: UUID, slug: str) -> WorkflowStatusDTO | No
     for status in statuses:
         if _status_slug(status) == normalized:
             return _to_status_dto(status)
+    if normalized == DEFAULT_STATUS_SLUG:
+        default_status = get_default_status(project_id)
+        if default_status is not None:
+            return _to_status_dto(default_status)
     return None
 
 

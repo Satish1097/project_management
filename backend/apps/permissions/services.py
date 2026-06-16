@@ -116,12 +116,6 @@ class PermissionService:
 
 
 
-    def can_create_issue(self, user_id: UUID, project_id: UUID) -> bool:
-
-        return _role_in_project(user_id, project_id, _ISSUE_WRITE_ROLES)
-
-
-
     def can_edit_issue(self, user_id: UUID, project_id: UUID) -> bool:
 
         return _role_in_project(user_id, project_id, _ISSUE_WRITE_ROLES)

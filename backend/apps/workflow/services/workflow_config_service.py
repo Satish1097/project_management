@@ -7,6 +7,7 @@ from django.db import transaction
 from apps.workflow.models import (
     WorkflowScheme,
     WorkflowStatus,
+    WorkflowStatusCategory,
     WorkflowTransition,
 )
 
