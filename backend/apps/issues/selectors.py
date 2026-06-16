@@ -6,6 +6,8 @@ Selectors must not mutate data or contain business logic.
 from collections import defaultdict
 from uuid import UUID
 
+from django.utils.text import slugify
+
 from apps.contracts.issue_contract import (
     IssueBoardColumnDTO,
     IssueDetailDTO,
@@ -16,6 +18,14 @@ from apps.issues.models import Issue
 from apps.workflow.models import WorkflowStatus
 
 
+def _status_slug(status: WorkflowStatus) -> str:
+    # Temporary compatibility for Phase 6 workflow schema (slug removed).
+    category = getattr(status, "category", None)
+    if category in {"todo", "in_progress", "done"}:
+        return category
+    return getattr(status, "slug", slugify(status.name).replace("-", "_"))
+
+
 def _issue_to_summary_dto(issue: Issue) -> IssueSummaryDTO:
     return IssueSummaryDTO(
         id=issue.id,
@@ -24,7 +34,7 @@ def _issue_to_summary_dto(issue: Issue) -> IssueSummaryDTO:
         title=issue.title,
         issue_type=issue.issue_type,
         priority=issue.priority,
-        status_slug=issue.status.slug,
+        status_slug=_status_slug(issue.status),
         position=issue.position,
         assignee_id=issue.assignee_id,
         sprint_id=issue.sprint_id,
@@ -42,7 +52,7 @@ def _issue_to_detail_dto(issue: Issue) -> IssueDetailDTO:
         title=issue.title,
         issue_type=issue.issue_type,
         priority=issue.priority,
-        status_slug=issue.status.slug,
+        status_slug=_status_slug(issue.status),
         position=issue.position,
         assignee_id=issue.assignee_id,
         sprint_id=issue.sprint_id,
@@ -78,7 +88,7 @@ def select_backlog_issues(project_id: UUID) -> list[IssueSummaryDTO]:
     issues = (
         Issue.objects.filter(project_id=project_id, sprint__isnull=True)
         .select_related("status")
-        .order_by("status__position", "position")
+        .order_by("status__order", "position")
     )
     return [_issue_to_summary_dto(issue) for issue in issues]
 
@@ -87,7 +97,7 @@ def select_sprint_issues(sprint_id: UUID) -> list[IssueSummaryDTO]:
     issues = (
         Issue.objects.filter(sprint_id=sprint_id)
         .select_related("status")
-        .order_by("status__position", "position")
+        .order_by("status__order", "position")
     )
     return [_issue_to_summary_dto(issue) for issue in issues]
 
@@ -96,7 +106,7 @@ def select_kanban_board(
     project_id: UUID,
     sprint_id: UUID | None = None,
 ) -> IssueKanbanDTO:
-    statuses = WorkflowStatus.objects.filter(project_id=project_id).order_by("position")
+    statuses = WorkflowStatus.objects.filter(project_id=project_id).order_by("order")
 
     issues_qs = Issue.objects.filter(project_id=project_id).select_related("status")
     if sprint_id is not None:
@@ -111,7 +121,7 @@ def select_kanban_board(
 
     columns = [
         IssueBoardColumnDTO(
-            status_slug=status.slug,
+            status_slug=_status_slug(status),
             status_name=status.name,
             issues=issues_by_status.get(status.id, []),
         )

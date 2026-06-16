@@ -153,14 +153,14 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="workflowstatus",
             constraint=models.UniqueConstraint(
-                fields=("project", "slug"), name="workflow_workflowstatus_project_slug_uniq"
+                fields=("project", "slug"), name="wf_ws_proj_slug_uniq"
             ),
         ),
         migrations.AddConstraint(
             model_name="workflowtransition",
             constraint=models.UniqueConstraint(
                 fields=("project", "from_status", "to_status"),
-                name="workflow_workflowtransition_project_from_to_uniq",
+                name="wf_wt_proj_from_to_uniq",
             ),
         ),
     ]

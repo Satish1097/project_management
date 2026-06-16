@@ -63,13 +63,41 @@ class Migration(migrations.Migration):
                 "verbose_name_plural": "workflow schemes",
             },
         ),
-        migrations.RemoveConstraint(
-            model_name="workflowstatus",
-            name="workflow_workflowstatus_project_slug_uniq",
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql="""
+                    ALTER TABLE workflow_workflowstatus
+                    DROP CONSTRAINT IF EXISTS workflow_workflowstatus_project_slug_uniq,
+                    DROP CONSTRAINT IF EXISTS wf_ws_proj_slug_uniq
+                    """,
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+            ],
+            state_operations=[
+                migrations.RemoveConstraint(
+                    model_name="workflowstatus",
+                    name="wf_ws_proj_slug_uniq",
+                ),
+            ],
         ),
-        migrations.RemoveConstraint(
-            model_name="workflowtransition",
-            name="workflow_workflowtransition_project_from_to_uniq",
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql="""
+                    ALTER TABLE workflow_workflowtransition
+                    DROP CONSTRAINT IF EXISTS workflow_workflowtransition_project_from_to_uniq,
+                    DROP CONSTRAINT IF EXISTS wf_wt_proj_from_to_uniq
+                    """,
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+            ],
+            state_operations=[
+                migrations.RemoveConstraint(
+                    model_name="workflowtransition",
+                    name="wf_wt_proj_from_to_uniq",
+                ),
+            ],
         ),
         migrations.RemoveField(
             model_name="workflowstatus",
@@ -133,7 +161,7 @@ class Migration(migrations.Migration):
             model_name="workflowstatus",
             index=models.Index(
                 fields=["project", "order"],
-                name="workflow_status_project_order_idx",
+                name="wf_st_proj_order_idx",
             ),
         ),
         migrations.AddConstraint(
@@ -147,7 +175,7 @@ class Migration(migrations.Migration):
             model_name="workflowstatus",
             constraint=models.UniqueConstraint(
                 fields=("project", "name"),
-                name="workflow_status_project_name_uniq",
+                name="wf_st_proj_name_uniq",
             ),
         ),
         migrations.AddConstraint(
@@ -155,14 +183,14 @@ class Migration(migrations.Migration):
             constraint=models.UniqueConstraint(
                 condition=models.Q(is_default=True),
                 fields=("project",),
-                name="workflow_status_project_default_uniq",
+                name="wf_st_proj_def_uniq",
             ),
         ),
         migrations.AddConstraint(
             model_name="workflowtransition",
             constraint=models.UniqueConstraint(
                 fields=("project", "from_status", "to_status"),
-                name="workflow_transition_project_from_to_uniq",
+                name="wf_tr_proj_from_to_uniq",
             ),
         ),
     ]

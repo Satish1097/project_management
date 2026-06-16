@@ -30,6 +30,6 @@ class WorkflowTransition(BaseModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["project", "from_status", "to_status"],
-                name="workflow_transition_project_from_to_uniq",
+                name="wf_tr_proj_from_to_uniq",
             ),
         ]

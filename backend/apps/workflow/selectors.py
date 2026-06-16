@@ -4,7 +4,13 @@ Read-only workflow selectors for apps.workflow.
 from uuid import UUID
 
 from django.db.models import QuerySet
+from django.utils.text import slugify
 
+from apps.contracts.workflow_contract import (
+    WorkflowConfigDTO,
+    WorkflowStatusDTO,
+    WorkflowTransitionDTO,
+)
 from apps.workflow.models import WorkflowScheme, WorkflowStatus, WorkflowTransition
 
 
@@ -71,3 +77,80 @@ def get_allowed_transitions(
         project_id=project_id,
         from_status_id=from_status_id,
     ).select_related("from_status", "to_status")
+
+
+def _status_slug(status: WorkflowStatus) -> str:
+    # Keep legacy slug-compatible behavior for contract callers.
+    base = status.category or status.name
+    return slugify(base).replace("-", "_")
+
+
+def _to_status_dto(status: WorkflowStatus) -> WorkflowStatusDTO:
+    return WorkflowStatusDTO(
+        id=status.id,
+        name=status.name,
+        slug=_status_slug(status),
+        category=status.category,
+        position=status.order,
+        is_default=status.is_default,
+        is_terminal=status.category == "done",
+    )
+
+
+def select_workflow_config(project_id: UUID) -> WorkflowConfigDTO:
+    statuses = list(get_project_statuses(project_id))
+    transitions = list(get_project_transitions(project_id))
+    return WorkflowConfigDTO(
+        project_id=project_id,
+        statuses=[_to_status_dto(status) for status in statuses],
+        transitions=[
+            WorkflowTransitionDTO(
+                id=transition.id,
+                from_status_slug=_status_slug(transition.from_status),
+                to_status_slug=_status_slug(transition.to_status),
+                name=transition.name,
+                requires_approval=False,
+            )
+            for transition in transitions
+        ],
+    )
+
+
+def select_status_by_slug(project_id: UUID, slug: str) -> WorkflowStatusDTO | None:
+    normalized = slug.strip().lower().replace("-", "_")
+    statuses = get_project_statuses(project_id)
+    for status in statuses:
+        if _status_slug(status) == normalized:
+            return _to_status_dto(status)
+    return None
+
+
+def select_is_valid_transition(project_id: UUID, from_slug: str, to_slug: str) -> bool:
+    from_status = select_status_by_slug(project_id, from_slug)
+    to_status = select_status_by_slug(project_id, to_slug)
+    if from_status is None or to_status is None:
+        return False
+    return WorkflowTransition.objects.filter(
+        project_id=project_id,
+        from_status_id=from_status.id,
+        to_status_id=to_status.id,
+    ).exists()
+
+
+def select_allowed_transitions(
+    project_id: UUID,
+    from_slug: str,
+) -> list[WorkflowTransitionDTO]:
+    from_status = select_status_by_slug(project_id, from_slug)
+    if from_status is None:
+        return []
+    return [
+        WorkflowTransitionDTO(
+            id=transition.id,
+            from_status_slug=_status_slug(transition.from_status),
+            to_status_slug=_status_slug(transition.to_status),
+            name=transition.name,
+            requires_approval=False,
+        )
+        for transition in get_allowed_transitions(project_id, from_status.id)
+    ]

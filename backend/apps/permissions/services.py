@@ -16,8 +16,6 @@ from apps.contracts.membership_contract import get_project_role, user_has_projec
 
 from apps.contracts.organization_contract import get_organization_member, is_organization_member
 
-from apps.contracts.workflow_contract import is_valid_transition
-
 
 
 _ORG_MANAGE_ROLES = frozenset({"owner", "admin"})
@@ -28,6 +26,8 @@ _PROJECT_MANAGE_MEMBER_ROLES = frozenset({"project_admin", "project_manager"})
 
 _LABEL_MANAGE_ROLES = frozenset({"project_admin", "project_manager"})
 
+_WORKFLOW_MANAGE_ROLES = frozenset({"project_admin", "project_manager"})
+
 _ISSUE_WRITE_ROLES = frozenset({"project_admin", "project_manager", "developer", "qa"})
 
 _ISSUE_ASSIGN_ROLES = frozenset({"project_admin", "project_manager", "developer"})
@@ -35,12 +35,6 @@ _ISSUE_ASSIGN_ROLES = frozenset({"project_admin", "project_manager", "developer"
 _SPRINT_MANAGE_ROLES = frozenset({"project_admin", "project_manager"})
 
 _SPRINT_PLAN_ROLES = frozenset({"project_admin", "project_manager", "developer", "qa"})
-
-_TRANSITION_ROLES = frozenset({"project_admin", "project_manager", "developer", "qa"})
-
-_APPROVE_ROLES = frozenset({"project_admin", "project_manager", "qa"})
-
-_REOPEN_ROLES = frozenset({"project_admin", "project_manager"})
 
 
 
@@ -118,7 +112,7 @@ class PermissionService:
 
     def can_manage_workflow(self, user_id: UUID, project_id: UUID) -> bool:
 
-        return False
+        return _role_in_project(user_id, project_id, _WORKFLOW_MANAGE_ROLES)
 
 
 
@@ -141,46 +135,11 @@ class PermissionService:
 
 
     def can_transition_issue(
-
         self,
-
         user_id: UUID,
-
         project_id: UUID,
-
-        from_status_slug: str,
-
-        to_status_slug: str,
-
     ) -> bool:
-
-        if not user_has_project_access(user_id, project_id):
-
-            return False
-
-        if not is_valid_transition(project_id, from_status_slug, to_status_slug):
-
-            return False
-
-
-
-        role = get_project_role(user_id, project_id)
-
-        if role is None:
-
-            return False
-
-
-
-        if from_status_slug == "in_review" and to_status_slug == "done":
-
-            return role in _APPROVE_ROLES
-
-        if from_status_slug == "done" and to_status_slug == "in_review":
-
-            return role in _REOPEN_ROLES
-
-        return role in _TRANSITION_ROLES
+        return user_has_project_access(user_id, project_id)
 
 
 

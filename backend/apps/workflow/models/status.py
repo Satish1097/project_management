@@ -29,16 +29,16 @@ class WorkflowStatus(BaseModel):
         verbose_name = "workflow status"
         verbose_name_plural = "workflow statuses"
         indexes = [
-            models.Index(fields=["project", "order"], name="workflow_status_project_order_idx"),
+            models.Index(fields=["project", "order"], name="wf_st_proj_order_idx"),
         ]
         constraints = [
             models.UniqueConstraint(
                 fields=["project", "name"],
-                name="workflow_status_project_name_uniq",
+                name="wf_st_proj_name_uniq",
             ),
             models.UniqueConstraint(
                 fields=["project"],
                 condition=models.Q(is_default=True),
-                name="workflow_status_project_default_uniq",
+                name="wf_st_proj_def_uniq",
             ),
         ]
