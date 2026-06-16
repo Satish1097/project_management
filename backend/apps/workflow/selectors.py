@@ -1,83 +1,73 @@
 """
-Read-only workflow lookups and projections for apps.workflow.
-
-Selectors must not mutate data or contain business logic.
+Read-only workflow selectors for apps.workflow.
 """
 from uuid import UUID
 
-from apps.contracts.workflow_contract import (
-    WorkflowConfigDTO,
-    WorkflowStatusDTO,
-    WorkflowTransitionDTO,
-)
-from apps.workflow.models import WorkflowStatus, WorkflowTransition
+from django.db.models import QuerySet
+
+from apps.workflow.models import WorkflowScheme, WorkflowStatus, WorkflowTransition
 
 
-def _status_to_dto(status: WorkflowStatus) -> WorkflowStatusDTO:
-    return WorkflowStatusDTO(
-        id=status.id,
-        name=status.name,
-        slug=status.slug,
-        category=status.category,
-        position=status.position,
-        is_default=status.is_default,
-        is_terminal=status.is_terminal,
+def get_project_workflow(project_id: UUID) -> WorkflowScheme | None:
+    return (
+        WorkflowScheme.objects.filter(project_id=project_id)
+        .only("id", "project_id", "name")
+        .first()
     )
 
 
-def _transition_to_dto(transition: WorkflowTransition) -> WorkflowTransitionDTO:
-    return WorkflowTransitionDTO(
-        id=transition.id,
-        from_status_slug=transition.from_status.slug,
-        to_status_slug=transition.to_status.slug,
-        name=transition.name,
-        requires_approval=transition.requires_approval,
+def get_project_statuses(project_id: UUID) -> QuerySet[WorkflowStatus]:
+    return WorkflowStatus.objects.filter(project_id=project_id).only(
+        "id",
+        "project_id",
+        "name",
+        "category",
+        "color",
+        "order",
+        "is_default",
+    ).order_by("order")
+
+
+def get_default_status(project_id: UUID) -> WorkflowStatus | None:
+    return (
+        WorkflowStatus.objects.filter(project_id=project_id, is_default=True)
+        .only(
+            "id",
+            "project_id",
+            "name",
+            "category",
+            "color",
+            "order",
+            "is_default",
+        )
+        .first()
     )
 
 
-def select_workflow_config(project_id: UUID) -> WorkflowConfigDTO:
-    statuses = WorkflowStatus.objects.filter(project_id=project_id).order_by("position")
-    transitions = WorkflowTransition.objects.filter(project_id=project_id).select_related(
+def get_status_by_id(status_id: UUID) -> WorkflowStatus | None:
+    return WorkflowStatus.objects.filter(id=status_id).only(
+        "id",
+        "project_id",
+        "name",
+        "category",
+        "color",
+        "order",
+        "is_default",
+    ).first()
+
+
+def get_project_transitions(project_id: UUID) -> QuerySet[WorkflowTransition]:
+    return WorkflowTransition.objects.filter(project_id=project_id).select_related(
         "from_status",
         "to_status",
     )
-    return WorkflowConfigDTO(
-        project_id=project_id,
-        statuses=[_status_to_dto(status) for status in statuses],
-        transitions=[_transition_to_dto(transition) for transition in transitions],
-    )
 
 
-def select_status_by_slug(project_id: UUID, slug: str) -> WorkflowStatusDTO | None:
-    try:
-        status = WorkflowStatus.objects.get(project_id=project_id, slug=slug)
-    except WorkflowStatus.DoesNotExist:
-        return None
-    return _status_to_dto(status)
-
-
-def select_is_valid_transition(
+def get_allowed_transitions(
     project_id: UUID,
-    from_slug: str,
-    to_slug: str,
-) -> bool:
+    from_status_id: UUID,
+) -> QuerySet[WorkflowTransition]:
     return WorkflowTransition.objects.filter(
         project_id=project_id,
-        from_status__slug=from_slug,
-        to_status__slug=to_slug,
-    ).exists()
-
-
-def select_allowed_transitions(
-    project_id: UUID,
-    from_slug: str,
-) -> list[WorkflowTransitionDTO]:
-    transitions = (
-        WorkflowTransition.objects.filter(
-            project_id=project_id,
-            from_status__slug=from_slug,
-        )
-        .select_related("from_status", "to_status")
-        .order_by("to_status__position")
-    )
-    return [_transition_to_dto(transition) for transition in transitions]
+        from_status_id=from_status_id,
+    ).select_related("from_status", "to_status")
