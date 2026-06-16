@@ -5,10 +5,16 @@ from apps.issues.api.views import (
     IssueBulkAssignSprintView,
     IssueDetailView,
     IssueListCreateView,
+    ProjectKanbanCompatibilityView,
 )
 
 urlpatterns = [
     path("issues", IssueListCreateView.as_view(), name="issue-list-create"),
+    path(
+        "projects/<uuid:project_id>/kanban",
+        ProjectKanbanCompatibilityView.as_view(),
+        name="project-kanban-compatibility",
+    ),
     path(
         "issues/bulk/assign-sprint",
         IssueBulkAssignSprintView.as_view(),

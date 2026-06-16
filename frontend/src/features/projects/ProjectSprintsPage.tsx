@@ -29,10 +29,12 @@ export function ProjectSprintsPage() {
   const { projectId = '' } = useParams()
   const navigate = useNavigate()
   const { sprints: allSprints, loading, error } = useSprints()
-  const { startSprint, completeSprint } = useSprintActions(projectId)
+  const { startSprint, pauseSprint, resumeSprint, completeSprint } =
+    useSprintActions(projectId)
   useLoadProjectSprints(projectId)
 
   const [createOpen, setCreateOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<Sprint | null>(null)
   const [completeTarget, setCompleteTarget] = useState<Sprint | null>(null)
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<SprintFilterStatus>('all')
@@ -94,6 +96,24 @@ export function ProjectSprintsPage() {
     navigate(sprintBoardPath(projectId, sprint.id))
   }
 
+  const handlePause = async (sprint: Sprint) => {
+    setActionError(null)
+    const result = await pauseSprint(sprint.id)
+    if (!result.ok) {
+      setActionError(result.message)
+    }
+  }
+
+  const handleResume = async (sprint: Sprint) => {
+    setActionError(null)
+    const result = await resumeSprint(sprint.id)
+    if (!result.ok) {
+      setActionError(result.message)
+      return
+    }
+    navigate(sprintBoardPath(projectId, sprint.id))
+  }
+
   return (
     <>
       <main className="page-main">
@@ -146,6 +166,7 @@ export function ProjectSprintsPage() {
               <ActiveSprintCard
                 sprint={active}
                 projectId={projectId}
+                onPause={() => void handlePause(active)}
                 onComplete={() => setCompleteTarget(active)}
               />
             </section>
@@ -162,7 +183,9 @@ export function ProjectSprintsPage() {
                     <PlannedSprintCard
                       sprint={sprint}
                       projectId={projectId}
-                      onStart={() => void handleStart(sprint)}
+                      primaryActionLabel="Start sprint"
+                      onPrimaryAction={() => void handleStart(sprint)}
+                      onEdit={() => setEditTarget(sprint)}
                     />
                   </li>
                 ))}
@@ -194,7 +217,15 @@ export function ProjectSprintsPage() {
                     <PlannedSprintCard
                       sprint={sprint}
                       projectId={projectId}
-                      onStart={() => void handleStart(sprint)}
+                      primaryActionLabel={
+                        sprint.status === 'paused' ? 'Resume sprint' : undefined
+                      }
+                      onPrimaryAction={
+                        sprint.status === 'paused'
+                          ? () => void handleResume(sprint)
+                          : undefined
+                      }
+                      onEdit={() => setEditTarget(sprint)}
                     />
                   </li>
                 ))}
@@ -223,6 +254,13 @@ export function ProjectSprintsPage() {
         onCreated={(id) => navigate(sprintPlanningPath(projectId, id))}
       />
 
+      <CreateSprintDrawer
+        open={Boolean(editTarget)}
+        onClose={() => setEditTarget(null)}
+        projectId={projectId}
+        sprintToEdit={editTarget ?? undefined}
+      />
+
       {completeTarget && (
         <CompleteSprintModal
           open
@@ -243,10 +281,12 @@ export function ProjectSprintsPage() {
 function ActiveSprintCard({
   sprint,
   projectId,
+  onPause,
   onComplete,
 }: {
   sprint: Sprint
   projectId: string
+  onPause: () => void
   onComplete: () => void
 }) {
   const pct = getSprintCompletionPercent(sprint)
@@ -298,6 +338,13 @@ function ActiveSprintCard({
         </Link>
         <button
           type="button"
+          onClick={onPause}
+          className="rounded-lg border border-devflow-border px-3 py-1.5 text-btn text-devflow-text-secondary hover:bg-devflow-card"
+        >
+          Pause sprint
+        </button>
+        <button
+          type="button"
           onClick={onComplete}
           className="rounded-lg border border-devflow-border px-3 py-1.5 text-btn text-devflow-text-secondary hover:bg-devflow-card"
         >
@@ -311,11 +358,15 @@ function ActiveSprintCard({
 function PlannedSprintCard({
   sprint,
   projectId,
-  onStart,
+  primaryActionLabel,
+  onPrimaryAction,
+  onEdit,
 }: {
   sprint: Sprint
   projectId: string
-  onStart: () => void
+  primaryActionLabel?: 'Start sprint' | 'Resume sprint'
+  onPrimaryAction?: () => void
+  onEdit: () => void
 }) {
   return (
     <article className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-devflow-border bg-devflow-card p-4">
@@ -334,18 +385,27 @@ function PlannedSprintCard({
         )}
       </div>
       <div className="flex flex-wrap gap-2">
+        {primaryActionLabel && onPrimaryAction ? (
+          <button
+            type="button"
+            onClick={onPrimaryAction}
+            className="rounded-lg bg-devflow-primary px-3 py-1.5 text-btn text-white hover:opacity-95"
+          >
+            {primaryActionLabel}
+          </button>
+        ) : null}
         <button
           type="button"
-          onClick={onStart}
-          className="rounded-lg bg-devflow-primary px-3 py-1.5 text-btn text-white hover:opacity-95"
+          onClick={onEdit}
+          className="rounded-lg border border-devflow-border px-3 py-1.5 text-btn text-devflow-text hover:bg-devflow-surface"
         >
-          Start sprint
+          Edit
         </button>
         <Link
           to={sprintPlanningPath(projectId, sprint.id)}
           className="rounded-lg border border-devflow-border px-3 py-1.5 text-btn text-devflow-text hover:bg-devflow-surface"
         >
-          Edit
+          Plan
         </Link>
       </div>
     </article>

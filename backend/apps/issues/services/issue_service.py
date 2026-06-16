@@ -9,6 +9,7 @@ from uuid import UUID
 
 from django.db import transaction
 
+from apps.contracts.workflow_contract import ensure_project_workflow
 from apps.issues.exceptions import (
     ArchivedProjectIssueError,
     IssueError,
@@ -116,6 +117,7 @@ def _validate_label_ids(project_id: UUID, label_ids: list[UUID]) -> list[Label]:
 
 
 def _resolve_default_status(project_id: UUID):
+    ensure_project_workflow(project_id)
     default_status = get_default_status(project_id)
     if default_status is None:
         raise WorkflowStatusNotFoundError(

@@ -8,6 +8,8 @@ from uuid import UUID
 from django.db.models import Q, QuerySet
 
 from apps.issues.models import Issue
+from apps.sprints.selectors import get_active_sprint
+from apps.workflow.selectors import select_workflow_config
 
 
 def _optimized_issue_queryset() -> QuerySet[Issue]:
@@ -69,3 +71,31 @@ def get_backlog_issues(project_id: UUID) -> QuerySet[Issue]:
         project_id=project_id,
         sprint__isnull=True,
     )
+
+
+def select_project_kanban_board(project_id: UUID) -> dict:
+    workflow = select_workflow_config(project_id)
+    issues_by_status_id = {
+        status.id: []
+        for status in workflow.statuses
+    }
+
+    active_sprint = get_active_sprint(project_id)
+    issues = get_sprint_issues(active_sprint.id) if active_sprint else Issue.objects.none()
+
+    for issue in issues:
+        if issue.status_id in issues_by_status_id:
+            issues_by_status_id[issue.status_id].append(issue)
+
+    return {
+        "project_id": project_id,
+        "columns": [
+            {
+                "status_id": status.id,
+                "status_slug": status.slug,
+                "status_name": status.name,
+                "issues": issues_by_status_id[status.id],
+            }
+            for status in workflow.statuses
+        ],
+    }

@@ -87,6 +87,29 @@ export type KanbanBoardApi = {
   columns: KanbanBoardColumnApi[]
 }
 
+function normalizeIssueType(type?: string): CreateIssuePayload['type'] {
+  if (!type) return type
+  if (type === 'task' || type === 'bug' || type === 'story' || type === 'epic') {
+    return type
+  }
+  return 'task'
+}
+
+function normalizeIssuePriority(priority?: string): CreateIssuePayload['priority'] {
+  if (!priority) return priority
+  if (
+    priority === 'low' ||
+    priority === 'medium' ||
+    priority === 'high' ||
+    priority === 'critical'
+  ) {
+    return priority
+  }
+  if (priority === 'lowest') return 'low'
+  if (priority === 'blocker') return 'critical'
+  return 'medium'
+}
+
 function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
 
@@ -158,9 +181,14 @@ export async function createIssue(
   payload: CreateIssuePayload,
 ): Promise<IssueApi> {
   try {
+    const normalizedPayload: CreateIssuePayload = {
+      ...payload,
+      type: normalizeIssueType(payload.type),
+      priority: normalizeIssuePriority(payload.priority),
+    }
     const { data } = await apiClient.post<ApiResponse<{ issue: IssueApi }>>(
       '/issues',
-      payload,
+      normalizedPayload,
       { params: { project: projectId } },
     )
     return data.data.issue
@@ -174,9 +202,14 @@ export async function updateIssue(
   payload: UpdateIssuePayload,
 ): Promise<IssueApi> {
   try {
+    const normalizedPayload: UpdateIssuePayload = {
+      ...payload,
+      type: normalizeIssueType(payload.type),
+      priority: normalizeIssuePriority(payload.priority),
+    }
     const { data } = await apiClient.patch<ApiResponse<{ issue: IssueApi }>>(
       `/issues/${issueId}`,
-      payload,
+      normalizedPayload,
     )
     return data.data.issue
   } catch (error) {

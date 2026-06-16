@@ -5,6 +5,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 
+from apps.contracts.workflow_contract import ensure_project_workflow
 from apps.foundation.responses import success_response
 from apps.permissions.drf_permissions import Authenticated, CanViewProject
 from apps.permissions.services import permission_service
@@ -43,7 +44,7 @@ class WorkflowReadSerializer(serializers.Serializer):
 
 
 class WorkflowUpdateResponseSerializer(serializers.Serializer):
-    project_id = serializers.CharField()
+    scheme_name = serializers.CharField(allow_null=True)
     statuses = serializers.ListField()
     transitions = serializers.ListField()
 
@@ -94,6 +95,7 @@ class ProjectWorkflowView(APIView):
     @extend_schema(responses=WorkflowReadSerializer, tags=["workflow"])
     def get(self, request, project_id: UUID):
         _require_project(project_id)
+        ensure_project_workflow(project_id)
         serializer = WorkflowReadSerializer(_workflow_to_data(project_id))
         return success_response(data={"workflow": serializer.data})
 

@@ -13,7 +13,11 @@ from apps.issues.api.serializers import (
     IssueUpdateSerializer,
 )
 from apps.issues.exceptions import IssueNotFoundError
-from apps.issues.selectors import get_issue_by_id, get_project_issues
+from apps.issues.selectors import (
+    get_issue_by_id,
+    get_project_issues,
+    select_project_kanban_board,
+)
 from apps.issues.services import issue_service
 from apps.permissions.drf_permissions import Authenticated
 from apps.permissions.services import permission_service
@@ -61,6 +65,31 @@ def _create_kwargs(validated_data: dict) -> dict:
         "due_date": validated_data.get("due_date"),
         "estimate_hours": validated_data.get("estimate_hours"),
         "story_points": validated_data.get("story_points"),
+    }
+
+
+def _kanban_issue_data(issue, status_slug: str) -> dict:
+    data = dict(IssueSerializer(issue).data)
+    status = dict(data.get("status") or {})
+    status["slug"] = status_slug
+    data["status"] = status
+    return data
+
+
+def _kanban_board_data(board: dict) -> dict:
+    return {
+        "project_id": str(board["project_id"]),
+        "columns": [
+            {
+                "status_slug": column["status_slug"],
+                "status_name": column["status_name"],
+                "issues": [
+                    _kanban_issue_data(issue, column["status_slug"])
+                    for issue in column["issues"]
+                ],
+            }
+            for column in board["columns"]
+        ],
     }
 
 
@@ -114,6 +143,18 @@ class IssueListCreateView(APIView):
             data={"issue": IssueSerializer(issue).data},
             status=201,
         )
+
+
+class ProjectKanbanCompatibilityView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["issues"])
+    def get(self, request, project_id: UUID):
+        _require_project(project_id)
+        _require_issue_view(request.user.id, project_id)
+
+        board = select_project_kanban_board(project_id)
+        return success_response(data={"board": _kanban_board_data(board)})
 
 
 class IssueDetailView(APIView):

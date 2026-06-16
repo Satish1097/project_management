@@ -1,6 +1,7 @@
 import pytest
 
 from apps.projects.services import archive_project
+from apps.sprints.models import Sprint, SprintStatus
 
 
 @pytest.mark.django_db
@@ -113,6 +114,52 @@ def test_subtask_same_project_parent_enforcement(
     )
 
     assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_kanban_compatibility_api_filters_to_active_sprint(
+    superuser_client,
+    project,
+    create_test_issue,
+):
+    active_sprint = Sprint.objects.create(
+        project_id=project.id,
+        name="Active Sprint",
+        status=SprintStatus.ACTIVE,
+    )
+    planned_sprint = Sprint.objects.create(project_id=project.id, name="Planned Sprint")
+    active_issue = create_test_issue(title="Active sprint card", sprint_id=active_sprint.id)
+    create_test_issue(title="Planned sprint card", sprint_id=planned_sprint.id)
+    create_test_issue(title="Backlog card")
+
+    response = superuser_client.get(f"/api/projects/{project.id}/kanban")
+
+    assert response.status_code == 200
+    board = response.json()["data"]["board"]
+    issue_titles = [
+        issue["title"]
+        for column in board["columns"]
+        for issue in column["issues"]
+    ]
+    assert issue_titles == [active_issue.title]
+
+
+@pytest.mark.django_db
+def test_kanban_compatibility_api_empty_without_active_sprint(
+    superuser_client,
+    project,
+    create_test_issue,
+):
+    planned_sprint = Sprint.objects.create(project_id=project.id, name="Planned Sprint")
+    create_test_issue(title="Planned sprint card", sprint_id=planned_sprint.id)
+    create_test_issue(title="Backlog card")
+
+    response = superuser_client.get(f"/api/projects/{project.id}/kanban")
+
+    assert response.status_code == 200
+    board = response.json()["data"]["board"]
+    assert board["project_id"] == str(project.id)
+    assert all(column["issues"] == [] for column in board["columns"])
 
 
 @pytest.mark.django_db

@@ -10,11 +10,20 @@ from apps.workflow.models import (
     WorkflowStatusCategory,
     WorkflowTransition,
 )
+from apps.workflow.selectors import get_project_workflow
+from apps.workflow.slug_utils import status_slug
 
 
 class WorkflowConfigService:
     DEFAULT_SCHEME_NAME = "Default Workflow"
     DEFAULT_STATUS_COLOR = "#94A3B8"
+    ALLOWED_CATEGORIES = frozenset(
+        {
+            WorkflowStatusCategory.TODO,
+            WorkflowStatusCategory.IN_PROGRESS,
+            WorkflowStatusCategory.DONE,
+        }
+    )
     DEFAULT_STATUSES = (
         {
             "name": "Todo",
@@ -85,10 +94,53 @@ class WorkflowConfigService:
         normalized_statuses = self._validate_statuses_shape(statuses)
         normalized_transitions = self._validate_transitions_shape(transitions)
         self._validate_directional_references(normalized_statuses, normalized_transitions)
+        return self.format_validation_response(project_id, normalized_statuses, normalized_transitions)
+
+    def format_validation_response(
+        self,
+        project_id: UUID,
+        statuses: list[dict],
+        transitions: list[dict],
+    ) -> dict[str, str | list[dict] | None]:
+        scheme = get_project_workflow(project_id)
+        ref_to_slug: dict[str, str] = {}
+        statuses_out: list[dict] = []
+
+        for status in statuses:
+            slug = status_slug(name=status["name"], category=status["category"])
+            status_id = status.get("id") or status.get("temp_id") or ""
+            if status_id:
+                ref_to_slug[str(status_id)] = slug
+            statuses_out.append(
+                {
+                    "id": str(status_id),
+                    "slug": slug,
+                    "name": status["name"],
+                    "category": status["category"],
+                    "order": status["order"],
+                    "is_default": status.get("is_default", False),
+                    "is_terminal": slug == "done",
+                }
+            )
+
+        transitions_out: list[dict] = []
+        for index, transition in enumerate(transitions):
+            from_slug = ref_to_slug.get(transition["from_status_id"], "")
+            to_slug = ref_to_slug.get(transition["to_status_id"], "")
+            transitions_out.append(
+                {
+                    "id": f"validated-{index}",
+                    "from_status_slug": from_slug,
+                    "to_status_slug": to_slug,
+                    "name": transition.get("name", ""),
+                    "requires_approval": False,
+                }
+            )
+
         return {
-            "project_id": str(project_id),
-            "statuses": normalized_statuses,
-            "transitions": normalized_transitions,
+            "scheme_name": scheme.name if scheme is not None else None,
+            "statuses": statuses_out,
+            "transitions": transitions_out,
         }
 
     def _validate_statuses_shape(self, statuses: list[dict]) -> list[dict]:
@@ -104,6 +156,8 @@ class WorkflowConfigService:
             for key in ("name", "category", "order"):
                 if key not in status:
                     raise ValueError(f"status missing required key: {key}.")
+            if status["category"] not in self.ALLOWED_CATEGORIES:
+                raise ValueError(f"invalid category: {status['category']}.")
             normalized_status = {
                 "name": status["name"],
                 "category": status["category"],

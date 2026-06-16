@@ -4,7 +4,9 @@ from django.db import transaction
 
 from apps.projects.models import Project
 from apps.workflow.constants import DEFAULT_STATUSES, DEFAULT_TRANSITIONS
-from apps.workflow.models import WorkflowStatus, WorkflowTransition
+from apps.workflow.models import WorkflowScheme, WorkflowStatus, WorkflowTransition
+
+DEFAULT_SCHEME_NAME = "Default Workflow"
 
 
 def _map_category(slug: str, raw_category: str) -> str:
@@ -31,9 +33,25 @@ def seed_default_workflow_for_project(project_id: UUID) -> None:
     seed_default_workflow(project)
 
 
+def ensure_project_workflow(project_id: UUID) -> None:
+    """Seed default workflow when a project has no statuses (dev bootstrap)."""
+    if WorkflowStatus.objects.filter(project_id=project_id).exists():
+        WorkflowScheme.objects.get_or_create(
+            project_id=project_id,
+            defaults={"name": DEFAULT_SCHEME_NAME},
+        )
+        return
+    seed_default_workflow_for_project(project_id)
+
+
 def seed_default_workflow(project: Project) -> None:
     """Create frozen statuses and transitions for a project. Idempotent."""
     with transaction.atomic():
+        WorkflowScheme.objects.get_or_create(
+            project=project,
+            defaults={"name": DEFAULT_SCHEME_NAME},
+        )
+
         status_by_slug: dict[str, WorkflowStatus] = {}
 
         for status_def in DEFAULT_STATUSES:
