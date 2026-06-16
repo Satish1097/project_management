@@ -1,320 +1,153 @@
 """
-Sprint lifecycle services — create, update, start, complete, bulk move issues.
+Sprint business logic service.
 
-All authorization flows through PermissionService; no inline role checks.
-Issue mutations during carry-forward use issue_contract.bulk_set_sprint to
-respect cross-module boundaries.
+Scope:
+- create/update/start/pause/resume/complete sprint lifecycle
+- no issue/workflow/analytics integration
 """
 from uuid import UUID
 
-from django.db import transaction
-from django.utils import timezone
-
-from apps.contracts.issue_contract import bulk_set_sprint, get_sprint_issues
-from apps.contracts.sprint_contract import SprintDetailDTO
 from apps.permissions.services import permission_service
-from apps.projects.models import Project, ProjectStatus
 from apps.sprints.exceptions import (
-    ArchivedProjectSprintError,
     SprintAlreadyActiveError,
     SprintCompletionError,
     SprintError,
     SprintNotFoundError,
 )
 from apps.sprints.models import Sprint, SprintStatus
-from apps.sprints.selectors import select_sprint_by_id
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
+from apps.sprints.selectors import get_sprint_by_id
 
 
 def _get_sprint_or_raise(sprint_id: UUID) -> Sprint:
-    try:
-        return Sprint.objects.select_related("project").get(pk=sprint_id)
-    except Sprint.DoesNotExist:
+    sprint = get_sprint_by_id(sprint_id)
+    if sprint is None:
         raise SprintNotFoundError(f"Sprint '{sprint_id}' not found.")
+    return sprint
 
 
-def _get_project_or_raise(project_id: UUID) -> Project:
-    try:
-        return Project.objects.get(pk=project_id)
-    except Project.DoesNotExist:
-        from apps.projects.exceptions import ProjectNotFoundError
-
-        raise ProjectNotFoundError(f"Project '{project_id}' does not exist.")
+def _normalize_name(name: str) -> str:
+    return name.strip()
 
 
-def _reject_archived_project(project: Project) -> None:
-    if project.status == ProjectStatus.ARCHIVED:
-        raise ArchivedProjectSprintError("Archived projects are read-only.")
-
-
-# ---------------------------------------------------------------------------
-# create_sprint
-# ---------------------------------------------------------------------------
-
-
-def create_sprint(
-    *,
-    project_id: UUID,
-    name: str,
-    actor_id: UUID,
-    goal: str = "",
-    start_date=None,
-    end_date=None,
-) -> SprintDetailDTO:
-    """
-    Create a new sprint in planned status.
-
-    Permission: can_plan_sprint()
-    """
-    project = _get_project_or_raise(project_id)
-    _reject_archived_project(project)
-
-    if not permission_service.can_plan_sprint(actor_id, project_id):
-        raise SprintError("Permission denied: cannot create sprints in this project.")
-
-    sprint = Sprint.objects.create(
-        project=project,
-        name=name.strip(),
-        goal=goal,
-        status=SprintStatus.PLANNED,
-        start_date=start_date,
-        end_date=end_date,
-        created_by_id=actor_id,
-        updated_by_id=actor_id,
-    )
-
-    result = select_sprint_by_id(sprint.pk)
-    assert result is not None
-    return result
-
-
-# ---------------------------------------------------------------------------
-# update_sprint
-# ---------------------------------------------------------------------------
-
-_SENTINEL = object()
-
-
-def update_sprint(
-    *,
-    sprint_id: UUID,
-    actor_id: UUID,
-    name: str | None = None,
-    goal: str | None = None,
-    start_date=_SENTINEL,
-    end_date=_SENTINEL,
-) -> SprintDetailDTO:
-    """
-    Update allowed fields on a sprint.
-
-    Allowed: name, goal, start_date, end_date.
-    NOT allowed: status (use start/complete endpoints).
-    Completed sprints are read-only.
-
-    Permission: can_manage_sprint()
-    """
-    sprint = _get_sprint_or_raise(sprint_id)
-    _reject_archived_project(sprint.project)
-
-    if sprint.status == SprintStatus.COMPLETED:
-        raise SprintCompletionError("Completed sprints are read-only.")
-
-    if not permission_service.can_manage_sprint(actor_id, sprint.project_id):
-        raise SprintError("Permission denied: cannot update this sprint.")
-
-    update_fields = ["updated_by_id", "updated_at"]
-
-    if name is not None:
-        sprint.name = name.strip()
-        update_fields.append("name")
-    if goal is not None:
-        sprint.goal = goal
-        update_fields.append("goal")
-    if start_date is not _SENTINEL:
-        sprint.start_date = start_date
-        update_fields.append("start_date")
-    if end_date is not _SENTINEL:
-        sprint.end_date = end_date
-        update_fields.append("end_date")
-
-    sprint.updated_by_id = actor_id
-    sprint.save(update_fields=update_fields)
-
-    result = select_sprint_by_id(sprint_id)
-    assert result is not None
-    return result
-
-
-# ---------------------------------------------------------------------------
-# start_sprint
-# ---------------------------------------------------------------------------
-
-
-def start_sprint(
-    *,
-    sprint_id: UUID,
-    actor_id: UUID,
-) -> SprintDetailDTO:
-    """
-    Transition a sprint from planned → active.
-
-    Rules:
-      - can_manage_sprint()
-      - sprint must be planned
-      - at most one active sprint per project (409 if another is active)
-      - sets started_at to now
-    """
-    sprint = _get_sprint_or_raise(sprint_id)
-    _reject_archived_project(sprint.project)
-
-    if not permission_service.can_manage_sprint(actor_id, sprint.project_id):
-        raise SprintError("Permission denied: cannot start sprints in this project.")
-
-    if sprint.status != SprintStatus.PLANNED:
-        raise SprintError(
-            f"Only planned sprints can be started; "
-            f"current status is '{sprint.status}'."
-        )
-
-    if (
-        Sprint.objects.filter(
-            project_id=sprint.project_id, status=SprintStatus.ACTIVE
-        )
-        .exclude(pk=sprint.pk)
-        .exists()
-    ):
+def _ensure_single_active_sprint(project_id: UUID, exclude_sprint_id: UUID | None = None) -> None:
+    active_qs = Sprint.objects.filter(project_id=project_id, status=SprintStatus.ACTIVE)
+    if exclude_sprint_id is not None:
+        active_qs = active_qs.exclude(pk=exclude_sprint_id)
+    if active_qs.exists():
         raise SprintAlreadyActiveError(
-            "Another sprint is already active in this project. "
-            "Complete it before starting a new one."
+            "Another sprint is already active in this project."
         )
 
-    sprint.status = SprintStatus.ACTIVE
-    sprint.started_at = timezone.now()
-    sprint.updated_by_id = actor_id
-    sprint.save(update_fields=["status", "started_at", "updated_by_id", "updated_at"])
 
-    result = select_sprint_by_id(sprint_id)
-    assert result is not None
-    return result
+def _can_start_sprint(user_id: UUID, sprint: Sprint) -> bool:
+    return permission_service.can_start_sprint(user_id, sprint.project_id)
 
 
-# ---------------------------------------------------------------------------
-# complete_sprint
-# ---------------------------------------------------------------------------
+def _can_start_sprint_for_project(user_id: UUID, project_id: UUID) -> bool:
+    return permission_service.can_start_sprint(user_id, project_id)
 
 
-def complete_sprint(
-    *,
-    sprint_id: UUID,
-    actor_id: UUID,
-    move_incomplete_to: str = "backlog",
-    target_sprint_id: UUID | None = None,
-) -> SprintDetailDTO:
-    """
-    Complete an active sprint with carry-forward for incomplete issues.
+class SprintService:
+    def create_sprint(
+        self,
+        user,
+        project_id: UUID,
+        name: str,
+        goal: str | None = None,
+        start_date=None,
+        end_date=None,
+        capacity_points: int | None = None,
+    ) -> Sprint:
+        if not _can_start_sprint_for_project(user.id, project_id):
+            raise SprintError("Permission denied: cannot create sprint.")
 
-    Rules:
-      - sprint must be active
-      - can_manage_sprint()
-      - incomplete issues (status_slug != 'done') are moved to:
-          target sprint (planned, same project) if move_incomplete_to='sprint'
-          backlog (sprint_id=None)             if move_incomplete_to='backlog'
-      - done issues remain linked to this sprint (historical record)
-      - sets completed_at to now; sprint becomes read-only
-    """
-    sprint = _get_sprint_or_raise(sprint_id)
-    _reject_archived_project(sprint.project)
-
-    if sprint.status != SprintStatus.ACTIVE:
-        raise SprintCompletionError(
-            f"Only active sprints can be completed; "
-            f"current status is '{sprint.status}'."
+        return Sprint.objects.create(
+            project_id=project_id,
+            name=_normalize_name(name),
+            goal=goal,
+            start_date=start_date,
+            end_date=end_date,
+            capacity_points=capacity_points,
+            status=SprintStatus.PLANNED,
         )
 
-    if not permission_service.can_manage_sprint(actor_id, sprint.project_id):
-        raise SprintError("Permission denied: cannot complete sprints in this project.")
+    def update_sprint(self, user, sprint_id: UUID, **fields) -> Sprint:
+        sprint = _get_sprint_or_raise(sprint_id)
+        if not permission_service.can_start_sprint(user.id, sprint.project_id):
+            raise SprintError("Permission denied: cannot update sprint.")
 
-    # Resolve target for incomplete issues
-    resolved_target_sprint_id: UUID | None = None
-    if move_incomplete_to == "sprint" and target_sprint_id is not None:
-        try:
-            target = Sprint.objects.get(pk=target_sprint_id)
-        except Sprint.DoesNotExist:
-            raise SprintNotFoundError(
-                f"Target sprint '{target_sprint_id}' not found."
-            )
-        if target.project_id != sprint.project_id:
+        allowed_fields = {
+            "name",
+            "goal",
+            "start_date",
+            "end_date",
+            "capacity_points",
+        }
+        if "status" in fields:
+            raise SprintError("Sprint status cannot be updated directly.")
+
+        update_fields: list[str] = []
+        for key, value in fields.items():
+            if key not in allowed_fields:
+                continue
+            if key == "name" and value is not None:
+                value = _normalize_name(value)
+            setattr(sprint, key, value)
+            update_fields.append(key)
+
+        if update_fields:
+            update_fields.append("updated_at")
+            sprint.save(update_fields=update_fields)
+
+        return sprint
+
+    def start_sprint(self, user, sprint_id: UUID) -> Sprint:
+        sprint = _get_sprint_or_raise(sprint_id)
+        if not _can_start_sprint(user.id, sprint):
+            raise SprintError("Permission denied: cannot start sprint.")
+        if sprint.status != SprintStatus.PLANNED:
+            raise SprintError("Only planned sprints can be started.")
+
+        _ensure_single_active_sprint(sprint.project_id, exclude_sprint_id=sprint.id)
+        sprint.status = SprintStatus.ACTIVE
+        sprint.save(update_fields=["status", "updated_at"])
+        return sprint
+
+    def pause_sprint(self, user, sprint_id: UUID) -> Sprint:
+        sprint = _get_sprint_or_raise(sprint_id)
+        if not permission_service.can_start_sprint(user.id, sprint.project_id):
+            raise SprintError("Permission denied: cannot pause sprint.")
+        if sprint.status != SprintStatus.ACTIVE:
+            raise SprintError("Only active sprints can be paused.")
+
+        sprint.status = SprintStatus.PAUSED
+        sprint.save(update_fields=["status", "updated_at"])
+        return sprint
+
+    def resume_sprint(self, user, sprint_id: UUID) -> Sprint:
+        sprint = _get_sprint_or_raise(sprint_id)
+        if not permission_service.can_start_sprint(user.id, sprint.project_id):
+            raise SprintError("Permission denied: cannot resume sprint.")
+        if sprint.status != SprintStatus.PAUSED:
+            raise SprintError("Only paused sprints can be resumed.")
+
+        _ensure_single_active_sprint(sprint.project_id, exclude_sprint_id=sprint.id)
+        sprint.status = SprintStatus.ACTIVE
+        sprint.save(update_fields=["status", "updated_at"])
+        return sprint
+
+    def complete_sprint(self, user, sprint_id: UUID) -> Sprint:
+        sprint = _get_sprint_or_raise(sprint_id)
+        if not permission_service.can_complete_sprint(user.id, sprint.project_id):
+            raise SprintError("Permission denied: cannot complete sprint.")
+        if sprint.status not in {SprintStatus.ACTIVE, SprintStatus.PAUSED}:
             raise SprintCompletionError(
-                "Target sprint must belong to the same project."
+                "Only active or paused sprints can be completed."
             )
-        if target.status != SprintStatus.PLANNED:
-            raise SprintCompletionError(
-                "Target sprint must be in 'planned' status to receive issues."
-            )
-        resolved_target_sprint_id = target_sprint_id
-
-    with transaction.atomic():
-        # Identify incomplete issues via contract (no direct Issue ORM import)
-        sprint_issues = get_sprint_issues(sprint_id)
-        incomplete_ids = [
-            issue.id for issue in sprint_issues if issue.status_slug != "done"
-        ]
-
-        if incomplete_ids:
-            bulk_set_sprint(incomplete_ids, resolved_target_sprint_id)
 
         sprint.status = SprintStatus.COMPLETED
-        sprint.completed_at = timezone.now()
-        sprint.updated_by_id = actor_id
-        sprint.save(
-            update_fields=["status", "completed_at", "updated_by_id", "updated_at"]
-        )
-
-    result = select_sprint_by_id(sprint_id)
-    assert result is not None
-    return result
+        sprint.save(update_fields=["status", "updated_at"])
+        return sprint
 
 
-# ---------------------------------------------------------------------------
-# bulk_move_issues
-# ---------------------------------------------------------------------------
-
-
-def bulk_move_issues(
-    *,
-    sprint_id: UUID,
-    issue_ids: list[UUID],
-    target_sprint_id: UUID | None,
-    actor_id: UUID,
-) -> int:
-    """
-    Bulk-move issues from the given sprint to another sprint or backlog.
-
-    Permission: can_plan_sprint()
-    Returns the count of updated issues.
-    """
-    sprint = _get_sprint_or_raise(sprint_id)
-    _reject_archived_project(sprint.project)
-
-    if not permission_service.can_plan_sprint(actor_id, sprint.project_id):
-        raise SprintError("Permission denied: cannot plan sprint for this project.")
-
-    if target_sprint_id is not None:
-        try:
-            target = Sprint.objects.get(pk=target_sprint_id)
-        except Sprint.DoesNotExist:
-            raise SprintNotFoundError(
-                f"Target sprint '{target_sprint_id}' not found."
-            )
-        if target.project_id != sprint.project_id:
-            raise SprintError("Target sprint must belong to the same project.")
-        if target.status == SprintStatus.COMPLETED:
-            raise SprintCompletionError(
-                "Cannot move issues to a completed sprint."
-            )
-
-    return bulk_set_sprint(issue_ids, target_sprint_id)
+sprint_service = SprintService()

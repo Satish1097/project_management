@@ -25,6 +25,8 @@ urlpatterns = [
     path("api/", include("apps.sprints.api.urls")),
     # Workflow (Phase 3)
     path("api/", include("apps.workflow.api.urls")),
+    # Labels (Phase 4)
+    path("api/", include("apps.label.api.urls")),
     # OpenAPI / Swagger / ReDoc
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

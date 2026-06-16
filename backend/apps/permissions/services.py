@@ -26,6 +26,8 @@ _PROJECT_EDIT_ROLES = frozenset({"project_admin", "project_manager"})
 
 _PROJECT_MANAGE_MEMBER_ROLES = frozenset({"project_admin", "project_manager"})
 
+_LABEL_MANAGE_ROLES = frozenset({"project_admin", "project_manager"})
+
 _ISSUE_WRITE_ROLES = frozenset({"project_admin", "project_manager", "developer", "qa"})
 
 _ISSUE_ASSIGN_ROLES = frozenset({"project_admin", "project_manager", "developer"})
@@ -106,6 +108,14 @@ class PermissionService:
 
 
 
+    def can_manage_labels(self, user_id: UUID, project_id: UUID) -> bool:
+
+        role = get_project_role(user_id, project_id)
+
+        return role in _LABEL_MANAGE_ROLES if role is not None else False
+
+
+
     def can_manage_workflow(self, user_id: UUID, project_id: UUID) -> bool:
 
         return False
@@ -183,6 +193,24 @@ class PermissionService:
     def can_plan_sprint(self, user_id: UUID, project_id: UUID) -> bool:
 
         return _role_in_project(user_id, project_id, _SPRINT_PLAN_ROLES)
+
+
+
+    def can_view_sprint(self, user_id: UUID, project_id: UUID) -> bool:
+
+        return user_has_project_access(user_id, project_id)
+
+
+
+    def can_start_sprint(self, user_id: UUID, project_id: UUID) -> bool:
+
+        return _role_in_project(user_id, project_id, _SPRINT_MANAGE_ROLES)
+
+
+
+    def can_complete_sprint(self, user_id: UUID, project_id: UUID) -> bool:
+
+        return _role_in_project(user_id, project_id, _SPRINT_MANAGE_ROLES)
 
 
 
