@@ -9,6 +9,8 @@ import { CompleteSprintModal } from '@/features/sprints/CompleteSprintModal'
 import { CreateSprintDrawer } from '@/features/sprints/CreateSprintDrawer'
 import { useSprintActions } from '@/hooks/useSprintActions'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
+import { useIssues } from '@/contexts/IssuesContext'
+import { useSprints } from '@/contexts/SprintsContext'
 import {
   formatSprintStatus,
   getProjectById,
@@ -18,7 +20,6 @@ import {
 } from '@/services/projectData'
 import { getSprintIssues } from '@/services/issuesRegistry'
 import { AvatarGroup } from '@/components/ui/AvatarGroup'
-import { useSprints } from '@/contexts/SprintsContext'
 
 export function SprintDetailPage() {
   const { projectId = '', sprintId = '' } = useParams()
@@ -26,6 +27,11 @@ export function SprintDetailPage() {
   const sprint = getSprintById(projectId, sprintId)
   const { loadSprintDetail } = useSprints()
   const { loading: sprintsLoading } = useLoadProjectSprints(projectId)
+  const {
+    loadSprintIssues,
+    sprintIssuesLoading,
+    sprintIssuesError,
+  } = useIssues()
   const { startSprint, pauseSprint, resumeSprint, completeSprint } =
     useSprintActions(projectId)
   const [completeOpen, setCompleteOpen] = useState(false)
@@ -40,16 +46,19 @@ export function SprintDetailPage() {
     }
 
     setDetailLoading(true)
-    void loadSprintDetail(sprintId, projectId).finally(() => {
+    void Promise.all([
+      loadSprintDetail(sprintId, projectId),
+      loadSprintIssues(projectId, sprintId),
+    ]).finally(() => {
       setDetailLoading(false)
     })
-  }, [projectId, sprintId, loadSprintDetail])
+  }, [projectId, sprintId, loadSprintDetail, loadSprintIssues])
 
   if (!project) {
     return <Navigate to="/projects" replace />
   }
 
-  if ((sprintsLoading || detailLoading) && !sprint) {
+  if ((sprintsLoading || detailLoading || sprintIssuesLoading) && !sprint) {
     return (
       <main className="page-main">
         <p className="text-body text-devflow-text-secondary">Loading sprint…</p>
@@ -89,6 +98,12 @@ export function SprintDetailPage() {
         {error && (
           <p className="rounded-lg border border-devflow-error/30 bg-devflow-danger-bg px-3 py-2 text-caption text-devflow-error">
             {error}
+          </p>
+        )}
+
+        {sprintIssuesError && (
+          <p className="rounded-lg border border-devflow-error/30 bg-devflow-danger-bg px-3 py-2 text-caption text-devflow-error">
+            {sprintIssuesError}
           </p>
         )}
 

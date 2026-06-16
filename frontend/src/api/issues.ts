@@ -3,60 +3,83 @@ import { ApiError } from './types'
 import { apiClient } from './client'
 import { getWorkflow, statusIdForSlug } from './workflow'
 
-export type IssueSummaryApi = {
+export type IssueLabelApi = {
   id: string
-  key: string
-  title: string
-  issue_type: string
-  priority: string
-  status_slug: string
-  position: string
-  assignee_id: string | null
-  sprint_id: string | null
+  name: string
+  color: string
+  is_archived?: boolean
 }
 
-export type IssueDetailApi = IssueSummaryApi & {
+export type IssueStatusApi = {
+  id: string
+  slug: string
+  name: string
+}
+
+export type IssueApi = {
+  id: string
+  project: string
+  key: string
+  title: string
   description: string
-  status: {
-    id?: string
-    slug: string
-    name?: string
-  }
-  reporter: { id: string; display_name?: string } | null
-  assignee: { id: string; display_name?: string } | null
-  parent_issue_id: string | null
-  story_points: number | null
+  type: string
+  priority: string
+  status: IssueStatusApi
+  sprint: string | null
+  labels: IssueLabelApi[]
+  assignee: string | null
+  reporter: string
   due_date: string | null
-  labels: string[]
+  estimate_hours: string | null
+  story_points: number | null
   created_at: string
   updated_at: string
+}
+
+/** @deprecated Use IssueApi */
+export type IssueSummaryApi = IssueApi
+
+/** @deprecated Use IssueApi */
+export type IssueDetailApi = IssueApi
+
+export type IssueListFilters = {
+  sprint?: string | null
+  search?: string
+  assignee?: string
+  priority?: string
+  status?: string
 }
 
 export type CreateIssuePayload = {
   title: string
   description?: string
+  type?: string
   priority?: string
-  issue_type?: string
-  story_points?: number | null
+  sprint?: string | null
+  assignee?: string | null
   labels?: string[]
-  parent_issue_id?: string | null
-  sprint_id?: string | null
-  assignee_id?: string | null
+  due_date?: string | null
+  estimate_hours?: number | null
+  story_points?: number | null
 }
 
 export type UpdateIssuePayload = {
   title?: string
   description?: string
+  type?: string
   priority?: string
-  story_points?: number | null
-  due_date?: string | null
+  sprint?: string | null
+  assignee?: string | null
   labels?: string[]
+  due_date?: string | null
+  estimate_hours?: number | null
+  story_points?: number | null
 }
 
 export type KanbanBoardColumnApi = {
   status_slug: string
   status_name: string
-  issues: IssueSummaryApi[]
+  issues: IssueApi[]
 }
 
 export type KanbanBoardApi = {
@@ -82,20 +105,46 @@ function toApiError(error: unknown): ApiError {
   return new ApiError('Network error. Please try again.')
 }
 
-export async function getBacklog(projectId: string): Promise<IssueSummaryApi[]> {
+function buildIssueQueryParams(
+  projectId: string,
+  filters: IssueListFilters = {},
+): Record<string, string> {
+  const params: Record<string, string> = { project: projectId }
+
+  if (filters.sprint === null) {
+    params.sprint = 'null'
+  } else if (filters.sprint) {
+    params.sprint = filters.sprint
+  }
+  if (filters.search) params.search = filters.search
+  if (filters.assignee) params.assignee = filters.assignee
+  if (filters.priority) params.priority = filters.priority
+  if (filters.status) params.status = filters.status
+
+  return params
+}
+
+export async function listIssues(
+  projectId: string,
+  filters: IssueListFilters = {},
+): Promise<IssueApi[]> {
   try {
-    const { data } = await apiClient.get<ApiResponse<{ issues: IssueSummaryApi[] }>>(
-      `/projects/${projectId}/backlog`,
-    )
+    const { data } = await apiClient.get<ApiResponse<{ issues: IssueApi[] }>>('/issues', {
+      params: buildIssueQueryParams(projectId, filters),
+    })
     return data.data.issues
   } catch (error) {
     throw toApiError(error)
   }
 }
 
-export async function getIssue(issueId: string): Promise<IssueDetailApi> {
+export async function getBacklog(projectId: string): Promise<IssueApi[]> {
+  return listIssues(projectId, { sprint: null })
+}
+
+export async function getIssue(issueId: string): Promise<IssueApi> {
   try {
-    const { data } = await apiClient.get<ApiResponse<{ issue: IssueDetailApi }>>(
+    const { data } = await apiClient.get<ApiResponse<{ issue: IssueApi }>>(
       `/issues/${issueId}`,
     )
     return data.data.issue
@@ -107,11 +156,12 @@ export async function getIssue(issueId: string): Promise<IssueDetailApi> {
 export async function createIssue(
   projectId: string,
   payload: CreateIssuePayload,
-): Promise<IssueDetailApi> {
+): Promise<IssueApi> {
   try {
-    const { data } = await apiClient.post<ApiResponse<{ issue: IssueDetailApi }>>(
-      `/projects/${projectId}/issues`,
+    const { data } = await apiClient.post<ApiResponse<{ issue: IssueApi }>>(
+      '/issues',
       payload,
+      { params: { project: projectId } },
     )
     return data.data.issue
   } catch (error) {
@@ -122,9 +172,9 @@ export async function createIssue(
 export async function updateIssue(
   issueId: string,
   payload: UpdateIssuePayload,
-): Promise<IssueDetailApi> {
+): Promise<IssueApi> {
   try {
-    const { data } = await apiClient.patch<ApiResponse<{ issue: IssueDetailApi }>>(
+    const { data } = await apiClient.patch<ApiResponse<{ issue: IssueApi }>>(
       `/issues/${issueId}`,
       payload,
     )
@@ -134,14 +184,14 @@ export async function updateIssue(
   }
 }
 
-export async function assignIssue(
+export async function assignIssueSprint(
   issueId: string,
-  assigneeId: string | null,
-): Promise<IssueDetailApi> {
+  sprintId: string | null,
+): Promise<IssueApi> {
   try {
-    const { data } = await apiClient.post<ApiResponse<{ issue: IssueDetailApi }>>(
-      `/issues/${issueId}/assign`,
-      { assignee_id: assigneeId },
+    const { data } = await apiClient.post<ApiResponse<{ issue: IssueApi }>>(
+      `/issues/${issueId}/assign-sprint`,
+      { sprint_id: sprintId },
     )
     return data.data.issue
   } catch (error) {
@@ -149,19 +199,35 @@ export async function assignIssue(
   }
 }
 
-export async function moveIssueToSprint(
-  issueId: string,
+export async function bulkAssignSprint(
+  issueIds: string[],
   sprintId: string | null,
-): Promise<IssueDetailApi> {
+): Promise<number> {
   try {
-    const { data } = await apiClient.post<ApiResponse<{ issue: IssueDetailApi }>>(
-      `/issues/${issueId}/move-sprint`,
-      { sprint_id: sprintId },
+    const { data } = await apiClient.post<ApiResponse<{ updated: number }>>(
+      '/issues/bulk/assign-sprint',
+      { issue_ids: issueIds, sprint_id: sprintId },
     )
-    return data.data.issue
+    return data.data.updated
   } catch (error) {
     throw toApiError(error)
   }
+}
+
+/** @deprecated Use assignIssueSprint */
+export async function assignIssue(
+  issueId: string,
+  assigneeId: string | null,
+): Promise<IssueApi> {
+  return updateIssue(issueId, { assignee: assigneeId })
+}
+
+/** @deprecated Use assignIssueSprint */
+export async function moveIssueToSprint(
+  issueId: string,
+  sprintId: string | null,
+): Promise<IssueApi> {
+  return assignIssueSprint(issueId, sprintId)
 }
 
 export async function getKanban(projectId: string): Promise<KanbanBoardApi> {
@@ -179,7 +245,7 @@ export async function transitionIssue(
   issueId: string,
   transitionSlug: string,
   projectId: string,
-): Promise<IssueDetailApi> {
+): Promise<IssueApi> {
   try {
     const workflow = await getWorkflow(projectId)
     const targetStatusId = statusIdForSlug(workflow, transitionSlug)
@@ -187,7 +253,7 @@ export async function transitionIssue(
       throw new ApiError(`Unknown status "${transitionSlug}".`)
     }
 
-    const { data } = await apiClient.post<ApiResponse<{ issue: IssueDetailApi }>>(
+    const { data } = await apiClient.post<ApiResponse<{ issue: IssueApi }>>(
       `/issues/${issueId}/transition`,
       { target_status_id: targetStatusId },
     )

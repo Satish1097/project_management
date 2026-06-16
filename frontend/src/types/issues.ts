@@ -71,8 +71,11 @@ export type ProjectIssue = {
   reporterId?: string
   component?: IssueComponent
   storyPoints?: number
+  estimateHours?: number
   dueDate?: string
   estimatedTime?: string
+  assigneeId?: string | null
+  labelIds?: string[]
   attachments?: IssueAttachment[]
   progress?: number
   done?: boolean

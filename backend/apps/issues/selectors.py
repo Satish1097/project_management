@@ -36,6 +36,7 @@ def get_project_issues(
     project_id: UUID,
     *,
     sprint_id: UUID | None = None,
+    sprint_is_null: bool = False,
     assignee_id: UUID | None = None,
     status_id: UUID | None = None,
     priority: str | None = None,
@@ -43,7 +44,9 @@ def get_project_issues(
 ) -> QuerySet[Issue]:
     qs = _optimized_issue_queryset().filter(project_id=project_id)
 
-    if sprint_id is not None:
+    if sprint_is_null:
+        qs = qs.filter(sprint__isnull=True)
+    elif sprint_id is not None:
         qs = qs.filter(sprint_id=sprint_id)
     if assignee_id is not None:
         qs = qs.filter(assignee_id=assignee_id)

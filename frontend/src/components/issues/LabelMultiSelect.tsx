@@ -1,33 +1,79 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, X } from 'lucide-react'
+import { getProjectLabels, type LabelApi } from '@/api/labels'
 import { getLabels, addLabel } from '@/services/labelsRegistry'
+
 type LabelMultiSelectProps = {
   selected: string[]
   onChange: (labels: string[]) => void
+  projectId?: string
 }
 
-export function LabelMultiSelect({ selected, onChange }: LabelMultiSelectProps) {
+export function LabelMultiSelect({
+  selected,
+  onChange,
+  projectId,
+}: LabelMultiSelectProps) {
   const [open, setOpen] = useState(false)
   const [newLabel, setNewLabel] = useState('')
-  const [allLabels, setAllLabels] = useState(() => getLabels())
+  const [mockLabels, setMockLabels] = useState(() => getLabels())
+  const [apiLabels, setApiLabels] = useState<LabelApi[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!projectId) return
+
+    let cancelled = false
+    setLoading(true)
+    void getProjectLabels(projectId)
+      .then((labels) => {
+        if (!cancelled) {
+          setApiLabels(labels.filter((label) => !label.is_archived))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [projectId])
+
+  const useApi = Boolean(projectId)
+
+  const allLabels = useMemo(() => {
+    if (useApi) {
+      return apiLabels.map((label) => ({ id: label.id, name: label.name }))
+    }
+    return mockLabels.map((name) => ({ id: name, name }))
+  }, [useApi, apiLabels, mockLabels])
+
+  const selectedNames = useMemo(() => {
+    return selected.map((value) => {
+      const match = allLabels.find((label) => label.id === value)
+      return match?.name ?? value
+    })
+  }, [allLabels, selected])
 
   const available = useMemo(
-    () => allLabels.filter((l) => !selected.includes(l)),
+    () => allLabels.filter((label) => !selected.includes(label.id)),
     [allLabels, selected],
   )
 
-  const toggle = (label: string) => {
+  const toggle = (labelId: string) => {
     onChange(
-      selected.includes(label)
-        ? selected.filter((l) => l !== label)
-        : [...selected, label],
+      selected.includes(labelId)
+        ? selected.filter((id) => id !== labelId)
+        : [...selected, labelId],
     )
   }
 
   const handleCreate = () => {
+    if (useApi) return
     const created = addLabel(newLabel)
     if (created) {
-      setAllLabels(getLabels())
+      setMockLabels(getLabels())
       onChange([...selected, created])
       setNewLabel('')
     }
@@ -37,9 +83,9 @@ export function LabelMultiSelect({ selected, onChange }: LabelMultiSelectProps) 
     <div className="flex flex-col gap-1">
       <span className="text-label text-devflow-text-secondary">Labels / tags</span>
 
-      {selected.length > 0 && (
+      {selectedNames.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {selected.map((label) => (
+          {selectedNames.map((label) => (
             <span
               key={label}
               className="inline-flex items-center gap-1 rounded-md bg-devflow-pill px-2 py-0.5 text-caption text-devflow-text"
@@ -47,7 +93,10 @@ export function LabelMultiSelect({ selected, onChange }: LabelMultiSelectProps) 
               {label}
               <button
                 type="button"
-                onClick={() => toggle(label)}
+                onClick={() => {
+                  const match = allLabels.find((item) => item.name === label)
+                  if (match) toggle(match.id)
+                }}
                 className="text-devflow-text-muted hover:text-devflow-text"
                 aria-label={`Remove ${label}`}
               >
@@ -68,41 +117,47 @@ export function LabelMultiSelect({ selected, onChange }: LabelMultiSelectProps) 
 
       {open && (
         <div className="rounded-lg border border-devflow-border bg-devflow-surface p-2">
-          <div className="flex flex-wrap gap-1.5">
-            {available.map((label) => (
+          {loading ? (
+            <p className="text-caption text-devflow-text-muted">Loading labels…</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {available.map((label) => (
+                <button
+                  key={label.id}
+                  type="button"
+                  onClick={() => toggle(label.id)}
+                  className="rounded-md border border-devflow-border bg-devflow-card px-2 py-0.5 text-caption capitalize text-devflow-text-secondary hover:border-devflow-primary/40"
+                >
+                  {label.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {!useApi && (
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="New label"
+                className="min-w-0 flex-1 rounded-md border border-devflow-border bg-devflow-card px-2 py-1 text-input outline-none focus:border-devflow-primary"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleCreate()
+                  }
+                }}
+              />
               <button
-                key={label}
                 type="button"
-                onClick={() => toggle(label)}
-                className="rounded-md border border-devflow-border bg-devflow-card px-2 py-0.5 text-caption capitalize text-devflow-text-secondary hover:border-devflow-primary/40"
+                onClick={handleCreate}
+                className="inline-flex items-center gap-1 rounded-md bg-devflow-primary px-2 py-1 text-caption text-white"
               >
-                {label}
+                <Plus className="size-3" />
+                Create
               </button>
-            ))}
-          </div>
-          <div className="mt-2 flex gap-2">
-            <input
-              type="text"
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              placeholder="New label"
-              className="min-w-0 flex-1 rounded-md border border-devflow-border bg-devflow-card px-2 py-1 text-input outline-none focus:border-devflow-primary"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  handleCreate()
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={handleCreate}
-              className="inline-flex items-center gap-1 rounded-md bg-devflow-primary px-2 py-1 text-caption text-white"
-            >
-              <Plus className="size-3" />
-              Create
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

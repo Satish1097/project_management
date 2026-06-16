@@ -16,6 +16,8 @@ export function SprintPlanningPage() {
   const {
     issues,
     loadBacklog,
+    loadSprintIssues,
+    sprintIssuesError,
     moveManyToSprintViaApi,
     moveManyToBacklogViaApi,
   } = useIssues()
@@ -29,6 +31,12 @@ export function SprintPlanningPage() {
       void loadBacklog(projectId)
     }
   }, [projectId, loadBacklog])
+
+  useEffect(() => {
+    if (projectId && sprintId) {
+      void loadSprintIssues(projectId, sprintId)
+    }
+  }, [projectId, sprintId, loadSprintIssues])
 
   const backlog = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -108,6 +116,12 @@ export function SprintPlanningPage() {
         {moveError && (
           <p className="rounded-lg border border-devflow-error/30 bg-devflow-danger-bg px-3 py-2 text-caption text-devflow-error">
             {moveError}
+          </p>
+        )}
+
+        {sprintIssuesError && (
+          <p className="rounded-lg border border-devflow-error/30 bg-devflow-danger-bg px-3 py-2 text-caption text-devflow-error">
+            {sprintIssuesError}
           </p>
         )}
 

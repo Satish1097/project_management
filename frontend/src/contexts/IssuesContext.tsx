@@ -7,16 +7,14 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  bulkAssignSprint as apiBulkAssignSprint,
   createIssue as apiCreateIssue,
   getBacklog as apiGetBacklog,
+  listIssues as apiListIssues,
   updateIssue as apiUpdateIssue,
   type CreateIssuePayload,
   type UpdateIssuePayload,
 } from '@/api/issues'
-import {
-  moveIssuesToBacklog as apiMoveIssuesToBacklog,
-  moveIssuesToSprint as apiMoveIssuesToSprint,
-} from '@/api/sprints'
 import { ApiError } from '@/api/types'
 import { useSprints } from '@/contexts/SprintsContext'
 import {
@@ -25,6 +23,7 @@ import {
   getIssues,
   moveIssuesToSprint,
   setBacklogIssuesForProject,
+  setSprintIssuesForProject,
   updateIssueInRegistry,
   upsertApiIssue,
 } from '@/services/issuesRegistry'
@@ -38,6 +37,8 @@ type IssuesContextValue = {
   issues: ProjectIssue[]
   backlogLoading: boolean
   backlogError: string | null
+  sprintIssuesLoading: boolean
+  sprintIssuesError: string | null
   addIssue: (issue: ProjectIssue) => void
   updateIssue: (issueId: string, patch: Partial<ProjectIssue>) => void
   assignToSprint: (issueId: string, sprintId: string | null) => void
@@ -54,6 +55,7 @@ type IssuesContextValue = {
   ) => Promise<void>
   refresh: () => void
   loadBacklog: (projectId: string) => Promise<void>
+  loadSprintIssues: (projectId: string, sprintId: string) => Promise<void>
   createIssueViaApi: (
     projectId: string,
     payload: CreateIssuePayload,
@@ -72,6 +74,8 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
   const [issues, setIssues] = useState<ProjectIssue[]>(() => getIssues())
   const [backlogLoading, setBacklogLoading] = useState(false)
   const [backlogError, setBacklogError] = useState<string | null>(null)
+  const [sprintIssuesLoading, setSprintIssuesLoading] = useState(false)
+  const [sprintIssuesError, setSprintIssuesError] = useState<string | null>(null)
 
   const syncFromRegistry = useCallback(() => {
     setIssues(getIssues())
@@ -83,20 +87,40 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
   }, [syncFromRegistry])
 
   const loadBacklog = useCallback(async (projectId: string) => {
-    setBacklogLoading(true)
-    setBacklogError(null)
+      setBacklogLoading(true)
+      setBacklogError(null)
+
+      try {
+        const summaries = await apiGetBacklog(projectId)
+        const mapped = summaries.map((issue) => mapIssueSummaryToUi(issue, projectId))
+        setBacklogIssuesForProject(projectId, mapped)
+        setIssues(getIssues())
+      } catch (error) {
+        const message =
+          error instanceof ApiError ? error.message : 'Failed to load backlog.'
+        setBacklogError(message)
+      } finally {
+        setBacklogLoading(false)
+      }
+    },
+    [],
+  )
+
+  const loadSprintIssues = useCallback(async (projectId: string, sprintId: string) => {
+    setSprintIssuesLoading(true)
+    setSprintIssuesError(null)
 
     try {
-      const summaries = await apiGetBacklog(projectId)
+      const summaries = await apiListIssues(projectId, { sprint: sprintId })
       const mapped = summaries.map((issue) => mapIssueSummaryToUi(issue, projectId))
-      setBacklogIssuesForProject(projectId, mapped)
+      setSprintIssuesForProject(projectId, sprintId, mapped)
       setIssues(getIssues())
     } catch (error) {
       const message =
-        error instanceof ApiError ? error.message : 'Failed to load backlog.'
-      setBacklogError(message)
+        error instanceof ApiError ? error.message : 'Failed to load sprint issues.'
+      setSprintIssuesError(message)
     } finally {
-      setBacklogLoading(false)
+      setSprintIssuesLoading(false)
     }
   }, [])
 
@@ -107,9 +131,12 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       upsertApiIssue(issue)
       setIssues(getIssues())
       await loadBacklog(projectId)
+      if (issue.sprintId) {
+        await loadSprintIssues(projectId, issue.sprintId)
+      }
       return issue
     },
-    [loadBacklog],
+    [loadBacklog, loadSprintIssues],
   )
 
   const updateIssueViaApi = useCallback(
@@ -162,23 +189,25 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
   const moveManyToSprintViaApi = useCallback(
     async (projectId: string, sprintId: string, issueIds: string[]) => {
       if (issueIds.length === 0) return
-      await apiMoveIssuesToSprint(sprintId, issueIds)
+      await apiBulkAssignSprint(issueIds, sprintId)
       await loadBacklog(projectId)
+      await loadSprintIssues(projectId, sprintId)
       await loadProjectSprints(projectId)
       setIssues(getIssues())
     },
-    [loadBacklog, loadProjectSprints],
+    [loadBacklog, loadSprintIssues, loadProjectSprints],
   )
 
   const moveManyToBacklogViaApi = useCallback(
     async (projectId: string, fromSprintId: string, issueIds: string[]) => {
       if (issueIds.length === 0) return
-      await apiMoveIssuesToBacklog(fromSprintId, issueIds)
+      await apiBulkAssignSprint(issueIds, null)
       await loadBacklog(projectId)
+      await loadSprintIssues(projectId, fromSprintId)
       await loadProjectSprints(projectId)
       setIssues(getIssues())
     },
-    [loadBacklog, loadProjectSprints],
+    [loadBacklog, loadSprintIssues, loadProjectSprints],
   )
 
   const value = useMemo(
@@ -186,6 +215,8 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       issues,
       backlogLoading,
       backlogError,
+      sprintIssuesLoading,
+      sprintIssuesError,
       addIssue,
       updateIssue,
       assignToSprint,
@@ -194,6 +225,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       moveManyToBacklogViaApi,
       refresh,
       loadBacklog,
+      loadSprintIssues,
       createIssueViaApi,
       updateIssueViaApi,
     }),
@@ -201,6 +233,8 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       issues,
       backlogLoading,
       backlogError,
+      sprintIssuesLoading,
+      sprintIssuesError,
       addIssue,
       updateIssue,
       assignToSprint,
@@ -209,6 +243,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       moveManyToBacklogViaApi,
       refresh,
       loadBacklog,
+      loadSprintIssues,
       createIssueViaApi,
       updateIssueViaApi,
     ],

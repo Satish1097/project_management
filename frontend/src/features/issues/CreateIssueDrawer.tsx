@@ -131,7 +131,7 @@ export function CreateIssueDrawer({
     if (titleError) next.title = titleError
     const generalError =
       apiErrors.non_field_errors?.[0] ??
-      apiErrors.issue_type?.[0] ??
+      apiErrors.type?.[0] ??
       apiErrors.detail?.[0]
     if (generalError) next.general = generalError
     return next
@@ -166,17 +166,25 @@ export function CreateIssueDrawer({
       title: values.title.trim(),
       description: values.description.trim() || undefined,
       priority: values.priority,
-      issue_type: values.issueType,
+      type: values.issueType,
       labels: values.labels.length > 0 ? values.labels : undefined,
-      parent_issue_id:
-        values.issueType === 'subtask' ? values.parentIssueId || null : null,
     }
 
     if (values.storyPoints) {
       payload.story_points = Number(values.storyPoints)
     }
     if (values.sprintId) {
-      payload.sprint_id = values.sprintId
+      payload.sprint = values.sprintId
+    }
+    if (values.assigneeId) {
+      payload.assignee = values.assigneeId
+    }
+    if (values.dueDate) {
+      payload.due_date = values.dueDate
+    }
+    const estimateHours = Number.parseFloat(values.estimatedTime)
+    if (!Number.isNaN(estimateHours) && estimateHours >= 0) {
+      payload.estimate_hours = estimateHours
     }
 
     try {
@@ -346,6 +354,7 @@ export function CreateIssueDrawer({
             />
           </div>
           <LabelMultiSelect
+            projectId={values.projectId || undefined}
             selected={values.labels}
             onChange={(labels) => update('labels', labels)}
           />
@@ -382,6 +391,7 @@ export function CreateIssueDrawer({
 
         <FormSection title="Assignment">
           <AssigneeSelect
+            projectId={values.projectId || undefined}
             value={values.assigneeId}
             onChange={(assigneeId) => update('assigneeId', assigneeId)}
           />

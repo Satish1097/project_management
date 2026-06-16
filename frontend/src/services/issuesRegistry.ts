@@ -65,6 +65,17 @@ export function upsertApiIssue(issue: ProjectIssue): void {
   issues = [...issues.slice(0, index), issue, ...issues.slice(index + 1)]
 }
 
+export function setSprintIssuesForProject(
+  projectId: string,
+  sprintId: string,
+  sprintIssues: ProjectIssue[],
+): void {
+  issues = [
+    ...issues.filter((i) => !(i.projectId === projectId && i.sprintId === sprintId)),
+    ...sprintIssues,
+  ]
+}
+
 export function getBacklogIssues(projectId: string): ProjectIssue[] {
   return issues.filter((i) => i.projectId === projectId && i.sprintId === null)
 }

@@ -86,6 +86,12 @@ class PermissionService:
 
 
 
+    def can_view_issue(self, user_id: UUID, project_id: UUID) -> bool:
+
+        return user_has_project_access(user_id, project_id)
+
+
+
     def can_edit_project(self, user_id: UUID, project_id: UUID) -> bool:
 
         role = get_project_role(user_id, project_id)

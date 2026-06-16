@@ -1,4 +1,6 @@
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { getProjectMembers, type ProjectMemberRecord } from '@/api/members'
 import { Avatar } from '@/components/ui/Avatar'
 import { mockMembers } from '@/services/mockMembers'
 import { cn } from '@/utils/cn'
@@ -7,10 +9,59 @@ type AssigneeSelectProps = {
   value: string
   onChange: (userId: string) => void
   className?: string
+  projectId?: string
 }
 
-export function AssigneeSelect({ value, onChange, className }: AssigneeSelectProps) {
-  const selected = mockMembers.find((m) => m.id === value)
+const MEMBER_COLORS = [
+  '#3b82f6',
+  '#8b5cf6',
+  '#10b981',
+  '#f59e0b',
+  '#ec4899',
+  '#6366f1',
+]
+
+function colorForName(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i += 1) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return MEMBER_COLORS[Math.abs(hash) % MEMBER_COLORS.length]
+}
+
+export function AssigneeSelect({
+  value,
+  onChange,
+  className,
+  projectId,
+}: AssigneeSelectProps) {
+  const [members, setMembers] = useState<ProjectMemberRecord[]>([])
+
+  useEffect(() => {
+    if (!projectId) return
+
+    let cancelled = false
+    void getProjectMembers(projectId).then((data) => {
+      if (!cancelled) setMembers(data)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [projectId])
+
+  const options = useMemo(() => {
+    if (projectId && members.length > 0) {
+      return members.map((member) => ({
+        id: member.user_id,
+        name: member.display_name || member.email || 'Member',
+        color: colorForName(member.display_name || member.email || member.user_id),
+      }))
+    }
+    return mockMembers
+  }, [projectId, members])
+
+  const selected = options.find((member) => member.id === value)
 
   return (
     <div className={cn('flex flex-col gap-1', className)}>
@@ -33,7 +84,7 @@ export function AssigneeSelect({ value, onChange, className }: AssigneeSelectPro
           )}
         >
           <option value="">Unassigned</option>
-          {mockMembers.map((user) => (
+          {options.map((user) => (
             <option key={user.id} value={user.id}>
               {user.name}
             </option>

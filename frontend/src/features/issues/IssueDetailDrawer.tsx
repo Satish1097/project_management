@@ -30,7 +30,7 @@ import {
   ISSUE_STATUS_OPTIONS,
   STORY_POINT_OPTIONS,
 } from '@/constants/issueOptions'
-import { getIssue as apiGetIssue, transitionIssue as apiTransitionIssue } from '@/api/issues'
+import { getIssue as apiGetIssue } from '@/api/issues'
 import { ApiError } from '@/api/types'
 import { refreshKanbanBoard } from '@/features/kanban/kanbanRefreshBridge'
 import { useIssues } from '@/contexts/IssuesContext'
@@ -95,8 +95,9 @@ function priorityForBadge(issue: ProjectIssue): 'high' | 'medium' | 'low' {
   return 'medium'
 }
 
-function memberIdFromAssignee(name: string): string {
-  return mockMembers.find((m) => m.name === name)?.id ?? ''
+function memberIdFromAssignee(issue: ProjectIssue): string {
+  if (issue.assigneeId) return issue.assigneeId
+  return mockMembers.find((m) => m.name === issue.assignee.name)?.id ?? ''
 }
 
 export function IssueDetailDrawer({
@@ -105,7 +106,7 @@ export function IssueDetailDrawer({
   onClose,
   onIssueUpdated,
 }: IssueDetailDrawerProps) {
-  const { updateIssue, refresh, updateIssueViaApi, loadBacklog } = useIssues()
+  const { updateIssue, refresh, updateIssueViaApi, loadBacklog, loadSprintIssues } = useIssues()
   const titleId = useId()
   const [tab, setTab] = useState<DetailTab>('details')
   const [extras, setExtras] = useState<IssueDetailExtras | null>(null)
@@ -144,7 +145,7 @@ export function IssueDetailDrawer({
             acceptanceCriteria: '',
             epic: mapped.key.split('-')[0] + '-EPIC-1',
             reporter: mapped.assignee,
-            createdBy: detail.reporter?.display_name ?? 'Unknown',
+            createdBy: detail.reporter ?? 'Unknown',
             createdAt: new Date(detail.created_at).toLocaleString(undefined, {
               dateStyle: 'medium',
               timeStyle: 'short',
@@ -213,22 +214,22 @@ export function IssueDetailDrawer({
       setSaving(true)
       setSaveError(null)
       try {
-        const nextStatus = draft.workflowStatus ?? 'todo'
-        const previousStatus = loadedWorkflowStatusRef.current
-
-        if (previousStatus && nextStatus !== previousStatus) {
-          await apiTransitionIssue(draft.id, nextStatus, draft.projectId)
-        }
-
         const updated = await updateIssueViaApi(draft.id, draft.projectId, {
           title: draft.title.trim(),
           description: extras.description.trim(),
+          type: draft.issueType,
           priority: draft.priorityLevel ?? 'medium',
+          sprint: draft.sprintId,
+          assignee: memberIdFromAssignee(draft) || null,
           story_points: draft.storyPoints ?? null,
           due_date: draft.dueDate || null,
-          labels: draft.labels ?? (draft.label ? [draft.label] : []),
+          estimate_hours: draft.estimateHours ?? null,
+          labels: draft.labelIds ?? [],
         })
         await loadBacklog(draft.projectId)
+        if (draft.sprintId) {
+          await loadSprintIssues(draft.projectId, draft.sprintId)
+        }
         refreshKanbanBoard()
         loadedWorkflowStatusRef.current = updated.workflowStatus
         onIssueUpdated(updated)
@@ -261,6 +262,7 @@ export function IssueDetailDrawer({
     refresh,
     updateIssueViaApi,
     loadBacklog,
+    loadSprintIssues,
     onIssueUpdated,
   ])
 
@@ -469,6 +471,7 @@ export function IssueDetailDrawer({
                     extras={extras}
                     projectName={project?.name}
                     sprintName={sprint?.name}
+                    readOnlyStatus={persisted}
                     onPatch={patchDraft}
                   />
                 </div>
@@ -685,6 +688,7 @@ export function IssueDetailDrawer({
                   extras={extras}
                   projectName={project?.name}
                   sprintName={sprint?.name}
+                  readOnlyStatus={persisted}
                   onPatch={patchDraft}
                 />
               </div>
@@ -738,6 +742,7 @@ type MetadataPanelProps = {
   extras: IssueDetailExtras
   projectName?: string
   sprintName?: string
+  readOnlyStatus?: boolean
   onPatch: (patch: Partial<ProjectIssue>) => void
 }
 
@@ -746,9 +751,10 @@ function MetadataPanel({
   extras,
   projectName,
   sprintName,
+  readOnlyStatus = false,
   onPatch,
 }: MetadataPanelProps) {
-  const assigneeId = memberIdFromAssignee(draft.assignee.name)
+  const assigneeId = memberIdFromAssignee(draft)
   const priorityLevel =
     draft.priorityLevel ??
     (draft.priority === 'high'
@@ -761,12 +767,16 @@ function MetadataPanel({
     <div className="space-y-3">
       <MetaField label="Assignee">
         <AssigneeSelect
+          projectId={draft.projectId}
           value={assigneeId}
           onChange={(id) => {
             const member = mockMembers.find((m) => m.id === id)
-            if (member) {
-              onPatch({ assignee: { name: member.name, color: member.color } })
-            }
+            onPatch({
+              assigneeId: id || null,
+              assignee: member
+                ? { name: member.name, color: member.color }
+                : { name: 'Unassigned', color: '#94a3b8' },
+            })
           }}
         />
       </MetaField>
@@ -803,7 +813,9 @@ function MetadataPanel({
         <SelectField
           label="Status"
           value={draft.workflowStatus ?? 'todo'}
+          disabled={readOnlyStatus}
           onChange={(e) => {
+            if (readOnlyStatus) return
             const status = e.target.value as IssueWorkflowStatus
             const boardStatus =
               status === 'done'
@@ -844,11 +856,11 @@ function MetadataPanel({
 
       <MetaField label="Labels">
         <LabelMultiSelect
-          selected={draft.labels ?? [draft.label]}
-          onChange={(labels) =>
+          projectId={draft.projectId}
+          selected={draft.labelIds ?? []}
+          onChange={(labelIds) =>
             onPatch({
-              labels,
-              label: labels[0] ?? draft.label,
+              labelIds,
             })
           }
         />

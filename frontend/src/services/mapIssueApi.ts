@@ -1,4 +1,4 @@
-import type { IssueDetailApi, IssueSummaryApi } from '@/api/issues'
+import type { IssueApi } from '@/api/issues'
 import type {
   IssuePriorityLevel,
   IssueType,
@@ -29,12 +29,17 @@ function colorForName(name: string): string {
   return ASSIGNEE_COLORS[Math.abs(hash) % ASSIGNEE_COLORS.length]
 }
 
+function resolveAssigneeId(assignee: IssueApi['assignee']): string | null {
+  if (!assignee) return null
+  return assignee
+}
+
 function resolveAssignee(
-  assignee: IssueDetailApi['assignee'],
   assigneeId: string | null,
+  displayName?: string,
 ): ProjectIssue['assignee'] {
-  if (assignee?.display_name) {
-    return { name: assignee.display_name, color: colorForName(assignee.display_name) }
+  if (displayName) {
+    return { name: displayName, color: colorForName(displayName) }
   }
   if (assigneeId) {
     return { name: 'Assigned', color: '#6366f1' }
@@ -42,46 +47,44 @@ function resolveAssignee(
   return UNASSIGNED
 }
 
-export function mapIssueSummaryToUi(
-  issue: IssueSummaryApi,
-  projectId: string,
-): ProjectIssue {
-  const workflowStatus = issue.status_slug as IssueWorkflowStatus
+export function mapIssueToUi(issue: IssueApi, projectId?: string): ProjectIssue {
+  const pid = projectId ?? issue.project
+  const workflowStatus = issue.status.slug as IssueWorkflowStatus
   const priorityLevel = issue.priority as IssuePriorityLevel
+  const labelNames = issue.labels.map((label) => label.name)
+  const assigneeId = resolveAssigneeId(issue.assignee)
 
   return {
     id: issue.id,
-    projectId,
-    sprintId: issue.sprint_id,
+    projectId: pid,
+    sprintId: issue.sprint,
     key: issue.key,
     title: issue.title,
     status: mapWorkflowToBoardStatus(workflowStatus),
     workflowStatus,
-    label: issue.issue_type,
-    issueType: issue.issue_type as IssueType,
+    label: labelNames[0] ?? issue.type,
+    issueType: issue.type as IssueType,
     priorityLevel,
     priority: mapPriorityLevelToKanban(priorityLevel),
-    assignee: resolveAssignee(null, issue.assignee_id),
-    storyPoints: undefined,
+    assignee: resolveAssignee(assigneeId),
+    assigneeId,
+    labelIds: issue.labels.map((label) => label.id),
+    labels: labelNames.length > 0 ? labelNames : undefined,
+    description: issue.description || undefined,
+    storyPoints: issue.story_points ?? undefined,
+    estimateHours:
+      issue.estimate_hours != null ? Number(issue.estimate_hours) : undefined,
+    dueDate: issue.due_date ?? undefined,
+    reporterId: issue.reporter,
   }
 }
 
-export function mapIssueDetailToUi(
-  issue: IssueDetailApi,
-  projectId: string,
-): ProjectIssue {
-  const base = mapIssueSummaryToUi(issue, projectId)
+export function mapIssueSummaryToUi(issue: IssueApi, projectId: string): ProjectIssue {
+  return mapIssueToUi(issue, projectId)
+}
 
-  return {
-    ...base,
-    description: issue.description || undefined,
-    storyPoints: issue.story_points ?? undefined,
-    dueDate: issue.due_date ?? undefined,
-    labels: issue.labels.length > 0 ? issue.labels : undefined,
-    label: issue.labels[0] ?? base.label,
-    assignee: resolveAssignee(issue.assignee, issue.assignee_id),
-    reporterId: issue.reporter?.id,
-  }
+export function mapIssueDetailToUi(issue: IssueApi, projectId: string): ProjectIssue {
+  return mapIssueToUi(issue, projectId)
 }
 
 export function isApiIssueId(id: string): boolean {
