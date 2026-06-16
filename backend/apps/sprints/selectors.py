@@ -16,6 +16,7 @@ def get_project_sprints(project_id: UUID) -> QuerySet[Sprint]:
     return (
         _optimized_sprint_queryset()
         .filter(project_id=project_id)
+        .defer("capacity_points")
         .annotate(
             status_rank=Case(
                 When(status=SprintStatus.ACTIVE, then=Value(0)),

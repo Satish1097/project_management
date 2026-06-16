@@ -84,7 +84,7 @@ export function SprintsProvider({ children }: { children: ReactNode }) {
 
   const loadSprintDetail = useCallback(
     async (sprintId: string, projectId: string): Promise<Sprint> => {
-      const detail = await apiGetSprint(sprintId)
+      const detail = await apiGetSprint(projectId, sprintId)
       const sprint = mapSprintDetailToUi(detail, projectId)
       upsertSprintInRegistry(sprint)
       setSprints(getSprints())
@@ -110,7 +110,7 @@ export function SprintsProvider({ children }: { children: ReactNode }) {
       projectId: string,
       payload: UpdateSprintPayload,
     ): Promise<Sprint> => {
-      const updated = await apiUpdateSprint(sprintId, payload)
+      const updated = await apiUpdateSprint(projectId, sprintId, payload)
       const sprint = mapSprintDetailToUi(updated, projectId)
       updateSprintInRegistry(sprintId, sprint)
       setSprints(getSprints())

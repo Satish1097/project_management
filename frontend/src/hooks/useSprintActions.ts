@@ -1,6 +1,8 @@
 import { useCallback } from 'react'
 import {
   completeSprint as apiCompleteSprint,
+  pauseSprint as apiPauseSprint,
+  resumeSprint as apiResumeSprint,
   startSprint as apiStartSprint,
 } from '@/api/sprints'
 import { ApiError } from '@/api/types'
@@ -23,7 +25,7 @@ export function useSprintActions(projectId: string) {
       sprintId: string,
     ): Promise<{ ok: true } | { ok: false; message: string }> => {
       try {
-        await apiStartSprint(sprintId)
+        await apiStartSprint(projectId, sprintId)
         await refreshAll()
         return { ok: true }
       } catch (error) {
@@ -36,10 +38,37 @@ export function useSprintActions(projectId: string) {
   )
 
   const pauseSprint = useCallback(
-    async (_sprintId: string) => {
-      await refreshAll()
+    async (
+      sprintId: string,
+    ): Promise<{ ok: true } | { ok: false; message: string }> => {
+      try {
+        await apiPauseSprint(projectId, sprintId)
+        await refreshAll()
+        return { ok: true }
+      } catch (error) {
+        const message =
+          error instanceof ApiError ? error.message : 'Failed to pause sprint.'
+        return { ok: false, message }
+      }
     },
-    [refreshAll],
+    [projectId, refreshAll],
+  )
+
+  const resumeSprint = useCallback(
+    async (
+      sprintId: string,
+    ): Promise<{ ok: true } | { ok: false; message: string }> => {
+      try {
+        await apiResumeSprint(projectId, sprintId)
+        await refreshAll()
+        return { ok: true }
+      } catch (error) {
+        const message =
+          error instanceof ApiError ? error.message : 'Failed to resume sprint.'
+        return { ok: false, message }
+      }
+    },
+    [projectId, refreshAll],
   )
 
   const completeSprint = useCallback(
@@ -52,6 +81,7 @@ export function useSprintActions(projectId: string) {
     ) => {
       try {
         await apiCompleteSprint(
+          projectId,
           sprintId,
           options.destination === 'sprint' && options.targetSprintId
             ? { carry_forward_to_sprint_id: options.targetSprintId }
@@ -64,7 +94,7 @@ export function useSprintActions(projectId: string) {
           : new ApiError('Failed to complete sprint.')
       }
     },
-    [refreshAll],
+    [projectId, refreshAll],
   )
 
   const cancelSprint = useCallback(
@@ -74,5 +104,12 @@ export function useSprintActions(projectId: string) {
     [refreshAll],
   )
 
-  return { startSprint, pauseSprint, completeSprint, cancelSprint, refreshAll }
+  return {
+    startSprint,
+    pauseSprint,
+    resumeSprint,
+    completeSprint,
+    cancelSprint,
+    refreshAll,
+  }
 }

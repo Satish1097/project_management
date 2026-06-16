@@ -10,8 +10,6 @@ class WorkflowTransition(BaseModel):
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
-        null=True,
-        blank=True,
         related_name="workflow_transitions",
     )
     from_status = models.ForeignKey(
@@ -25,7 +23,6 @@ class WorkflowTransition(BaseModel):
         related_name="incoming_transitions",
     )
     name = models.CharField(max_length=255)
-    requires_approval = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "workflow transition"
@@ -33,9 +30,6 @@ class WorkflowTransition(BaseModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["project", "from_status", "to_status"],
-                name="workflow_workflowtransition_project_from_to_uniq",
+                name="workflow_transition_project_from_to_uniq",
             ),
         ]
-
-    def __str__(self):
-        return self.name

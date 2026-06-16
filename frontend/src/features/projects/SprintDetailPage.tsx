@@ -26,7 +26,8 @@ export function SprintDetailPage() {
   const sprint = getSprintById(projectId, sprintId)
   const { loadSprintDetail } = useSprints()
   const { loading: sprintsLoading } = useLoadProjectSprints(projectId)
-  const { startSprint, pauseSprint, completeSprint } = useSprintActions(projectId)
+  const { startSprint, pauseSprint, resumeSprint, completeSprint } =
+    useSprintActions(projectId)
   const [completeOpen, setCompleteOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -67,6 +68,18 @@ export function SprintDetailPage() {
   const handleStart = async () => {
     setError(null)
     const result = await startSprint(sprintId)
+    if (!result.ok) setError(result.message)
+  }
+
+  const handlePause = async () => {
+    setError(null)
+    const result = await pauseSprint(sprintId)
+    if (!result.ok) setError(result.message)
+  }
+
+  const handleResume = async () => {
+    setError(null)
+    const result = await resumeSprint(sprintId)
     if (!result.ok) setError(result.message)
   }
 
@@ -176,7 +189,7 @@ export function SprintDetailPage() {
                 </Link>
                 <button
                   type="button"
-                  onClick={() => pauseSprint(sprintId)}
+                  onClick={() => void handlePause()}
                   className="rounded-lg border border-devflow-border px-3 py-1.5 text-btn text-devflow-text-secondary hover:bg-devflow-surface"
                 >
                   Pause sprint
@@ -193,7 +206,7 @@ export function SprintDetailPage() {
             {sprint.status === 'paused' && (
               <button
                 type="button"
-                onClick={() => void handleStart()}
+                onClick={() => void handleResume()}
                 className="rounded-lg bg-devflow-primary px-3 py-1.5 text-btn text-white"
               >
                 Resume sprint

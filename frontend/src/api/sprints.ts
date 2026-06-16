@@ -10,6 +10,7 @@ export type SprintSummaryApi = {
   status: string
   start_date: string | null
   end_date: string | null
+  capacity_points?: number | null
 }
 
 export type SprintDetailApi = SprintSummaryApi & {
@@ -23,6 +24,7 @@ export type CreateSprintPayload = {
   goal?: string
   start_date?: string | null
   end_date?: string | null
+  capacity_points?: number | null
 }
 
 export type UpdateSprintPayload = {
@@ -30,6 +32,7 @@ export type UpdateSprintPayload = {
   goal?: string
   start_date?: string | null
   end_date?: string | null
+  capacity_points?: number | null
 }
 
 export type CompleteSprintPayload = {
@@ -65,10 +68,13 @@ export async function getProjectSprints(projectId: string): Promise<SprintSummar
   }
 }
 
-export async function getSprint(sprintId: string): Promise<SprintDetailApi> {
+export async function getSprint(
+  projectId: string,
+  sprintId: string,
+): Promise<SprintDetailApi> {
   try {
     const { data } = await apiClient.get<ApiResponse<{ sprint: SprintDetailApi }>>(
-      `/sprints/${sprintId}`,
+      `/projects/${projectId}/sprints/${sprintId}`,
     )
     return data.data.sprint
   } catch (error) {
@@ -103,12 +109,13 @@ export async function createSprint(
 }
 
 export async function updateSprint(
+  projectId: string,
   sprintId: string,
   payload: UpdateSprintPayload,
 ): Promise<SprintDetailApi> {
   try {
     const { data } = await apiClient.patch<ApiResponse<{ sprint: SprintDetailApi }>>(
-      `/sprints/${sprintId}`,
+      `/projects/${projectId}/sprints/${sprintId}`,
       payload,
     )
     return data.data.sprint
@@ -117,10 +124,41 @@ export async function updateSprint(
   }
 }
 
-export async function startSprint(sprintId: string): Promise<SprintDetailApi> {
+export async function startSprint(
+  projectId: string,
+  sprintId: string,
+): Promise<SprintDetailApi> {
   try {
     const { data } = await apiClient.post<ApiResponse<{ sprint: SprintDetailApi }>>(
-      `/sprints/${sprintId}/start`,
+      `/projects/${projectId}/sprints/${sprintId}/start`,
+    )
+    return data.data.sprint
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function pauseSprint(
+  projectId: string,
+  sprintId: string,
+): Promise<SprintDetailApi> {
+  try {
+    const { data } = await apiClient.post<ApiResponse<{ sprint: SprintDetailApi }>>(
+      `/projects/${projectId}/sprints/${sprintId}/pause`,
+    )
+    return data.data.sprint
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function resumeSprint(
+  projectId: string,
+  sprintId: string,
+): Promise<SprintDetailApi> {
+  try {
+    const { data } = await apiClient.post<ApiResponse<{ sprint: SprintDetailApi }>>(
+      `/projects/${projectId}/sprints/${sprintId}/resume`,
     )
     return data.data.sprint
   } catch (error) {
@@ -129,6 +167,7 @@ export async function startSprint(sprintId: string): Promise<SprintDetailApi> {
 }
 
 export async function completeSprint(
+  projectId: string,
   sprintId: string,
   payload: CompleteSprintPayload = {},
 ): Promise<SprintDetailApi> {
@@ -141,7 +180,7 @@ export async function completeSprint(
       : { move_incomplete_to: 'backlog' as const }
 
     const { data } = await apiClient.post<ApiResponse<{ sprint: SprintDetailApi }>>(
-      `/sprints/${sprintId}/complete`,
+      `/projects/${projectId}/sprints/${sprintId}/complete`,
       body,
     )
     return data.data.sprint

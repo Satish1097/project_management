@@ -3,7 +3,13 @@ import type { Sprint, SprintStatus } from '@/types/sprints'
 import { computeDaysRemaining, formatDateRange } from '@/utils/sprintDates'
 
 function mapStatus(status: string): SprintStatus {
-  if (status === 'active' || status === 'completed' || status === 'planned') {
+  if (
+    status === 'active' ||
+    status === 'completed' ||
+    status === 'planned' ||
+    status === 'paused' ||
+    status === 'cancelled'
+  ) {
     return status
   }
   return 'planned'
@@ -33,6 +39,7 @@ export function mapSprintSummaryToUi(
     dateRange: formatRange(sprint.start_date, sprint.end_date),
     issueCount: 0,
     completedCount: 0,
+    capacityPoints: sprint.capacity_points ?? undefined,
   }
 }
 

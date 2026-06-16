@@ -178,6 +178,10 @@ export function CreateSprintDrawer({
       goal: values.goal.trim(),
       start_date: values.startDate,
       end_date: values.endDate,
+      capacity_points:
+        values.capacityPoints.trim() === ''
+          ? null
+          : Number(values.capacityPoints),
     }
 
     try {

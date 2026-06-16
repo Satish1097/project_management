@@ -21,7 +21,6 @@ import {
   formatSprintStatus,
   getSprintCompletionPercent,
   getSprintSuccessRate,
-  getSprintsForProject,
 } from '@/services/projectData'
 import type { Sprint } from '@/types/sprints'
 import { cn } from '@/utils/cn'
@@ -46,7 +45,7 @@ export function ProjectSprintsPage() {
   )
 
   const filtered = useMemo(() => {
-    let list = [...getSprintsForProject(projectId)]
+    let list = [...projectSprints]
     const q = query.trim().toLowerCase()
     if (q) {
       list = list.filter(
@@ -64,7 +63,7 @@ export function ProjectSprintsPage() {
       return b.startDate.localeCompare(a.startDate)
     })
     return list
-  }, [projectId, query, statusFilter, sort, projectSprints])
+  }, [projectSprints, query, statusFilter, sort])
 
   const active = filtered.find((s) => s.status === 'active')
   const planned = filtered.filter((s) => s.status === 'planned')

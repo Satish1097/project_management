@@ -14,6 +14,10 @@ from apps.sprints.services.sprint_service import sprint_service
 
 
 def _sprint_to_data(sprint) -> dict:
+    capacity_points = None
+    if "capacity_points" not in sprint.get_deferred_fields():
+        capacity_points = sprint.capacity_points
+
     return {
         "id": str(sprint.id),
         "project_id": str(sprint.project_id),
@@ -22,7 +26,7 @@ def _sprint_to_data(sprint) -> dict:
         "status": sprint.status,
         "start_date": sprint.start_date.isoformat() if sprint.start_date else None,
         "end_date": sprint.end_date.isoformat() if sprint.end_date else None,
-        "capacity_points": sprint.capacity_points,
+        "capacity_points": capacity_points,
         "created_at": sprint.created_at.isoformat() if sprint.created_at else None,
         "updated_at": sprint.updated_at.isoformat() if sprint.updated_at else None,
     }
