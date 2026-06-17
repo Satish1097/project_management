@@ -13,10 +13,10 @@ import type { KanbanColumn, KanbanIssue } from '@/types/kanban'
 
 type KanbanDndProviderProps = {
   columns: KanbanColumn[]
-  onMoveIssue: (
+  onTransitionIssue: (
     issueId: string,
-    targetColumnId: string,
-    sourceColumnId: string,
+    targetStatusId: string,
+    sourceStatusId: string,
   ) => void | Promise<void>
   transitioningIssueId: string | null
   children: (state: {
@@ -28,11 +28,11 @@ type KanbanDndProviderProps = {
 function findIssueInColumns(
   columns: KanbanColumn[],
   issueId: string,
-): { issue: KanbanIssue; columnId: string } | null {
+): { issue: KanbanIssue; columnId: string; statusId: string } | null {
   for (const column of columns) {
     const issue = column.issues.find((item) => item.id === issueId)
     if (issue) {
-      return { issue, columnId: column.id }
+      return { issue, columnId: column.id, statusId: column.statusId ?? column.id }
     }
   }
   return null
@@ -40,7 +40,7 @@ function findIssueInColumns(
 
 export function KanbanDndProvider({
   columns,
-  onMoveIssue,
+  onTransitionIssue,
   transitioningIssueId,
   children,
 }: KanbanDndProviderProps) {
@@ -48,6 +48,7 @@ export function KanbanDndProvider({
   const [activeIssue, setActiveIssue] = useState<{
     issue: KanbanIssue
     columnId: string
+    statusId: string
   } | null>(null)
 
   const sensors = useSensors(
@@ -76,17 +77,17 @@ export function KanbanDndProvider({
       setActiveIssue(null)
 
       const issueId = String(event.active.id)
-      const sourceColumnId = String(event.active.data.current?.columnId ?? '')
+      const sourceStatusId = String(event.active.data.current?.statusId ?? '')
       const overId = event.over?.id
 
-      if (!overId || !sourceColumnId) return
+      if (!overId || !sourceStatusId) return
 
-      const targetColumnId = String(overId)
-      if (sourceColumnId === targetColumnId) return
+      const targetStatusId = String(overId)
+      if (sourceStatusId === targetStatusId) return
 
-      void onMoveIssue(issueId, targetColumnId, sourceColumnId)
+      void onTransitionIssue(issueId, targetStatusId, sourceStatusId)
     },
-    [onMoveIssue],
+    [onTransitionIssue],
   )
 
   const handleDragCancel = useCallback(() => {
@@ -110,6 +111,7 @@ export function KanbanDndProvider({
           <TaskCard
             issue={activeIssue.issue}
             columnId={activeIssue.columnId}
+            statusId={activeIssue.statusId}
             isDragOverlay
           />
         ) : null}

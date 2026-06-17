@@ -33,6 +33,7 @@ export type KanbanIssue = {
 
 export type KanbanColumn = {
   id: KanbanColumnId
+  statusId?: string
   title: string
   dotColor: string
   count: number

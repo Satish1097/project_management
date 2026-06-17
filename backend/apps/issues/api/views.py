@@ -7,6 +7,11 @@ from rest_framework.views import APIView
 
 from apps.foundation.responses import success_response
 from apps.issues.api.serializers import (
+    AttachmentSerializer,
+    CommentCreateSerializer,
+    CommentSerializer,
+    CommentUpdateSerializer,
+    IssueActivitySerializer,
     IssueCreateSerializer,
     IssueMoveSprintSerializer,
     IssueSerializer,
@@ -15,16 +20,22 @@ from apps.issues.api.serializers import (
 )
 from apps.issues.exceptions import IssueNotFoundError
 from apps.issues.selectors import (
+    get_issue_activity,
+    get_issue_attachments,
     get_issue_by_id,
+    get_issue_comments,
     get_project_issues,
-    select_project_kanban_board,
+    get_project_kanban,
 )
-from apps.issues.services import issue_service
+from apps.issues.services import attachment_service, comment_service, issue_service
 from apps.permissions.drf_permissions import Authenticated
 from apps.permissions.services import permission_service
 from apps.projects.exceptions import ProjectAccessDeniedError, ProjectNotFoundError
 from apps.projects.selectors import select_project_by_id
+from apps.sprints.api.serializers import SprintSerializer
+from apps.workflow.api.serializers import WorkflowStatusSerializer
 from apps.workflow.services import transition_service
+from apps.workflow.slug_utils import status_slug
 
 
 class IssueBulkAssignSprintSerializer(serializers.Serializer):
@@ -70,28 +81,52 @@ def _create_kwargs(validated_data: dict) -> dict:
     }
 
 
-def _kanban_issue_data(issue, status_slug: str) -> dict:
+def _kanban_sprint_data(sprint) -> dict | None:
+    if sprint is None:
+        return None
+    return dict(SprintSerializer(sprint).data)
+
+
+def _kanban_status_data(status) -> dict:
+    data = dict(WorkflowStatusSerializer(status).data)
+    data["slug"] = status_slug(name=status.name, category=status.category)
+    return data
+
+
+def _kanban_issue_data(issue, status_data: dict) -> dict:
     data = dict(IssueSerializer(issue).data)
     status = dict(data.get("status") or {})
-    status["slug"] = status_slug
+    status["slug"] = status_data["slug"]
     data["status"] = status
     return data
 
 
-def _kanban_board_data(board: dict) -> dict:
+def _kanban_column_data(column: dict) -> dict:
+    status = _kanban_status_data(column["status"])
+    issues = [_kanban_issue_data(issue, status) for issue in column["issues"]]
     return {
-        "project_id": str(board["project_id"]),
-        "columns": [
-            {
-                "status_slug": column["status_slug"],
-                "status_name": column["status_name"],
-                "issues": [
-                    _kanban_issue_data(issue, column["status_slug"])
-                    for issue in column["issues"]
-                ],
-            }
-            for column in board["columns"]
-        ],
+        "status_id": str(status["id"]),
+        "status_slug": status["slug"],
+        "status_name": status["name"],
+        "status": status,
+        "issues": issues,
+    }
+
+
+def _kanban_board_data(project_id: UUID, board: dict) -> dict:
+    columns = [_kanban_column_data(column) for column in board["columns"]]
+    selected_sprint = _kanban_sprint_data(board["sprint"])
+
+    return {
+        "project_id": str(project_id),
+        "selected_sprint": selected_sprint,
+        "sprint": selected_sprint,
+        "workflow_columns": [column["status"] for column in columns],
+        "columns": columns,
+        "grouped_issues": {
+            column["status_slug"]: column["issues"]
+            for column in columns
+        },
     }
 
 
@@ -147,7 +182,7 @@ class IssueListCreateView(APIView):
         )
 
 
-class ProjectKanbanCompatibilityView(APIView):
+class ProjectKanbanView(APIView):
     permission_classes = [Authenticated]
 
     @extend_schema(tags=["issues"])
@@ -155,8 +190,8 @@ class ProjectKanbanCompatibilityView(APIView):
         _require_project(project_id)
         _require_issue_view(request.user.id, project_id)
 
-        board = select_project_kanban_board(project_id)
-        return success_response(data={"board": _kanban_board_data(board)})
+        board = get_project_kanban(project_id)
+        return success_response(data={"board": _kanban_board_data(project_id, board)})
 
 
 class IssueDetailView(APIView):
@@ -223,3 +258,103 @@ class IssueBulkAssignSprintView(APIView):
             sprint_id=serializer.validated_data.get("sprint_id"),
         )
         return success_response(data={"updated": updated})
+
+
+class IssueCommentListCreateView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(responses=CommentSerializer(many=True), tags=["issues"])
+    def get(self, request, issue_id: UUID):
+        issue = _require_issue(issue_id)
+        _require_issue_view(request.user.id, issue.project_id)
+        comments = get_issue_comments(issue_id)
+        return success_response(data={"comments": CommentSerializer(comments, many=True).data})
+
+    @extend_schema(request=CommentCreateSerializer, responses=CommentSerializer, tags=["issues"])
+    def post(self, request, issue_id: UUID):
+        serializer = CommentCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comment = comment_service.create_comment(
+            user=request.user,
+            issue_id=issue_id,
+            body=serializer.validated_data["body"],
+        )
+        return success_response(data={"comment": CommentSerializer(comment).data}, status=201)
+
+
+class IssueAttachmentListCreateView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(responses=AttachmentSerializer(many=True), tags=["issues"])
+    def get(self, request, issue_id: UUID):
+        issue = _require_issue(issue_id)
+        _require_issue_view(request.user.id, issue.project_id)
+        attachments = get_issue_attachments(issue_id)
+        return success_response(
+            data={"attachments": AttachmentSerializer(attachments, many=True).data}
+        )
+
+    @extend_schema(request=AttachmentSerializer, responses=AttachmentSerializer, tags=["issues"])
+    def post(self, request, issue_id: UUID):
+        issue = _require_issue(issue_id)
+        _require_issue_view(request.user.id, issue.project_id)
+
+        serializer = AttachmentSerializer(
+            data={
+                "issue": str(issue.id),
+                "file": request.data.get("file"),
+            }
+        )
+        serializer.is_valid(raise_exception=True)
+
+        attachment = attachment_service.upload_attachment(
+            user=request.user,
+            issue_id=issue_id,
+            file=serializer.validated_data["file"],
+        )
+        return success_response(
+            data={"attachment": AttachmentSerializer(attachment).data},
+            status=201,
+        )
+
+
+class IssueActivityListView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(responses=IssueActivitySerializer(many=True), tags=["issues"])
+    def get(self, request, issue_id: UUID):
+        issue = _require_issue(issue_id)
+        _require_issue_view(request.user.id, issue.project_id)
+        activity = get_issue_activity(issue_id)
+        return success_response(
+            data={"activity": IssueActivitySerializer(activity, many=True).data}
+        )
+
+
+class CommentDetailView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(request=CommentUpdateSerializer, responses=CommentSerializer, tags=["issues"])
+    def patch(self, request, comment_id: UUID):
+        serializer = CommentUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comment = comment_service.update_comment(
+            user=request.user,
+            comment_id=comment_id,
+            body=serializer.validated_data["body"],
+        )
+        return success_response(data={"comment": CommentSerializer(comment).data})
+
+    @extend_schema(tags=["issues"])
+    def delete(self, request, comment_id: UUID):
+        comment_service.delete_comment(user=request.user, comment_id=comment_id)
+        return success_response(status=204)
+
+
+class AttachmentDetailView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["issues"])
+    def delete(self, request, attachment_id: UUID):
+        attachment_service.delete_attachment(user=request.user, attachment_id=attachment_id)
+        return success_response(status=204)

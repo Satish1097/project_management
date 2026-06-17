@@ -1,20 +1,25 @@
 from django.urls import path
 
 from apps.issues.api.views import (
+    AttachmentDetailView,
+    CommentDetailView,
+    IssueActivityListView,
     IssueAssignSprintView,
+    IssueAttachmentListCreateView,
     IssueBulkAssignSprintView,
+    IssueCommentListCreateView,
     IssueDetailView,
     IssueListCreateView,
     IssueTransitionView,
-    ProjectKanbanCompatibilityView,
+    ProjectKanbanView,
 )
 
 urlpatterns = [
     path("issues", IssueListCreateView.as_view(), name="issue-list-create"),
     path(
         "projects/<uuid:project_id>/kanban",
-        ProjectKanbanCompatibilityView.as_view(),
-        name="project-kanban-compatibility",
+        ProjectKanbanView.as_view(),
+        name="project-kanban",
     ),
     path(
         "issues/bulk/assign-sprint",
@@ -31,5 +36,30 @@ urlpatterns = [
         "issues/<uuid:issue_id>/assign-sprint",
         IssueAssignSprintView.as_view(),
         name="issue-assign-sprint",
+    ),
+    path(
+        "issues/<uuid:issue_id>/comments",
+        IssueCommentListCreateView.as_view(),
+        name="issue-comment-list-create",
+    ),
+    path(
+        "issues/<uuid:issue_id>/activity",
+        IssueActivityListView.as_view(),
+        name="issue-activity-list",
+    ),
+    path(
+        "issues/<uuid:issue_id>/attachments",
+        IssueAttachmentListCreateView.as_view(),
+        name="issue-attachment-list-create",
+    ),
+    path(
+        "comments/<uuid:comment_id>",
+        CommentDetailView.as_view(),
+        name="comment-detail",
+    ),
+    path(
+        "attachments/<uuid:attachment_id>",
+        AttachmentDetailView.as_view(),
+        name="attachment-detail",
     ),
 ]

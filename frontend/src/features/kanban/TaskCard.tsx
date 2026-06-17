@@ -10,9 +10,11 @@ import { cn } from '@/utils/cn'
 type TaskCardProps = {
   issue: KanbanIssue
   columnId: string
+  statusId?: string
   isDragging?: boolean
   isDragOverlay?: boolean
   isTransitioning?: boolean
+  draggable?: boolean
 }
 
 function toTaskPriority(priority: KanbanIssue['priority']): TaskPriority {
@@ -22,15 +24,17 @@ function toTaskPriority(priority: KanbanIssue['priority']): TaskPriority {
 export function TaskCard({
   issue,
   columnId,
+  statusId,
   isDragging = false,
   isDragOverlay = false,
   isTransitioning = false,
+  draggable = true,
 }: TaskCardProps) {
   const { openIssueDetail } = useIssueDetail()
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: issue.id,
-    data: { columnId, issue },
-    disabled: isDragOverlay || isTransitioning,
+    data: { columnId, statusId: statusId ?? columnId, issue },
+    disabled: !draggable || isDragOverlay || isTransitioning,
   })
   const { role: _dragRole, tabIndex: _dragTabIndex, ...dragAttributes } = attributes
 
@@ -51,8 +55,8 @@ export function TaskCard({
     <article
       ref={isDragOverlay ? undefined : setNodeRef}
       style={style}
-      {...(isDragOverlay ? {} : dragAttributes)}
-      {...(isDragOverlay ? {} : listeners)}
+      {...(isDragOverlay || !draggable ? {} : dragAttributes)}
+      {...(isDragOverlay || !draggable ? {} : listeners)}
       role="button"
       tabIndex={0}
       onClick={() => {

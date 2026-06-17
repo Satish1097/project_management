@@ -41,6 +41,32 @@ def get_active_sprint(project_id: UUID) -> Sprint | None:
     )
 
 
+def get_paused_sprint(project_id: UUID) -> Sprint | None:
+    return (
+        _optimized_sprint_queryset()
+        .filter(project_id=project_id, status=SprintStatus.PAUSED)
+        .order_by("-created_at")
+        .first()
+    )
+
+
+def get_latest_planned_sprint(project_id: UUID) -> Sprint | None:
+    return (
+        _optimized_sprint_queryset()
+        .filter(project_id=project_id, status=SprintStatus.PLANNED)
+        .order_by("-created_at")
+        .first()
+    )
+
+
+def get_project_kanban_sprint(project_id: UUID) -> Sprint | None:
+    return (
+        get_active_sprint(project_id)
+        or get_paused_sprint(project_id)
+        or get_latest_planned_sprint(project_id)
+    )
+
+
 def get_sprint_by_id(sprint_id: UUID) -> Sprint | None:
     return _optimized_sprint_queryset().filter(pk=sprint_id).first()
 

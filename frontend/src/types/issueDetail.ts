@@ -19,8 +19,10 @@ export type IssueActivityItem = {
 
 export type IssueComment = {
   id: string
+  authorId?: string
   author: IssueAssignee
   body: string
+  createdAt?: string
   timestamp: string
   /** Future: threaded replies */
   parentId?: string

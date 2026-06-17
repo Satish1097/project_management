@@ -42,6 +42,24 @@ export type IssueSummaryApi = IssueApi
 /** @deprecated Use IssueApi */
 export type IssueDetailApi = IssueApi
 
+export type KanbanSprintApi = {
+  id: string
+  project_id: string
+  name: string
+  status: string
+  start_date: string | null
+  end_date: string | null
+  capacity_points?: number | null
+}
+
+export type KanbanWorkflowStatusApi = IssueStatusApi & {
+  category?: string
+  color?: string
+  order?: number
+  is_default?: boolean
+  is_terminal?: boolean
+}
+
 export type IssueListFilters = {
   sprint?: string | null
   search?: string
@@ -77,14 +95,46 @@ export type UpdateIssuePayload = {
 }
 
 export type KanbanBoardColumnApi = {
+  status_id?: string
   status_slug: string
   status_name: string
+  status?: KanbanWorkflowStatusApi
   issues: IssueApi[]
 }
 
 export type KanbanBoardApi = {
   project_id: string
+  selected_sprint?: KanbanSprintApi | null
+  sprint?: KanbanSprintApi | null
+  workflow_columns?: KanbanWorkflowStatusApi[]
+  grouped_issues?: Record<string, IssueApi[]>
   columns: KanbanBoardColumnApi[]
+}
+
+export type IssueCommentApi = {
+  id: string
+  issue: string
+  author: string
+  body: string
+  created_at: string
+  updated_at: string
+}
+
+export type IssueActivityApi = {
+  id: string
+  actor: string | null
+  event_type: string
+  old_value: string | null
+  new_value: string | null
+  created_at: string
+}
+
+export type IssueAttachmentApi = {
+  id: string
+  issue: string
+  uploaded_by: string
+  file: string
+  created_at: string
 }
 
 function normalizeIssueType(type?: string): CreateIssuePayload['type'] {
@@ -263,7 +313,7 @@ export async function moveIssueToSprint(
   return assignIssueSprint(issueId, sprintId)
 }
 
-export async function getKanban(projectId: string): Promise<KanbanBoardApi> {
+export async function getProjectKanban(projectId: string): Promise<KanbanBoardApi> {
   try {
     const { data } = await apiClient.get<ApiResponse<{ board: KanbanBoardApi }>>(
       `/projects/${projectId}/kanban`,
@@ -272,6 +322,11 @@ export async function getKanban(projectId: string): Promise<KanbanBoardApi> {
   } catch (error) {
     throw toApiError(error)
   }
+}
+
+/** @deprecated Use getProjectKanban */
+export async function getKanban(projectId: string): Promise<KanbanBoardApi> {
+  return getProjectKanban(projectId)
 }
 
 export async function transitionIssue(
@@ -295,6 +350,102 @@ export async function transitionIssue(
       { to_status_id: targetStatusId },
     )
     return data.data.issue
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getIssueComments(issueId: string): Promise<IssueCommentApi[]> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ comments: IssueCommentApi[] }>>(
+      `/issues/${issueId}/comments`,
+    )
+    return data.data.comments
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getIssueActivity(issueId: string): Promise<IssueActivityApi[]> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ activity: IssueActivityApi[] }>>(
+      `/issues/${issueId}/activity`,
+    )
+    return data.data.activity
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getIssueAttachments(issueId: string): Promise<IssueAttachmentApi[]> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ attachments: IssueAttachmentApi[] }>>(
+      `/issues/${issueId}/attachments`,
+    )
+    return data.data.attachments
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function uploadIssueAttachment(
+  issueId: string,
+  file: File,
+): Promise<IssueAttachmentApi> {
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await apiClient.post<ApiResponse<{ attachment: IssueAttachmentApi }>>(
+      `/issues/${issueId}/attachments`,
+      formData,
+    )
+    return data.data.attachment
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function deleteIssueAttachment(attachmentId: string): Promise<void> {
+  try {
+    await apiClient.delete(`/attachments/${attachmentId}`)
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function createComment(
+  issueId: string,
+  body: string,
+): Promise<IssueCommentApi> {
+  try {
+    const { data } = await apiClient.post<ApiResponse<{ comment: IssueCommentApi }>>(
+      `/issues/${issueId}/comments`,
+      { body },
+    )
+    return data.data.comment
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function updateComment(
+  commentId: string,
+  body: string,
+): Promise<IssueCommentApi> {
+  try {
+    const { data } = await apiClient.patch<ApiResponse<{ comment: IssueCommentApi }>>(
+      `/comments/${commentId}`,
+      { body },
+    )
+    return data.data.comment
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function deleteComment(commentId: string): Promise<void> {
+  try {
+    await apiClient.delete(`/comments/${commentId}`)
   } catch (error) {
     throw toApiError(error)
   }

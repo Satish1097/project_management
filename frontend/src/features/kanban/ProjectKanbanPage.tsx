@@ -1,20 +1,23 @@
+import { useCallback, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
+import { ApiError } from '@/api/types'
+import { transitionIssue } from '@/api/issues'
 import { BoardFilters } from '@/features/kanban/BoardFilters'
 import { KanbanBoardView } from '@/features/kanban/KanbanBoardView'
 import { useProjectKanban } from '@/features/kanban/useProjectKanban'
 import { sprintAdvancedBoardPath } from '@/constants/routes'
-import { getActiveSprint, getProjectById } from '@/services/projectData'
+import { getProjectById } from '@/services/projectData'
 
 export function ProjectKanbanPage() {
   const { projectId = '' } = useParams()
   const project = getProjectById(projectId)
-  const activeSprint = getActiveSprint(projectId)
+  const [transitioningIssueId, setTransitioningIssueId] = useState<string | null>(null)
+  const [transitionError, setTransitionError] = useState<string | null>(null)
   const {
     columns,
+    selectedSprint,
     loading,
     error,
-    transitionError,
-    transitioningIssueId,
     totalIssues,
     filteredIssueCount,
     filters,
@@ -22,21 +25,40 @@ export function ProjectKanbanPage() {
     clearFilters,
     assigneeOptions,
     refreshBoard,
-    transitionIssueOnBoard,
   } = useProjectKanban(projectId)
+
+  const handleTransitionIssue = useCallback(
+    async (issueId: string, targetStatusId: string) => {
+      setTransitionError(null)
+      setTransitioningIssueId(issueId)
+
+      try {
+        await transitionIssue(issueId, targetStatusId)
+        await refreshBoard()
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : 'Failed to transition issue.'
+        setTransitionError(message)
+      } finally {
+        setTransitioningIssueId(null)
+      }
+    },
+    [refreshBoard],
+  )
 
   if (!project) {
     return <Navigate to="/projects" replace />
   }
 
   const showFilteredEmpty = !loading && totalIssues > 0 && filteredIssueCount === 0
+  const showNoSprintEmpty = !loading && !error && !selectedSprint
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-devflow-surface">
       <BoardFilters
         advancedBoardPath={
-          activeSprint
-            ? sprintAdvancedBoardPath(projectId, activeSprint.id)
+          selectedSprint
+            ? sprintAdvancedBoardPath(projectId, selectedSprint.id)
             : undefined
         }
         filters={filters}
@@ -50,12 +72,8 @@ export function ProjectKanbanPage() {
             {error}
           </p>
         )}
-
         {transitionError && (
-          <p
-            role="status"
-            className="mb-3 rounded-lg border border-devflow-error/30 bg-devflow-error/5 px-3 py-2 text-body text-devflow-error"
-          >
+          <p className="mb-3 rounded-lg border border-devflow-error/30 bg-devflow-error/5 px-3 py-2 text-body text-devflow-error">
             {transitionError}
           </p>
         )}
@@ -75,6 +93,13 @@ export function ProjectKanbanPage() {
           <div className="issue-board-empty">
             <p className="issue-board-empty__title">Loading board…</p>
           </div>
+        ) : showNoSprintEmpty ? (
+          <div className="issue-board-empty">
+            <p className="issue-board-empty__title">No sprint selected</p>
+            <p className="issue-board-empty__hint">
+              Start or select a sprint to see issues on the board.
+            </p>
+          </div>
         ) : showFilteredEmpty ? (
           <div className="issue-board-empty">
             <p className="issue-board-empty__title">No issues match filters</p>
@@ -85,8 +110,8 @@ export function ProjectKanbanPage() {
         ) : (
           <KanbanBoardView
             columns={columns}
+            onTransitionIssue={handleTransitionIssue}
             transitioningIssueId={transitioningIssueId}
-            onMoveIssue={transitionIssueOnBoard}
           />
         )}
       </main>

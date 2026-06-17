@@ -25,3 +25,15 @@ export function getTabBadgeCount(
   if (tab === 'mentions' && mentionUnreadCount > 0) return mentionUnreadCount
   return null
 }
+
+export function formatNotificationCreatedAt(createdAt: string): string {
+  const parsed = new Date(createdAt)
+  if (Number.isNaN(parsed.getTime())) return createdAt
+
+  return parsed.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}

@@ -16,16 +16,20 @@ from apps.issues.exceptions import (
     IssueNotFoundError,
     IssueValidationError,
 )
-from apps.issues.models import Issue, IssueType, Priority
+from apps.issues.models import Issue, IssueActivityEventType, IssueType, Priority
 from apps.issues.selectors import get_issue_by_id
+from apps.issues.services.activity_service import (
+    create_issue_activity,
+    get_user_display_value,
+)
 from apps.label.models import Label
+from apps.notifications.services import notification_service
 from apps.permissions.services import permission_service
 from apps.projects.models import Project, ProjectStatus
 from apps.sprints.exceptions import SprintNotFoundError
 from apps.sprints.models import Sprint
 from apps.workflow.exceptions import WorkflowStatusNotFoundError
 from apps.workflow.selectors import get_default_status
-
 
 _FORBIDDEN_UPDATE_FIELDS = frozenset(
     {
@@ -240,6 +244,7 @@ class IssueService:
             issue.sprint_id = sprint_value
             update_fields.append("sprint_id")
 
+        old_assignee_id = issue.assignee_id
         assignee_value = fields.get("assignee_id", fields.get("assignee"))
         if "assignee_id" in fields or "assignee" in fields:
             issue.assignee_id = assignee_value
@@ -261,6 +266,27 @@ class IssueService:
             update_fields.append("updated_at")
             issue.save(update_fields=update_fields)
 
+        if (
+            ("assignee_id" in fields or "assignee" in fields)
+            and old_assignee_id != issue.assignee_id
+        ):
+            create_issue_activity(
+                issue_id=issue.id,
+                actor=user,
+                event_type=IssueActivityEventType.ASSIGNEE_CHANGED,
+                old_value=get_user_display_value(old_assignee_id),
+                new_value=get_user_display_value(issue.assignee_id),
+            )
+            if issue.assignee_id is not None and issue.assignee_id != user.id:
+                notification_service.create_notification(
+                    user_id=issue.assignee_id,
+                    actor_id=user.id,
+                    event_type="assignee_changed",
+                    title="Issue Assigned",
+                    message=f"You were assigned to {issue.key}",
+                    related_issue_id=issue.id,
+                )
+
         if label_ids is not None:
             labels = _validate_label_ids(issue.project_id, label_ids)
             issue.labels.set(labels)
@@ -275,11 +301,36 @@ class IssueService:
         if not permission_service.can_edit_issue(user.id, issue.project_id):
             raise IssueError("Permission denied: cannot edit this issue.")
 
+        old_sprint_id = issue.sprint_id
+        old_sprint_name = issue.sprint.name if issue.sprint is not None else None
+        new_sprint_name = None
         if sprint_id is not None:
-            _validate_sprint(issue.project_id, sprint_id)
+            new_sprint_name = _validate_sprint(issue.project_id, sprint_id).name
 
         issue.sprint_id = sprint_id
         issue.save(update_fields=["sprint_id", "updated_at"])
+
+        if old_sprint_id != sprint_id:
+            create_issue_activity(
+                issue_id=issue.id,
+                actor=user,
+                event_type=IssueActivityEventType.SPRINT_CHANGED,
+                old_value=old_sprint_name,
+                new_value=new_sprint_name,
+            )
+            if (
+                sprint_id is not None
+                and issue.assignee_id is not None
+                and issue.assignee_id != user.id
+            ):
+                notification_service.create_notification(
+                    user_id=issue.assignee_id,
+                    actor_id=user.id,
+                    event_type="sprint_assigned",
+                    title="Sprint Updated",
+                    message=f"Issue moved to sprint {new_sprint_name}",
+                    related_issue_id=issue.id,
+                )
 
         refreshed = get_issue_by_id(issue_id)
         return refreshed or issue
@@ -293,9 +344,7 @@ class IssueService:
         if not issue_ids:
             return 0
 
-        issues = list(
-            Issue.objects.filter(pk__in=issue_ids).select_related("project")
-        )
+        issues = list(Issue.objects.filter(pk__in=issue_ids).select_related("project", "sprint"))
         found_ids = {issue.id for issue in issues}
         missing = [issue_id for issue_id in issue_ids if issue_id not in found_ids]
         if missing:
@@ -306,8 +355,9 @@ class IssueService:
             raise IssueValidationError("All issues must belong to the same project.")
 
         project_id = next(iter(project_ids))
+        target_sprint_name = None
         if sprint_id is not None:
-            _validate_sprint(project_id, sprint_id)
+            target_sprint_name = _validate_sprint(project_id, sprint_id).name
 
         for issue in issues:
             _reject_archived_project(issue.project)
@@ -315,7 +365,32 @@ class IssueService:
                 raise IssueError("Permission denied: cannot edit this issue.")
 
         with transaction.atomic():
-            return Issue.objects.filter(pk__in=issue_ids).update(sprint_id=sprint_id)
+            updated_count = Issue.objects.filter(pk__in=issue_ids).update(sprint_id=sprint_id)
+            for issue in issues:
+                if issue.sprint_id == sprint_id:
+                    continue
+                old_sprint_name = issue.sprint.name if issue.sprint is not None else None
+                create_issue_activity(
+                    issue_id=issue.id,
+                    actor=user,
+                    event_type=IssueActivityEventType.SPRINT_CHANGED,
+                    old_value=old_sprint_name,
+                    new_value=target_sprint_name,
+                )
+                if (
+                    sprint_id is not None
+                    and issue.assignee_id is not None
+                    and issue.assignee_id != user.id
+                ):
+                    notification_service.create_notification(
+                        user_id=issue.assignee_id,
+                        actor_id=user.id,
+                        event_type="sprint_assigned",
+                        title="Sprint Updated",
+                        message=f"Issue moved to sprint {target_sprint_name}",
+                        related_issue_id=issue.id,
+                    )
+            return updated_count
 
 
 issue_service = IssueService()

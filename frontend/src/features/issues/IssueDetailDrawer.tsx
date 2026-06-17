@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
   type ReactNode,
 } from 'react'
 import {
@@ -14,11 +15,13 @@ import {
   ListChecks,
   Maximize2,
   MessageSquare,
+  Paperclip,
   Plus,
+  Trash2,
+  Upload,
   X,
 } from 'lucide-react'
 import { AssigneeSelect } from '@/components/issues/AssigneeSelect'
-import { AttachmentDropzone } from '@/components/issues/AttachmentDropzone'
 import { IssuePrioritySelect } from '@/components/issues/IssuePrioritySelect'
 import { LabelMultiSelect } from '@/components/issues/LabelMultiSelect'
 import { Avatar } from '@/components/ui/Avatar'
@@ -31,11 +34,23 @@ import {
   STORY_POINT_OPTIONS,
 } from '@/constants/issueOptions'
 import {
+  createComment as apiCreateComment,
+  deleteComment as apiDeleteComment,
+  deleteIssueAttachment as apiDeleteIssueAttachment,
+  getIssueActivity as apiGetIssueActivity,
+  getIssueAttachments as apiGetIssueAttachments,
   getIssue as apiGetIssue,
+  getIssueComments as apiGetIssueComments,
+  type IssueActivityApi,
+  type IssueAttachmentApi,
   transitionIssue as apiTransitionIssue,
+  updateComment as apiUpdateComment,
+  uploadIssueAttachment as apiUploadIssueAttachment,
 } from '@/api/issues'
+import { getProjectMembers } from '@/api/members'
 import { ApiError } from '@/api/types'
 import { getWorkflow, type WorkflowStatusApi } from '@/api/workflow'
+import { useAuth } from '@/features/auth/AuthProvider'
 import { refreshKanbanBoard } from '@/features/kanban/kanbanRefreshBridge'
 import { useIssues } from '@/contexts/IssuesContext'
 import {
@@ -77,6 +92,94 @@ const TABS: { id: DetailTab; label: string }[] = [
   { id: 'subtasks', label: 'Subtasks' },
 ]
 
+const COMMENT_AVATAR_COLORS = [
+  '#6366f1',
+  '#ec4899',
+  '#14b8a6',
+  '#f59e0b',
+  '#0ea5e9',
+  '#8b5cf6',
+]
+
+function avatarColorForUserId(userId: string): string {
+  let hash = 0
+  for (let i = 0; i < userId.length; i += 1) {
+    hash = (hash * 31 + userId.charCodeAt(i)) >>> 0
+  }
+  return COMMENT_AVATAR_COLORS[hash % COMMENT_AVATAR_COLORS.length]
+}
+
+function formatCommentCreatedAt(createdAt: string): string {
+  const parsed = new Date(createdAt)
+  if (Number.isNaN(parsed.getTime())) return createdAt
+  return parsed.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
+function formatActivityCreatedAt(createdAt: string): string {
+  const parsed = new Date(createdAt)
+  if (Number.isNaN(parsed.getTime())) return createdAt
+  return parsed.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
+function formatAttachmentCreatedAt(createdAt: string): string {
+  const parsed = new Date(createdAt)
+  if (Number.isNaN(parsed.getTime())) return createdAt
+  return parsed.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
+function attachmentFilename(fileUrl: string): string {
+  const withoutQuery = fileUrl.split('?')[0]
+  const segments = withoutQuery.split('/')
+  const lastSegment = segments.at(-1)
+  if (!lastSegment) return fileUrl
+  try {
+    return decodeURIComponent(lastSegment)
+  } catch {
+    return lastSegment
+  }
+}
+
+const ACTIVITY_MESSAGE_BY_EVENT_TYPE: Record<string, string> = {
+  status_changed: 'changed status',
+  sprint_changed: 'changed sprint',
+  assignee_changed: 'changed assignee',
+  assignee_updated: 'changed assignee',
+  comment_added: 'added a comment',
+  comment_deleted: 'deleted a comment',
+  attachment_added: 'added an attachment',
+  attachment_deleted: 'removed an attachment',
+}
+
+const TRANSITION_EVENT_TYPES = new Set([
+  'status_changed',
+  'sprint_changed',
+  'assignee_changed',
+  'assignee_updated',
+])
+
+function looksLikeUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  )
+}
+
+function humanizeEnumLabel(value: string): string {
+  return value
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
 function workflowToTaskStatus(status?: IssueWorkflowStatus): TaskStatus {
   switch (status) {
     case 'backlog':
@@ -116,12 +219,28 @@ export function IssueDetailDrawer({
   onIssueUpdated,
 }: IssueDetailDrawerProps) {
   const { updateIssue, refresh, updateIssueViaApi, loadBacklog, loadSprintIssues } = useIssues()
+  const { user } = useAuth()
   const titleId = useId()
   const [tab, setTab] = useState<DetailTab>('details')
   const [extras, setExtras] = useState<IssueDetailExtras | null>(null)
   const [draft, setDraft] = useState<ProjectIssue | null>(null)
   const [dirty, setDirty] = useState(false)
   const [commentDraft, setCommentDraft] = useState('')
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editingCommentBody, setEditingCommentBody] = useState('')
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentsSaving, setCommentsSaving] = useState(false)
+  const [commentBusyId, setCommentBusyId] = useState<string | null>(null)
+  const [commentError, setCommentError] = useState<string | null>(null)
+  const [activity, setActivity] = useState<IssueActivityApi[]>([])
+  const [activityLoading, setActivityLoading] = useState(false)
+  const [activityError, setActivityError] = useState<string | null>(null)
+  const [attachments, setAttachments] = useState<IssueAttachmentApi[]>([])
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false)
+  const [attachmentsSaving, setAttachmentsSaving] = useState(false)
+  const [attachmentBusyId, setAttachmentBusyId] = useState<string | null>(null)
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
+  const [memberNamesById, setMemberNamesById] = useState<Record<string, string>>({})
   const [newSubtask, setNewSubtask] = useState('')
   const [detailLoading, setDetailLoading] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -130,6 +249,7 @@ export function IssueDetailDrawer({
   const [workflowLoading, setWorkflowLoading] = useState(false)
   const [transitioningStatus, setTransitioningStatus] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null)
   const initialSnapshotRef = useRef('')
   const loadedWorkflowStatusRef = useRef<IssueWorkflowStatus | undefined>(undefined)
 
@@ -142,6 +262,16 @@ export function IssueDetailDrawer({
     if (!open || !issue) return
     setTab('details')
     setCommentDraft('')
+    setEditingCommentId(null)
+    setEditingCommentBody('')
+    setCommentError(null)
+    setActivity([])
+    setActivityError(null)
+    setAttachments([])
+    setAttachmentError(null)
+    setAttachmentBusyId(null)
+    setAttachmentsSaving(false)
+    setMemberNamesById({})
     setNewSubtask('')
     setSaveError(null)
 
@@ -226,6 +356,108 @@ export function IssueDetailDrawer({
     }
   }, [open, issue?.projectId])
 
+  const loadIssueComments = useCallback(
+    async (issueId: string, projectId: string) => {
+      setCommentsLoading(true)
+      setCommentError(null)
+      try {
+        const [members, comments] = await Promise.all([
+          getProjectMembers(projectId),
+          apiGetIssueComments(issueId),
+        ])
+
+        const nextMemberNamesById = members.reduce<Record<string, string>>((acc, member) => {
+          acc[member.user_id] = member.display_name || member.email || member.user_id
+          return acc
+        }, {})
+        setMemberNamesById(nextMemberNamesById)
+        const mappedComments = [...comments]
+          .sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+          )
+          .map((comment) => {
+            const isCurrentUser = user?.id === comment.author
+            const currentUserName = user?.display_name || user?.email || 'You'
+            const authorName =
+              nextMemberNamesById[comment.author] ??
+              (isCurrentUser ? currentUserName : `User ${comment.author.slice(0, 8)}`)
+            return {
+              id: comment.id,
+              authorId: comment.author,
+              author: {
+                name: authorName,
+                color: avatarColorForUserId(comment.author),
+              },
+              body: comment.body,
+              createdAt: comment.created_at,
+              timestamp: formatCommentCreatedAt(comment.created_at),
+            }
+          })
+
+        setExtras((prev) => (prev ? { ...prev, comments: mappedComments } : prev))
+      } catch (error) {
+        const message =
+          error instanceof ApiError ? error.message : 'Failed to load comments.'
+        setCommentError(message)
+      } finally {
+        setCommentsLoading(false)
+      }
+    },
+    [user?.display_name, user?.email, user?.id],
+  )
+
+  const loadIssueActivity = useCallback(async (issueId: string) => {
+    setActivityLoading(true)
+    setActivityError(null)
+    try {
+      const entries = await apiGetIssueActivity(issueId)
+      // Keep backend ordering (newest first).
+      setActivity(entries)
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : 'Failed to load activity.'
+      setActivityError(message)
+      setActivity([])
+    } finally {
+      setActivityLoading(false)
+    }
+  }, [])
+
+  const loadIssueAttachments = useCallback(async (issueId: string) => {
+    setAttachmentsLoading(true)
+    setAttachmentError(null)
+    try {
+      const entries = await apiGetIssueAttachments(issueId)
+      const ordered = [...entries].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      )
+      setAttachments(ordered)
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : 'Failed to load attachments.'
+      setAttachmentError(message)
+      setAttachments([])
+    } finally {
+      setAttachmentsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!open || !persisted || !draft?.id || !draft.projectId) return
+    void loadIssueComments(draft.id, draft.projectId)
+  }, [draft?.id, draft?.projectId, loadIssueComments, open, persisted])
+
+  useEffect(() => {
+    if (!open || !persisted || !draft?.id) return
+    void loadIssueActivity(draft.id)
+  }, [draft?.id, loadIssueActivity, open, persisted])
+
+  useEffect(() => {
+    if (!open || !persisted || !draft?.id) return
+    void loadIssueAttachments(draft.id)
+  }, [draft?.id, loadIssueAttachments, open, persisted])
+
   const requestClose = useCallback(() => {
     if (dirty) {
       const leave = window.confirm(
@@ -275,6 +507,7 @@ export function IssueDetailDrawer({
           await loadSprintIssues(draft.projectId, draft.sprintId)
         }
         refreshKanbanBoard()
+        await loadIssueActivity(updated.id)
         loadedWorkflowStatusRef.current = updated.workflowStatus
         onIssueUpdated(updated)
         setDraft(updated)
@@ -308,6 +541,7 @@ export function IssueDetailDrawer({
     loadBacklog,
     loadSprintIssues,
     onIssueUpdated,
+    loadIssueActivity,
   ])
 
   const patchDraft = useCallback((patch: Partial<ProjectIssue>) => {
@@ -361,6 +595,7 @@ export function IssueDetailDrawer({
           await loadSprintIssues(draft.projectId, draft.sprintId)
         }
         refreshKanbanBoard()
+        await loadIssueActivity(draft.id)
 
         if (!dirty) {
           setDirty(false)
@@ -383,6 +618,7 @@ export function IssueDetailDrawer({
       patchDraft,
       persisted,
       workflowStatuses,
+      loadIssueActivity,
     ],
   )
 
@@ -411,32 +647,123 @@ export function IssueDetailDrawer({
     onClose()
   }, [draft, onClose])
 
-  const addComment = useCallback(() => {
+  const addComment = useCallback(async () => {
     if (!draft || !extras || !commentDraft.trim()) return
-    const author = draft.assignee
-    const entry: IssueComment = {
-      id: `${draft.id}-c-${Date.now()}`,
-      author,
-      body: commentDraft.trim(),
-      timestamp: 'Just now',
-    }
-    const activity = [
-      {
-        id: `${draft.id}-a-${Date.now()}`,
-        type: 'comment_added' as const,
-        actor: author,
-        message: 'added a comment',
+
+    if (!persisted) {
+      const author = draft.assignee
+      const entry: IssueComment = {
+        id: `${draft.id}-c-${Date.now()}`,
+        author,
+        body: commentDraft.trim(),
         timestamp: 'Just now',
-      },
-      ...extras.activity,
-    ]
-    patchExtras({
-      comments: [...extras.comments, entry],
-      activity,
-    })
-    setCommentDraft('')
-    setTab('comments')
-  }, [commentDraft, draft, extras, patchExtras])
+      }
+      const activity = [
+        {
+          id: `${draft.id}-a-${Date.now()}`,
+          type: 'comment_added' as const,
+          actor: author,
+          message: 'added a comment',
+          timestamp: 'Just now',
+        },
+        ...extras.activity,
+      ]
+      patchExtras({
+        comments: [...extras.comments, entry],
+        activity,
+      })
+      setCommentDraft('')
+      setTab('comments')
+      return
+    }
+
+    setCommentsSaving(true)
+    setCommentError(null)
+    try {
+      await apiCreateComment(draft.id, commentDraft.trim())
+      setCommentDraft('')
+      await loadIssueComments(draft.id, draft.projectId)
+      await loadIssueActivity(draft.id)
+      setTab('comments')
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : 'Failed to create comment.'
+      setCommentError(message)
+    } finally {
+      setCommentsSaving(false)
+    }
+  }, [
+    commentDraft,
+    draft,
+    extras,
+    loadIssueActivity,
+    loadIssueComments,
+    patchExtras,
+    persisted,
+  ])
+
+  const canManageComment = useCallback(
+    (comment: IssueComment) => {
+      if (comment.authorId && user?.id) return comment.authorId === user.id
+      if (!user?.display_name) return false
+      return comment.author.name === user.display_name
+    },
+    [user?.display_name, user?.id],
+  )
+
+  const startEditingComment = useCallback((comment: IssueComment) => {
+    setEditingCommentId(comment.id)
+    setEditingCommentBody(comment.body)
+    setCommentError(null)
+  }, [])
+
+  const cancelEditingComment = useCallback(() => {
+    setEditingCommentId(null)
+    setEditingCommentBody('')
+  }, [])
+
+  const saveEditedComment = useCallback(async () => {
+    if (!persisted || !draft || !editingCommentId || !editingCommentBody.trim()) return
+    setCommentBusyId(editingCommentId)
+    setCommentError(null)
+    try {
+      await apiUpdateComment(editingCommentId, editingCommentBody.trim())
+      setEditingCommentId(null)
+      setEditingCommentBody('')
+      await loadIssueComments(draft.id, draft.projectId)
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : 'Failed to update comment.'
+      setCommentError(message)
+    } finally {
+      setCommentBusyId(null)
+    }
+  }, [draft, editingCommentBody, editingCommentId, loadIssueComments, persisted])
+
+  const removeComment = useCallback(
+    async (comment: IssueComment) => {
+      if (!persisted || !draft) return
+      if (!window.confirm('Delete this comment?')) return
+      setCommentBusyId(comment.id)
+      setCommentError(null)
+      try {
+        await apiDeleteComment(comment.id)
+        if (editingCommentId === comment.id) {
+          setEditingCommentId(null)
+          setEditingCommentBody('')
+        }
+        await loadIssueComments(draft.id, draft.projectId)
+        await loadIssueActivity(draft.id)
+      } catch (error) {
+        const message =
+          error instanceof ApiError ? error.message : 'Failed to delete comment.'
+        setCommentError(message)
+      } finally {
+        setCommentBusyId(null)
+      }
+    },
+    [draft, editingCommentId, loadIssueActivity, loadIssueComments, persisted],
+  )
 
   const toggleSubtask = useCallback(
     (subtaskId: string) => {
@@ -460,6 +787,144 @@ export function IssueDetailDrawer({
     })
     setNewSubtask('')
   }, [draft, extras, newSubtask, patchExtras])
+
+  const statusLabelByKey = useMemo(() => {
+    const labels: Record<string, string> = {}
+
+    ISSUE_STATUS_OPTIONS.forEach((option) => {
+      labels[option.value] = option.label
+      labels[option.label.toLowerCase()] = option.label
+    })
+
+    workflowStatuses.forEach((status) => {
+      labels[status.id] = status.name
+      labels[status.slug] = status.name
+      labels[status.name.toLowerCase()] = status.name
+    })
+
+    return labels
+  }, [workflowStatuses])
+
+  const currentUserName = user?.display_name || user?.email || 'Unknown User'
+  const canEditIssue = Boolean(user)
+
+  const resolveUploaderName = useCallback(
+    (uploadedBy: string): string => {
+      if (memberNamesById[uploadedBy]) return memberNamesById[uploadedBy]
+      if (user?.id && uploadedBy === user.id) return currentUserName
+      return uploadedBy
+    },
+    [currentUserName, memberNamesById, user?.id],
+  )
+
+  const resolveActorName = useCallback(
+    (value: string | null | undefined): string => {
+      if (!value) return 'Unknown User'
+      const normalized = value.trim()
+      if (!normalized) return 'Unknown User'
+
+      if (memberNamesById[normalized]) return memberNamesById[normalized]
+      if (user?.id && normalized === user.id) return currentUserName
+      if (looksLikeUuid(normalized)) return 'Unknown User'
+      return normalized
+    },
+    [currentUserName, memberNamesById, user?.id],
+  )
+
+  const formatTransitionValue = useCallback(
+    (eventType: string, value: string | null): string => {
+      if (eventType === 'assignee_changed' || eventType === 'assignee_updated') {
+        if (!value) return 'Unassigned'
+        return resolveActorName(value)
+      }
+
+      if (eventType === 'sprint_changed') {
+        if (!value) return 'Backlog'
+        if (draft?.projectId) {
+          const sprintById = getSprintById(draft.projectId, value)
+          if (sprintById?.name) return sprintById.name
+        }
+        if (looksLikeUuid(value)) return 'Unknown Sprint'
+        return value
+      }
+
+      if (eventType === 'status_changed') {
+        if (!value) return 'Unknown Status'
+        const knownLabel = statusLabelByKey[value] ?? statusLabelByKey[value.toLowerCase()]
+        if (knownLabel) return knownLabel
+        if (looksLikeUuid(value)) return 'Unknown Status'
+        return humanizeEnumLabel(value)
+      }
+
+      if (!value) return 'Unknown'
+      if (looksLikeUuid(value)) return 'Unknown'
+      return value
+    },
+    [draft?.projectId, resolveActorName, statusLabelByKey],
+  )
+
+  const formattedActivity = useMemo(
+    () =>
+      activity.map((item) => {
+        const actorName = resolveActorName(item.actor)
+        const action = ACTIVITY_MESSAGE_BY_EVENT_TYPE[item.event_type] ?? 'updated issue'
+        const transition = TRANSITION_EVENT_TYPES.has(item.event_type)
+          ? `${formatTransitionValue(item.event_type, item.old_value)} \u2192 ${formatTransitionValue(item.event_type, item.new_value)}`
+          : null
+
+        return {
+          id: item.id,
+          message: `${actorName} ${action}`,
+          transition,
+          timestamp: formatActivityCreatedAt(item.created_at),
+        }
+      }),
+    [activity, formatTransitionValue, resolveActorName],
+  )
+
+  const handleAttachmentSelection = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      event.target.value = ''
+      if (!file || !persisted || !draft?.id) return
+
+      setAttachmentsSaving(true)
+      setAttachmentError(null)
+      try {
+        await apiUploadIssueAttachment(draft.id, file)
+        await loadIssueAttachments(draft.id)
+        await loadIssueActivity(draft.id)
+      } catch (error) {
+        const message =
+          error instanceof ApiError ? error.message : 'Failed to upload attachment.'
+        setAttachmentError(message)
+      } finally {
+        setAttachmentsSaving(false)
+      }
+    },
+    [draft?.id, loadIssueActivity, loadIssueAttachments, persisted],
+  )
+
+  const removeAttachment = useCallback(
+    async (attachment: IssueAttachmentApi) => {
+      if (!persisted || !draft?.id || !canEditIssue) return
+      if (!window.confirm(`Delete "${attachmentFilename(attachment.file)}"?`)) return
+      setAttachmentBusyId(attachment.id)
+      setAttachmentError(null)
+      try {
+        await apiDeleteIssueAttachment(attachment.id)
+        await loadIssueAttachments(draft.id)
+        await loadIssueActivity(draft.id)
+      } catch (error) {
+        const message =
+          error instanceof ApiError ? error.message : 'Failed to delete attachment.'
+        setAttachmentError(message)
+      } finally {
+        setAttachmentBusyId(null)
+      }
+    },
+    [canEditIssue, draft?.id, loadIssueActivity, loadIssueAttachments, persisted],
+  )
 
   if (!open || !draft || !extras) return null
 
@@ -638,30 +1103,74 @@ export function IssueDetailDrawer({
             )}
 
             {tab === 'activity' && (
-              <ul className="space-y-4">
-                {extras.activity.map((item) => (
-                  <li key={item.id} className="flex gap-3">
-                    <Avatar
-                      name={item.actor.name}
-                      color={item.actor.color}
-                      size={32}
-                    />
-                    <div>
-                      <p className="text-body text-devflow-text">
-                        <span className="font-semibold">{item.actor.name}</span>{' '}
-                        {item.message}
+              <div className="space-y-4">
+                {persisted ? (
+                  <>
+                    {activityError && (
+                      <p className="text-caption text-devflow-error">{activityError}</p>
+                    )}
+                    {activityLoading && (
+                      <p className="text-body text-devflow-text-secondary">
+                        Loading activity…
                       </p>
-                      <p className="text-caption text-devflow-text-muted">
-                        {item.timestamp}
+                    )}
+                    {!activityLoading && activity.length === 0 && !activityError && (
+                      <p className="text-body text-devflow-text-secondary">
+                        No activity yet.
                       </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    )}
+                    <ul className="space-y-3">
+                      {formattedActivity.map((item) => (
+                        <li
+                          key={item.id}
+                          className="rounded-lg border border-devflow-border bg-devflow-surface px-3 py-2.5"
+                        >
+                          <p className="text-body text-devflow-text">{item.message}</p>
+                          {item.transition && (
+                            <p className="text-body text-devflow-text-secondary">
+                              {item.transition}
+                            </p>
+                          )}
+                          <p className="text-caption text-devflow-text-muted">
+                            {item.timestamp}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <ul className="space-y-4">
+                    {extras.activity.map((item) => (
+                      <li key={item.id} className="flex gap-3">
+                        <Avatar
+                          name={item.actor.name}
+                          color={item.actor.color}
+                          size={32}
+                        />
+                        <div>
+                          <p className="text-body text-devflow-text">
+                            <span className="font-semibold">{item.actor.name}</span>{' '}
+                            {item.message}
+                          </p>
+                          <p className="text-caption text-devflow-text-muted">
+                            {item.timestamp}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
 
             {tab === 'comments' && (
               <div className="space-y-4">
+                {commentError && (
+                  <p className="text-caption text-devflow-error">{commentError}</p>
+                )}
+                {commentsLoading && (
+                  <p className="text-body text-devflow-text-secondary">Loading comments…</p>
+                )}
                 <ul className="space-y-4">
                   {extras.comments.map((comment) => (
                     <li key={comment.id} className="flex gap-3">
@@ -672,20 +1181,80 @@ export function IssueDetailDrawer({
                       />
                       <div className="min-w-0 flex-1 rounded-lg border border-devflow-border bg-devflow-surface px-3 py-2">
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="text-body font-semibold text-devflow-text">
-                            {comment.author.name}
-                          </span>
-                          <span className="text-caption text-devflow-text-muted">
-                            {comment.timestamp}
-                          </span>
+                          <div className="min-w-0">
+                            <span className="text-body font-semibold text-devflow-text">
+                              {comment.author.name}
+                            </span>
+                            <span className="ml-2 text-caption text-devflow-text-muted">
+                              {comment.timestamp}
+                            </span>
+                          </div>
+                          {canManageComment(comment) && (
+                            <div className="shrink-0 space-x-2 text-caption">
+                              {editingCommentId !== comment.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditingComment(comment)}
+                                  className="text-devflow-primary hover:underline"
+                                  disabled={commentBusyId === comment.id}
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => void removeComment(comment)}
+                                className="text-devflow-error hover:underline disabled:opacity-50"
+                                disabled={commentBusyId === comment.id}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <p className="mt-1 whitespace-pre-wrap text-body text-devflow-text-secondary">
-                          {comment.body}
-                        </p>
+                        {editingCommentId === comment.id ? (
+                          <div className="mt-2">
+                            <textarea
+                              value={editingCommentBody}
+                              onChange={(e) => setEditingCommentBody(e.target.value)}
+                              rows={3}
+                              className="w-full resize-y rounded-lg border border-devflow-border bg-devflow-card px-3 py-2 text-input outline-none focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/20"
+                            />
+                            <div className="mt-2 flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={cancelEditingComment}
+                                className="rounded-lg border border-devflow-border px-3 py-1.5 text-btn text-devflow-text-secondary hover:bg-devflow-card"
+                                disabled={commentBusyId === comment.id}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void saveEditedComment()}
+                                className="rounded-lg bg-devflow-primary px-3 py-1.5 text-btn text-white disabled:opacity-50"
+                                disabled={
+                                  !editingCommentBody.trim() || commentBusyId === comment.id
+                                }
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="mt-1 whitespace-pre-wrap text-body text-devflow-text-secondary">
+                            {comment.body}
+                          </p>
+                        )}
                       </div>
                     </li>
                   ))}
                 </ul>
+                {!commentsLoading && extras.comments.length === 0 && (
+                  <p className="text-body text-devflow-text-secondary">
+                    No comments yet.
+                  </p>
+                )}
                 <div className="rounded-lg border border-devflow-border bg-devflow-surface p-4">
                   <textarea
                     value={commentDraft}
@@ -697,11 +1266,11 @@ export function IssueDetailDrawer({
                   <div className="mt-2 flex justify-end">
                     <button
                       type="button"
-                      onClick={addComment}
-                      disabled={!commentDraft.trim()}
+                      onClick={() => void addComment()}
+                      disabled={!commentDraft.trim() || commentsSaving}
                       className="rounded-lg bg-devflow-primary px-4 py-1.5 text-btn text-white disabled:opacity-50"
                     >
-                      Comment
+                      {commentsSaving ? 'Commenting…' : 'Comment'}
                     </button>
                   </div>
                 </div>
@@ -710,10 +1279,77 @@ export function IssueDetailDrawer({
 
             {tab === 'attachments' && (
               <div className="space-y-4">
-                <AttachmentDropzone
-                  attachments={draft.attachments ?? []}
-                  onChange={(files) => patchDraft({ attachments: files })}
-                />
+                {persisted ? (
+                  <>
+                    {attachmentError && (
+                      <p className="text-caption text-devflow-error">{attachmentError}</p>
+                    )}
+                    <div className="flex items-center justify-between rounded-lg border border-devflow-border bg-devflow-surface px-3 py-2.5">
+                      <p className="flex items-center gap-2 text-body text-devflow-text-secondary">
+                        <Paperclip className="size-4" />
+                        Attach files to this issue
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => attachmentInputRef.current?.click()}
+                        disabled={attachmentsSaving}
+                        className="inline-flex items-center gap-1 rounded-lg bg-devflow-primary px-3 py-1.5 text-btn text-white disabled:opacity-50"
+                      >
+                        <Upload className="size-4" />
+                        {attachmentsSaving ? 'Uploading…' : 'Upload file'}
+                      </button>
+                      <input
+                        ref={attachmentInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={(event) => void handleAttachmentSelection(event)}
+                      />
+                    </div>
+                    {attachmentsLoading ? (
+                      <p className="text-body text-devflow-text-secondary">
+                        Loading attachments…
+                      </p>
+                    ) : attachments.length === 0 ? (
+                      <p className="text-body text-devflow-text-secondary">
+                        No attachments yet.
+                      </p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {attachments.map((attachment) => (
+                          <li
+                            key={attachment.id}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-devflow-border bg-devflow-surface px-3 py-2.5"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-body font-medium text-devflow-text">
+                                {attachmentFilename(attachment.file)}
+                              </p>
+                              <p className="text-caption text-devflow-text-muted">
+                                Uploaded by {resolveUploaderName(attachment.uploaded_by)} •{' '}
+                                {formatAttachmentCreatedAt(attachment.created_at)}
+                              </p>
+                            </div>
+                            {canEditIssue && (
+                              <button
+                                type="button"
+                                onClick={() => void removeAttachment(attachment)}
+                                disabled={attachmentBusyId === attachment.id}
+                                className="rounded p-1 text-devflow-text-muted transition-colors hover:bg-devflow-card hover:text-devflow-error disabled:opacity-50"
+                                aria-label={`Delete ${attachmentFilename(attachment.file)}`}
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-body text-devflow-text-secondary">
+                    Save this issue before adding attachments.
+                  </p>
+                )}
               </div>
             )}
 

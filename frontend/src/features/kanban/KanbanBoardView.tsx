@@ -5,20 +5,22 @@ import '@/features/tasks/issues-board.css'
 
 type KanbanBoardViewProps = {
   columns: KanbanColumnType[]
-  onMoveIssue: (
+  onTransitionIssue?: (
     issueId: string,
-    targetColumnId: string,
-    sourceColumnId: string,
+    targetStatusId: string,
+    sourceStatusId: string,
   ) => void | Promise<void>
-  transitioningIssueId: string | null
+  transitioningIssueId?: string | null
+  enableDragDrop?: boolean
   emptyTitle?: string
   emptyHint?: string
 }
 
 export function KanbanBoardView({
   columns,
-  onMoveIssue,
-  transitioningIssueId,
+  onTransitionIssue,
+  transitioningIssueId = null,
+  enableDragDrop = true,
   emptyTitle = 'No issues on the board',
   emptyHint = 'Create issues in the backlog to see them here.',
 }: KanbanBoardViewProps) {
@@ -33,10 +35,29 @@ export function KanbanBoardView({
     )
   }
 
+  if (!enableDragDrop || !onTransitionIssue) {
+    return (
+      <div
+        className="issue-board-scroll"
+        role="region"
+        aria-label="Kanban board"
+        tabIndex={0}
+      >
+        <div className="issue-board-track">
+          {columns.map((column) => (
+            <div key={column.id} className="w-72 shrink-0">
+              <KanbanColumn column={column} draggable={false} />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <KanbanDndProvider
       columns={columns}
-      onMoveIssue={onMoveIssue}
+      onTransitionIssue={onTransitionIssue}
       transitioningIssueId={transitioningIssueId}
     >
       {({ draggingIssueId, isDragActive }) => (

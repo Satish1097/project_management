@@ -1,13 +1,21 @@
 import type { KanbanBoardApi } from '@/api/issues'
-import { DEFAULT_WORKFLOW_COLUMNS } from '@/services/workflowConfig'
 import { mapIssueSummaryToUi } from '@/services/mapIssueApi'
-import { getIssueById, upsertApiIssue } from '@/services/issuesRegistry'
+import { upsertApiIssue } from '@/services/issuesRegistry'
 import type { KanbanColumn, KanbanIssue } from '@/types/kanban'
 import type { IssuePriorityLevel } from '@/types/issues'
 
-function dotColorForStatus(slug: string): string {
-  const column = DEFAULT_WORKFLOW_COLUMNS.find((item) => item.id === slug)
-  return column?.dotColor ?? 'var(--df-kanban-status-todo)'
+type KanbanWorkflowColumn = NonNullable<KanbanBoardApi['workflow_columns']>[number]
+
+const DEFAULT_DOT_COLOR = '#94a3b8'
+
+function hasStatus(
+  column: KanbanBoardApi['columns'][number],
+): column is KanbanBoardApi['columns'][number] & { status: KanbanWorkflowColumn } {
+  return Boolean(column.status)
+}
+
+function dotColorForStatus(status: KanbanWorkflowColumn | undefined): string {
+  return status?.color || DEFAULT_DOT_COLOR
 }
 
 function mapPriority(priority: string): KanbanIssue['priority'] {
@@ -30,28 +38,42 @@ export function mapKanbanBoardToColumns(
     }
   }
 
-  return board.columns.map((column) => ({
-    id: column.status_slug,
-    title: column.status_name.toUpperCase(),
-    dotColor: dotColorForStatus(column.status_slug),
-    count: column.issues.length,
-    issues: column.issues.map((issue) => {
-      const registryIssue = getIssueById(issue.id)
-      const uiIssue = mapIssueSummaryToUi(issue, projectId)
-      return {
-        id: issue.id,
-        key: issue.key,
-        title: issue.title,
-        priority: mapPriority(issue.priority),
-        priorityLevel: issue.priority as IssuePriorityLevel,
-        label: issue.type,
-        labels: registryIssue?.labels ?? issue.labels.map((label) => label.name),
-        assigneeId: issue.assignee,
-        assignee: uiIssue.assignee,
-        done: column.status_slug === 'done',
-      }
-    }),
-  }))
+  const columnsBySlug = new Map(
+    board.columns.map((column) => [column.status_slug, column]),
+  )
+  const workflowColumns =
+    board.workflow_columns && board.workflow_columns.length > 0
+      ? board.workflow_columns
+      : board.columns.filter(hasStatus).map((column) => column.status)
+
+  return workflowColumns.map((status) => {
+    const column = columnsBySlug.get(status.slug)
+    const issues = column?.issues ?? board.grouped_issues?.[status.slug] ?? []
+    const isDoneStatus = status.is_terminal === true || status.category === 'done'
+
+    return {
+      id: status.slug,
+      statusId: column?.status_id ?? status.id,
+      title: status.name.toUpperCase(),
+      dotColor: dotColorForStatus(status),
+      count: issues.length,
+      issues: issues.map((issue) => {
+        const uiIssue = mapIssueSummaryToUi(issue, projectId)
+        return {
+          id: issue.id,
+          key: issue.key,
+          title: issue.title,
+          priority: mapPriority(issue.priority),
+          priorityLevel: issue.priority as IssuePriorityLevel,
+          label: uiIssue.label,
+          labels: issue.labels.map((label) => label.name),
+          assigneeId: issue.assignee,
+          assignee: uiIssue.assignee,
+          done: isDoneStatus,
+        }
+      }),
+    }
+  })
 }
 
 export function priorityLevelFromKanbanPriority(

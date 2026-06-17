@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.issues",
     "apps.sprints",
     "apps.workflow",
+    "apps.notifications.apps.NotificationsConfig",
     "apps.label",
     "apps.comments",
     "apps.activities",

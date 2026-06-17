@@ -7,6 +7,7 @@ import { notificationIconMap } from './notificationIcons'
 import {
   NOTIFICATION_TABS,
   filterNotifications,
+  formatNotificationCreatedAt,
   getTabBadgeCount,
 } from './notificationUtils'
 import { useNotifications } from './NotificationProvider'
@@ -26,7 +27,7 @@ function DropdownHeader({
   onClose,
 }: {
   unreadCount: number
-  onMarkAllRead: () => void
+  onMarkAllRead: () => Promise<void>
   onClose: () => void
 }) {
   return (
@@ -37,7 +38,7 @@ function DropdownHeader({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={onMarkAllRead}
+          onClick={() => void onMarkAllRead()}
           disabled={unreadCount === 0}
           className="text-[13px] font-medium leading-none text-devflow-accent transition-colors hover:text-devflow-accent-hover disabled:pointer-events-none disabled:opacity-40"
         >
@@ -148,7 +149,7 @@ function DropdownNotificationRow({
         </div>
 
         <Avatar
-          name={notification.user}
+          name={notification.title}
           color={notification.color}
           size={36}
           className="mt-0.5"
@@ -157,28 +158,18 @@ function DropdownNotificationRow({
         <div className="min-w-0 overflow-hidden pt-0.5">
           <p className="text-[13px] leading-[1.35] text-devflow-text-secondary">
             <span className="font-semibold text-devflow-text">
-              {notification.user}
+              {notification.title}
             </span>{' '}
             <span className="font-normal">{notification.message}</span>
           </p>
-          {notification.preview && (
-            <p className="mt-0.5 truncate text-[13px] leading-[1.35] text-devflow-icon-muted">
-              {notification.preview}
-            </p>
-          )}
-          {notification.project && (
-            <p className="mt-1 truncate text-[11px] leading-none text-devflow-text-muted">
-              {notification.project}
-            </p>
-          )}
         </div>
 
         <div className="flex flex-col items-end justify-between self-stretch py-0.5">
           <time
             className="whitespace-nowrap text-[11px] leading-none text-devflow-text-muted tabular-nums"
-            dateTime={notification.time}
+            dateTime={notification.createdAt}
           >
-            {notification.time}
+            {formatNotificationCreatedAt(notification.createdAt)}
           </time>
           <span
             className="flex size-5 items-center justify-center text-devflow-text-muted"
@@ -222,10 +213,13 @@ export function NotificationDropdownPanel({
     notifications,
     activeTab,
     setActiveTab,
+    isLoading,
+    error,
     unreadCount,
     mentionUnreadCount,
     markAllRead,
     markRead,
+    reload,
   } = useNotifications()
 
   const filtered = filterNotifications(notifications, activeTab)
@@ -257,7 +251,22 @@ export function NotificationDropdownPanel({
           LIST_SCROLLBAR,
         )}
       >
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <li className="px-4 py-10 text-center text-[13px] text-devflow-text-muted">
+            Loading notifications...
+          </li>
+        ) : error ? (
+          <li className="px-4 py-10 text-center">
+            <p className="text-[13px] text-red-600">{error}</p>
+            <button
+              type="button"
+              onClick={() => void reload()}
+              className="mt-2 text-[12px] font-medium text-devflow-accent hover:underline"
+            >
+              Retry
+            </button>
+          </li>
+        ) : filtered.length === 0 ? (
           <li className="px-4 py-10 text-center text-[13px] text-devflow-text-muted">
             No notifications here
           </li>
@@ -266,7 +275,7 @@ export function NotificationDropdownPanel({
             <DropdownNotificationRow
               key={n.id}
               notification={n}
-              onMarkRead={markRead}
+              onMarkRead={(id) => void markRead(id)}
             />
           ))
         )}

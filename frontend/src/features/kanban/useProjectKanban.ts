@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getKanban, transitionIssue as apiTransitionIssue } from '@/api/issues'
+import { getProjectKanban, type KanbanBoardApi } from '@/api/issues'
 import { getProjectMembers, type ProjectMemberRecord } from '@/api/members'
 import { ApiError } from '@/api/types'
 import {
@@ -10,14 +10,12 @@ import { registerKanbanRefresh } from '@/features/kanban/kanbanRefreshBridge'
 import { mapKanbanBoardToColumns } from '@/services/mapKanbanApi'
 import type { KanbanBoardFilters, KanbanColumn } from '@/types/kanban'
 
-const TRANSITION_BLOCKED_MESSAGE = 'Cannot move issue to this status'
-
 export function useProjectKanban(projectId: string) {
   const [columns, setColumns] = useState<KanbanColumn[]>([])
+  const [selectedSprint, setSelectedSprint] =
+    useState<KanbanBoardApi['selected_sprint']>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [transitionError, setTransitionError] = useState<string | null>(null)
-  const [transitioningIssueId, setTransitioningIssueId] = useState<string | null>(null)
   const [filters, setFilters] = useState<KanbanBoardFilters>(DEFAULT_KANBAN_FILTERS)
   const [members, setMembers] = useState<ProjectMemberRecord[]>([])
 
@@ -28,13 +26,15 @@ export function useProjectKanban(projectId: string) {
     setError(null)
 
     try {
-      const board = await getKanban(projectId)
+      const board = await getProjectKanban(projectId)
       setColumns(mapKanbanBoardToColumns(board, projectId))
+      setSelectedSprint(board.selected_sprint ?? null)
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : 'Failed to load kanban board.'
       setError(message)
       setColumns([])
+      setSelectedSprint(null)
     } finally {
       setLoading(false)
     }
@@ -102,40 +102,12 @@ export function useProjectKanban(projectId: string) {
     setFilters(DEFAULT_KANBAN_FILTERS)
   }, [])
 
-  const transitionIssueOnBoard = useCallback(
-    async (issueId: string, transitionSlug: string, sourceColumnId: string) => {
-      if (sourceColumnId === transitionSlug) return
-
-      setTransitionError(null)
-      setTransitioningIssueId(issueId)
-
-      try {
-        await apiTransitionIssue(issueId, transitionSlug, projectId)
-        await loadBoard()
-      } catch (err) {
-        const message =
-          err instanceof ApiError && (err.status === 400 || err.status === 403)
-            ? TRANSITION_BLOCKED_MESSAGE
-            : err instanceof ApiError
-              ? err.message
-              : 'Failed to transition issue.'
-        setTransitionError(message)
-        await loadBoard()
-        throw err
-      } finally {
-        setTransitioningIssueId(null)
-      }
-    },
-    [loadBoard, projectId],
-  )
-
   return {
     columns: filteredColumns,
     rawColumns: columns,
+    selectedSprint,
     loading,
     error,
-    transitionError,
-    transitioningIssueId,
     totalIssues,
     filteredIssueCount,
     filters,
@@ -143,6 +115,5 @@ export function useProjectKanban(projectId: string) {
     clearFilters,
     assigneeOptions,
     refreshBoard: loadBoard,
-    transitionIssueOnBoard,
   }
 }

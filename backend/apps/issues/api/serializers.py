@@ -1,6 +1,13 @@
 from rest_framework import serializers
 
-from apps.issues.models import Issue, IssueType, Priority
+from apps.issues.models import (
+    Issue,
+    IssueActivity,
+    IssueAttachment,
+    IssueComment,
+    IssueType,
+    Priority,
+)
 from apps.label.api.serializers import LabelSerializer
 from apps.workflow.api.serializers import WorkflowStatusSerializer
 
@@ -125,8 +132,84 @@ class IssueAssignSerializer(serializers.Serializer):
 
 
 class IssueTransitionSerializer(serializers.Serializer):
-    to_status_id = serializers.UUIDField()
+    to_status_id = serializers.UUIDField(required=False)
+    target_status_id = serializers.UUIDField(required=False)
+
+    def validate(self, attrs):
+        to_status_id = attrs.get("to_status_id") or attrs.get("target_status_id")
+        if to_status_id is None:
+            raise serializers.ValidationError(
+                {"to_status_id": "This field is required."}
+            )
+        attrs["to_status_id"] = to_status_id
+        return attrs
 
 
 class IssueMoveSprintSerializer(serializers.Serializer):
     sprint_id = serializers.UUIDField(required=False, allow_null=True, default=None)
+
+
+class _CommentMutationValidationMixin:
+    def validate_body(self, value):
+        normalized_body = value.strip()
+        if not normalized_body:
+            raise serializers.ValidationError("Comment body cannot be empty.")
+        return normalized_body
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IssueComment
+        fields = [
+            "id",
+            "issue",
+            "author",
+            "body",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "author",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class IssueActivitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IssueActivity
+        fields = [
+            "id",
+            "actor",
+            "event_type",
+            "old_value",
+            "new_value",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class AttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IssueAttachment
+        fields = [
+            "id",
+            "issue",
+            "uploaded_by",
+            "file",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "uploaded_by",
+            "created_at",
+        ]
+
+
+class CommentCreateSerializer(_CommentMutationValidationMixin, serializers.Serializer):
+    body = serializers.CharField()
+
+
+class CommentUpdateSerializer(_CommentMutationValidationMixin, serializers.Serializer):
+    body = serializers.CharField()

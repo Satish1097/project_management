@@ -9,6 +9,7 @@ type KanbanColumnProps = {
   draggingIssueId?: string | null
   isDragActive?: boolean
   transitioningIssueId?: string | null
+  draggable?: boolean
 }
 
 export function KanbanColumn({
@@ -16,9 +17,11 @@ export function KanbanColumn({
   draggingIssueId = null,
   isDragActive = false,
   transitioningIssueId = null,
+  draggable = true,
 }: KanbanColumnProps) {
+  const statusId = column.statusId ?? column.id
   const { setNodeRef, isOver } = useDroppable({
-    id: column.id,
+    id: statusId,
   })
 
   const showDropIndicator = isOver && isDragActive
@@ -79,8 +82,10 @@ export function KanbanColumn({
                 key={issue.id}
                 issue={issue}
                 columnId={column.id}
+                statusId={statusId}
                 isDragging={draggingIssueId === issue.id}
                 isTransitioning={transitioningIssueId === issue.id}
+                draggable={draggable}
               />
             ))}
             {showDropIndicator ? (
