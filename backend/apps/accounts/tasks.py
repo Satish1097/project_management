@@ -1,9 +1,21 @@
 from celery import shared_task
+from django.conf import settings
+from django.core.mail import send_mail
 
 
 @shared_task
 def send_password_reset_email(email: str, reset_url: str) -> None:
-    """Stub — real email sending deferred to a later slice."""
+    send_mail(
+        subject="Reset your password",
+        message=(
+            "Use the link below to reset your password:\n\n"
+            f"{reset_url}\n\n"
+            "If you did not request this, you can ignore this email."
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[email],
+        fail_silently=False,
+    )
 
 
 @shared_task
@@ -13,7 +25,18 @@ def send_project_invite_email(
     project_name: str,
     organization_name: str,
 ) -> None:
-    """Stub — sends signup link for a new user invited to a project."""
+    send_mail(
+        subject=f"You're invited to join {project_name}",
+        message=(
+            f"You've been invited to join {project_name} in {organization_name}.\n\n"
+            "Use the link below to create your account and accept the invitation:\n\n"
+            f"{signup_url}\n\n"
+            "This invitation link expires soon."
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[email],
+        fail_silently=False,
+    )
 
 
 @shared_task
@@ -22,4 +45,13 @@ def send_project_added_notification_email(
     project_name: str,
     organization_name: str,
 ) -> None:
-    """Stub — notifies an existing user they were added to a project."""
+    send_mail(
+        subject=f"You were added to {project_name}",
+        message=(
+            f"You have been added to {project_name} in {organization_name}.\n\n"
+            "Sign in to view the project."
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[email],
+        fail_silently=False,
+    )

@@ -1,10 +1,10 @@
-from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
-from django.utils import timezone
+from django.core import mail
 
 from apps.accounts.models import UserInvitation
+from apps.accounts.tasks import send_project_invite_email
 from apps.organizations.models import OrganizationMember
 from apps.projects.models import ProjectMember, ProjectRole
 
@@ -56,6 +56,28 @@ def test_invite_new_user_creates_invitation(mock_invite_email, superuser_client,
     assert invitation.metadata["project_role"] == ProjectRole.QA
     assert invitation.metadata["invited_for"] == "project"
     mock_invite_email.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_invite_new_user_sends_invitation_email(settings, monkeypatch, superuser_client, project):
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    settings.DEFAULT_FROM_EMAIL = "noreply@example.com"
+    monkeypatch.setenv("FRONTEND_URL", "http://localhost:5173")
+    monkeypatch.setattr(send_project_invite_email, "delay", send_project_invite_email.run)
+
+    response = superuser_client.post(
+        f"/api/projects/{project.id}/invite",
+        {"email": "emailed@example.com", "role": ProjectRole.QA},
+        format="json",
+    )
+
+    assert response.status_code == 201
+    invitation = UserInvitation.objects.get(email="emailed@example.com")
+    assert len(mail.outbox) == 1
+    message = mail.outbox[0]
+    assert message.to == ["emailed@example.com"]
+    assert message.subject == f"You're invited to join {project.name}"
+    assert f"http://localhost:5173/signup?invite_token={invitation.token}" in message.body
 
 
 @pytest.mark.django_db
