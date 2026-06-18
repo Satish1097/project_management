@@ -11,6 +11,8 @@ export type SprintSummaryApi = {
   start_date: string | null
   end_date: string | null
   capacity_points?: number | null
+  issue_count?: number
+  completed_issue_count?: number
 }
 
 export type SprintDetailApi = SprintSummaryApi & {

@@ -37,12 +37,95 @@ function ActivityAvatar({
 }
 
 type ActivityFeedProps = {
-  /** Secondary panel on projects list — narrower and lower visual weight */
   variant?: 'default' | 'secondary'
+  activities?: {
+    id: string
+    actor: string | null
+    event_type: string
+    issue?: { key?: string; title?: string } | null
+    project?: { name?: string } | null
+    timestamp: string
+  }[] | null
+  isLoading?: boolean
+  error?: string | null
+  onRetry?: () => void
 }
 
-export function ActivityFeed({ variant = 'default' }: ActivityFeedProps) {
+export function ActivityFeed({
+  variant = 'default',
+  activities = null,
+  isLoading = false,
+  error = null,
+  onRetry,
+}: ActivityFeedProps) {
   const isSecondary = variant === 'secondary'
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <ul className={cn('flex flex-col', isSecondary ? 'gap-3' : 'gap-4')}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <li key={i} className="flex gap-2.5">
+              <ActivityAvatar type="initials" value="" />
+              <div className="min-w-0 flex-1">
+                <div className="h-4 w-3/4 animate-pulse rounded bg-devflow-table-header" />
+                <div className="mt-2 h-3 w-1/3 animate-pulse rounded bg-devflow-table-header" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+
+    if (error) {
+      return (
+        <div className="space-y-2">
+          <p className="text-caption text-devflow-error">{error}</p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="text-btn text-devflow-primary hover:underline"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )
+    }
+
+    if (!activities || activities.length === 0) {
+      return (
+        <div className="text-caption text-devflow-text-secondary">No recent activity</div>
+      )
+    }
+
+    return (
+      <ul className={cn('flex flex-col', isSecondary ? 'gap-3' : 'gap-4')}>
+        {activities.map((a) => (
+          <li key={a.id} className="flex gap-2.5">
+            <ActivityAvatar
+              type={a.actor ? 'user' : 'system'}
+              value={a.actor ?? 'System'}
+            />
+            <div className="min-w-0 flex-1">
+              <p className={cn('text-devflow-text', isSecondary ? 'text-caption leading-snug' : 'text-body')}>
+                <span className="font-medium">{a.actor ?? 'System'}</span>
+                <span className="font-normal text-devflow-text-secondary">{' '}{a.event_type.replace(/_/g, ' ')}{' '}</span>
+                {a.issue && a.issue.key && (
+                  <span className="rounded bg-[var(--df-activity-highlight)] px-0.5 font-mono text-[11px] text-devflow-primary">{a.issue.key}</span>
+                )}
+                {a.project && (
+                  <span className="font-normal text-devflow-text-secondary">{' '}in {a.project.name}</span>
+                )}
+              </p>
+              <p className="mt-0.5 text-[10px] uppercase tracking-wide text-devflow-text-muted">{a.timestamp}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )
+  }
 
   return (
     <aside
@@ -82,77 +165,7 @@ export function ActivityFeed({ variant = 'default' }: ActivityFeedProps) {
           </h3>
         </div>
 
-        <ul className={cn('flex flex-col', isSecondary ? 'gap-3' : 'gap-4')}>
-          <li className="flex gap-2.5">
-            <ActivityAvatar type="initials" value="SA" />
-            <div className="min-w-0 flex-1">
-              <p
-                className={cn(
-                  'text-devflow-text',
-                  isSecondary ? 'text-caption leading-snug' : 'text-body',
-                )}
-              >
-                <span className="font-medium">Sarah</span>
-                <span className="font-normal text-devflow-text-secondary">
-                  {' '}
-                  moved{' '}
-                </span>
-                <span className="rounded bg-[var(--df-activity-highlight)] px-0.5 font-mono text-[11px] text-devflow-primary">
-                  DF-42
-                </span>
-                <span className="font-normal text-devflow-text-secondary">
-                  {' '}
-                  to{' '}
-                </span>
-                <span className="font-medium text-devflow-success">Done</span>
-              </p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-wide text-devflow-text-muted">
-                2m ago
-              </p>
-            </div>
-          </li>
-
-          <li className="flex gap-2.5">
-            <ActivityAvatar type="user" value="David" color="#6366f1" />
-            <div className="min-w-0 flex-1">
-              <p
-                className={cn(
-                  'text-devflow-text',
-                  isSecondary ? 'text-caption leading-snug' : 'text-body',
-                )}
-              >
-                <span className="font-medium">David</span>
-                <span className="font-normal text-devflow-text-secondary">
-                  {' '}
-                  commented on Auth Refactor
-                </span>
-              </p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-wide text-devflow-text-muted">
-                1h ago
-              </p>
-            </div>
-          </li>
-
-          <li className="flex gap-2.5">
-            <ActivityAvatar type="system" value="" />
-            <div className="min-w-0 flex-1">
-              <p
-                className={cn(
-                  isSecondary ? 'text-caption leading-snug' : 'text-body',
-                )}
-              >
-                <span className="font-medium text-devflow-primary">System</span>
-                <span className="text-devflow-text-secondary">
-                  {' '}
-                  deployed v2.4.0-rc1
-                </span>
-              </p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-wide text-devflow-text-muted">
-                4h ago
-              </p>
-            </div>
-          </li>
-        </ul>
+        {renderContent()}
 
         <button
           type="button"

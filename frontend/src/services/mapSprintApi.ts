@@ -37,8 +37,8 @@ export function mapSprintSummaryToUi(
     startDate,
     endDate,
     dateRange: formatRange(sprint.start_date, sprint.end_date),
-    issueCount: 0,
-    completedCount: 0,
+    issueCount: 'issue_count' in sprint ? (sprint.issue_count ?? 0) : 0,
+    completedCount: 'completed_issue_count' in sprint ? (sprint.completed_issue_count ?? 0) : 0,
     capacityPoints: sprint.capacity_points ?? undefined,
   }
 }

@@ -3,6 +3,7 @@ from uuid import UUID
 from drf_spectacular.utils import extend_schema
 from rest_framework.views import APIView
 
+from apps.accounts.services.invitation_onboarding_service import invite_to_project
 from apps.contracts.identity_contract import get_users_by_ids
 from apps.contracts.membership_contract import list_project_members
 from apps.contracts.organization_contract import get_organization_by_id
@@ -12,6 +13,8 @@ from apps.contracts.project_contract import (
     get_projects_for_organization,
 )
 from apps.foundation.responses import success_response
+from apps.issues.selectors import select_dashboard_activity_feed
+from apps.issues.selectors import select_project_recent_activity
 from apps.organizations.exceptions import OrganizationAccessDeniedError, OrganizationNotFoundError
 from apps.permissions.drf_permissions import (
     Authenticated,
@@ -22,7 +25,6 @@ from apps.permissions.drf_permissions import (
     CanViewProject,
 )
 from apps.permissions.services import permission_service
-from apps.accounts.services.invitation_onboarding_service import invite_to_project
 from apps.projects.api.serializers import (
     ProjectCreateSerializer,
     ProjectInviteSerializer,
@@ -31,7 +33,11 @@ from apps.projects.api.serializers import (
     ProjectUpdateSerializer,
 )
 from apps.projects.exceptions import ProjectAccessDeniedError, ProjectNotFoundError
-from apps.projects.selectors import select_project_by_id
+from apps.projects.selectors import (
+    select_dashboard_summary,
+    select_project_by_id,
+    select_project_report_summary,
+)
 from apps.projects.services import (
     add_project_member,
     archive_project,
@@ -40,6 +46,7 @@ from apps.projects.services import (
     update_project,
     update_project_member,
 )
+from apps.sprints.selectors import select_project_sprint_health
 
 
 def _project_to_data(dto: ProjectDTO) -> dict:
@@ -68,6 +75,7 @@ def _project_summary_to_data(dto: ProjectSummaryDTO) -> dict:
         "status": dto.status,
         "open_issue_count": dto.open_issue_count,
         "active_sprint_id": str(dto.active_sprint_id) if dto.active_sprint_id else None,
+        "recent_activity": select_project_recent_activity(dto.id),
     }
 
 
@@ -130,6 +138,24 @@ class OrganizationProjectListCreateView(APIView):
         return success_response(data={"project": _project_to_data(project)}, status=201)
 
 
+class DashboardSummaryView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["dashboard"])
+    def get(self, request):
+        summary = select_dashboard_summary(request.user.id)
+        return success_response(data={"summary": summary})
+
+
+class DashboardActivityView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["dashboard"])
+    def get(self, request):
+        activity = select_dashboard_activity_feed(request.user.id)
+        return success_response(data={"activities": activity})
+
+
 class ProjectDetailView(APIView):
     permission_classes = [Authenticated, CanViewProject]
 
@@ -150,6 +176,39 @@ class ProjectDetailView(APIView):
             **serializer.validated_data,
         )
         return success_response(data={"project": _project_to_data(project)})
+
+
+class ProjectReportSummaryView(APIView):
+    permission_classes = [Authenticated, CanViewProject]
+
+    @extend_schema(tags=["project-reports"])
+    def get(self, request, project_id):
+        report = select_project_report_summary(request.user.id, project_id)
+        if report is None:
+            raise ProjectAccessDeniedError("You do not have access to this project.")
+        return success_response(data={"report": report})
+
+
+class ProjectSprintHealthReportView(APIView):
+    permission_classes = [Authenticated, CanViewProject]
+
+    @extend_schema(tags=["project-reports"])
+    def get(self, request, project_id):
+        sprint_health = select_project_sprint_health(request.user.id, project_id)
+        if sprint_health is None:
+            raise ProjectAccessDeniedError("You do not have access to this project.")
+        return success_response(data={"sprint_health": sprint_health})
+
+
+class ProjectWorkloadReportView(APIView):
+    permission_classes = [Authenticated, CanViewProject]
+
+    @extend_schema(tags=["project-reports"])
+    def get(self, request, project_id):
+        report = select_project_report_summary(request.user.id, project_id)
+        if report is None:
+            raise ProjectAccessDeniedError("You do not have access to this project.")
+        return success_response(data={"workload": report["issue_counts_by_assignee"]})
 
 
 class ProjectArchiveView(APIView):

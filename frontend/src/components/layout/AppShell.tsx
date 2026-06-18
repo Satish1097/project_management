@@ -1,13 +1,13 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { CreateIssueProvider } from '@/contexts/CreateIssueContext'
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext'
 import { useProjects } from '@/contexts/ProjectsContext'
 
 import { layout } from '@/constants/layout'
-import { projectBacklogPath } from '@/constants/routes'
+import { parseProjectRoute, projectBacklogPath } from '@/constants/routes'
 
 import { cn } from '@/utils/cn'
 
@@ -196,6 +196,15 @@ function AppShellMain() {
 function AppShellLayout() {
 
   const { collapsed } = useSidebar()
+  const { pathname } = useLocation()
+  const { currentProject, setCurrentProject } = useAppContext()
+
+  useEffect(() => {
+    const { projectId } = parseProjectRoute(pathname)
+    if (!projectId || currentProject?.id === projectId) return
+
+    setCurrentProject(projectId)
+  }, [currentProject?.id, pathname, setCurrentProject])
 
 
 

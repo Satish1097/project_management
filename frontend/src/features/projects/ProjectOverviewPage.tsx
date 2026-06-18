@@ -9,16 +9,19 @@ import {
   getProjectById,
   getSprintsForProject,
   getTeamCount,
+  getSprintCompletionPercent,
 } from '@/services/projectData'
 import {
   projectSprintsPath,
   sprintBoardPath,
 } from '@/constants/routes'
 import { layout } from '@/constants/layout'
+import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
 
 export function ProjectOverviewPage() {
   const { projectId = '' } = useParams()
   const project = getProjectById(projectId)
+  const { loading: sprintsLoading } = useLoadProjectSprints(projectId)
   const activeSprint = getActiveSprint(projectId)
   const sprints = getSprintsForProject(projectId)
 
@@ -26,6 +29,9 @@ export function ProjectOverviewPage() {
 
   const teamCount = getTeamCount(project)
   const openLabel = project.openIssuesLabel ?? project.issuesLabel
+
+  // Calculate sprint progress from active sprint's actual issue counts
+  const sprintProgress = activeSprint ? getSprintCompletionPercent(activeSprint) : 0
 
   return (
     <main className="page-main !gap-0 p-4">
@@ -40,7 +46,7 @@ export function ProjectOverviewPage() {
               {project.description}
             </p>
           </div>
-          {activeSprint && (
+          {!sprintsLoading && activeSprint && (
             <Link
               to={sprintBoardPath(projectId, activeSprint.id)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2 text-btn text-devflow-primary transition-shadow hover:shadow-devflow-sm"
@@ -64,11 +70,13 @@ export function ProjectOverviewPage() {
           />
           <MetricCard
             label="Active sprint"
-            value={activeSprint?.name ?? 'None'}
+            value={sprintsLoading ? '—' : (activeSprint?.name ?? 'None')}
             footer={
-              activeSprint
-                ? formatSprintStatus(activeSprint.status)
-                : 'Start a sprint from Sprints'
+              sprintsLoading
+                ? 'Loading sprints…'
+                : activeSprint
+                  ? formatSprintStatus(activeSprint.status)
+                  : 'Start a sprint from Sprints'
             }
             icon={<Calendar className="size-4 text-devflow-text-secondary" />}
           />
@@ -79,14 +87,16 @@ export function ProjectOverviewPage() {
           />
           <MetricCard
             label="Sprint progress"
-            value={`${project.progress ?? 0}%`}
-            progress={project.progress}
-            footer="Issues completed in active sprint"
+            value={sprintsLoading ? '—' : `${sprintProgress}%`}
+            progress={sprintsLoading ? undefined : sprintProgress}
+            footer={
+              sprintsLoading ? 'Loading sprints…' : 'Issues completed in active sprint'
+            }
           />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {activeSprint && (
+          {!sprintsLoading && activeSprint && (
             <div className={cnCard('lg:col-span-2')}>
               <p className="text-label text-devflow-text-secondary">
                 Active sprint
@@ -98,18 +108,18 @@ export function ProjectOverviewPage() {
                 {activeSprint.dateRange}
                 {activeSprint.goal ? ` — ${activeSprint.goal}` : ''}
               </p>
-              {project.progress !== undefined && (
+              {sprintProgress !== undefined && (
                 <div className="mt-4">
                   <div className="mb-1 flex justify-between text-caption text-devflow-text-secondary">
                     <span>Sprint progress</span>
                     <span className="font-medium text-devflow-text">
-                      {project.progress}%
+                      {sprintProgress}%
                     </span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-devflow-table-header">
                     <div
                       className="h-full rounded-full bg-devflow-success"
-                      style={{ width: `${project.progress}%` }}
+                      style={{ width: `${sprintProgress}%` }}
                     />
                   </div>
                 </div>
@@ -120,7 +130,7 @@ export function ProjectOverviewPage() {
             </div>
           )}
 
-          <div className={cnCard(activeSprint ? '' : 'lg:col-span-3')}>
+          <div className={cnCard(activeSprint && !sprintsLoading ? '' : 'lg:col-span-3')}>
             <div className="mb-3 flex items-center gap-2">
               <History className="size-4 text-devflow-text-secondary" />
               <h3 className="text-section-title text-devflow-text">
@@ -146,39 +156,41 @@ export function ProjectOverviewPage() {
           </div>
         </div>
 
-        <div>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-section-title text-devflow-text">Sprints</h3>
-            <Link
-              to={projectSprintsPath(projectId)}
-              className="text-btn text-devflow-primary hover:underline"
-            >
-              View all
-            </Link>
-          </div>
-          <ul className="flex flex-col gap-2">
-            {sprints.slice(0, 3).map((sprint) => (
-              <li key={sprint.id}>
-                <Link
-                  to={sprintBoardPath(projectId, sprint.id)}
-                  className="flex items-center justify-between rounded-lg border border-devflow-border bg-devflow-card px-4 py-3 transition-all duration-200 hover:-translate-y-px hover:shadow-devflow-sm"
-                >
-                  <div>
-                    <span className="font-medium text-devflow-text">
-                      {sprint.name}
+        {!sprintsLoading && sprints.length > 0 && (
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-section-title text-devflow-text">Sprints</h3>
+              <Link
+                to={projectSprintsPath(projectId)}
+                className="text-btn text-devflow-primary hover:underline"
+              >
+                View all
+              </Link>
+            </div>
+            <ul className="flex flex-col gap-2">
+              {sprints.slice(0, 3).map((sprint) => (
+                <li key={sprint.id}>
+                  <Link
+                    to={sprintBoardPath(projectId, sprint.id)}
+                    className="flex items-center justify-between rounded-lg border border-devflow-border bg-devflow-card px-4 py-3 transition-all duration-200 hover:-translate-y-px hover:shadow-devflow-sm"
+                  >
+                    <div>
+                      <span className="font-medium text-devflow-text">
+                        {sprint.name}
+                      </span>
+                      <p className="text-caption text-devflow-text-secondary">
+                        {sprint.dateRange}
+                      </p>
+                    </div>
+                    <span className="text-caption text-devflow-text-secondary">
+                      {sprint.completedCount}/{sprint.issueCount} done
                     </span>
-                    <p className="text-caption text-devflow-text-secondary">
-                      {sprint.dateRange}
-                    </p>
-                  </div>
-                  <span className="text-caption text-devflow-text-secondary">
-                    {sprint.completedCount}/{sprint.issueCount} done
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </main>
   )

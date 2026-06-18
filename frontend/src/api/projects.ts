@@ -10,6 +10,7 @@ export type ProjectSummaryApi = {
   status: string
   open_issue_count: number
   active_sprint_id: string | null
+  recent_activity?: string
 }
 
 export type ProjectDetailApi = {

@@ -1,7 +1,11 @@
 import { Check, ChevronDown, Plus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { projectBacklogPath } from '@/constants/routes'
+import { useLocation, useNavigate } from 'react-router-dom'
+import {
+  projectBacklogPath,
+  projectKanbanPath,
+  projectSprintsPath,
+} from '@/constants/routes'
 import { useProjects } from '@/contexts/ProjectsContext'
 import { setStoredOrganizationId } from '@/features/context/contextStorage'
 import { useAppContext } from '@/features/context/useAppContext'
@@ -14,6 +18,20 @@ type SidebarContextPanelProps = {
 }
 
 type ContextOption = { id: string; name: string }
+
+function projectSwitchPath(pathname: string, projectId: string): string {
+  const projectMatch = pathname.match(/^\/projects\/[^/]+(?<suffix>\/.*)?$/)
+  if (!projectMatch) return projectBacklogPath(projectId)
+
+  const suffix = projectMatch.groups?.suffix ?? ''
+  if (suffix.startsWith('/sprints/')) {
+    return suffix.includes('/board')
+      ? projectKanbanPath(projectId)
+      : projectSprintsPath(projectId)
+  }
+
+  return `/projects/${projectId}${suffix}`
+}
 
 type ContextSelectorProps = {
   label: string
@@ -283,6 +301,7 @@ function ContextSelectorCollapsed({
 
 export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const [createOrgOpen, setCreateOrgOpen] = useState(false)
   const {
@@ -308,6 +327,14 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
   const handleProjectCreated = (projectId: string) => {
     navigate(projectBacklogPath(projectId))
   }
+
+  const handleProjectChange = useCallback(
+    (projectId: string) => {
+      setCurrentProject(projectId)
+      navigate(projectSwitchPath(pathname, projectId))
+    },
+    [navigate, pathname, setCurrentProject],
+  )
 
   const handleOrganizationCreated = useCallback(
     async (organizationId: string) => {
@@ -358,7 +385,7 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
                 name: project.name,
               }))}
               placeholder="Project"
-              onChange={setCurrentProject}
+              onChange={handleProjectChange}
               aria-label="Project"
             />
           )}
@@ -424,7 +451,7 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
               name: project.name,
             }))}
             placeholder="Select project"
-            onChange={setCurrentProject}
+            onChange={handleProjectChange}
             aria-label="Project"
           />
         ) : (

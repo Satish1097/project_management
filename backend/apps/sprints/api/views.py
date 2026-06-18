@@ -9,16 +9,20 @@ from apps.projects.exceptions import ProjectNotFoundError
 from apps.projects.selectors import select_project_by_id
 from apps.sprints.api.serializers import SprintCreateSerializer, SprintUpdateSerializer
 from apps.sprints.exceptions import SprintNotFoundError
-from apps.sprints.selectors import get_project_sprint_by_id, get_project_sprints
+from apps.sprints.selectors import (
+    get_project_sprint_by_id,
+    get_project_sprints_with_health,
+    select_project_sprint_health,
+)
 from apps.sprints.services.sprint_service import sprint_service
 
 
-def _sprint_to_data(sprint) -> dict:
+def _sprint_to_data(sprint, include_health: bool = False) -> dict:
     capacity_points = None
     if "capacity_points" not in sprint.get_deferred_fields():
         capacity_points = sprint.capacity_points
 
-    return {
+    data = {
         "id": str(sprint.id),
         "project_id": str(sprint.project_id),
         "name": sprint.name,
@@ -30,6 +34,13 @@ def _sprint_to_data(sprint) -> dict:
         "created_at": sprint.created_at.isoformat() if sprint.created_at else None,
         "updated_at": sprint.updated_at.isoformat() if sprint.updated_at else None,
     }
+
+    # Include issue counts if sprint has health annotations
+    if include_health and hasattr(sprint, "issue_count"):
+        data["issue_count"] = sprint.issue_count or 0
+        data["completed_issue_count"] = sprint.completed_issue_count or 0
+
+    return data
 
 
 def _require_project(project_id: UUID) -> None:
@@ -55,8 +66,8 @@ class ProjectSprintListCreateView(APIView):
     @extend_schema(tags=["sprints"])
     def get(self, request, project_id: UUID):
         _require_project(project_id)
-        sprints = get_project_sprints(project_id)
-        return success_response(data={"sprints": [_sprint_to_data(sprint) for sprint in sprints]})
+        sprints = get_project_sprints_with_health(project_id)
+        return success_response(data={"sprints": [_sprint_to_data(sprint, include_health=True) for sprint in sprints]})
 
     @extend_schema(request=SprintCreateSerializer, tags=["sprints"])
     def post(self, request, project_id: UUID):

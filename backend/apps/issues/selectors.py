@@ -5,9 +5,11 @@ Selectors must not mutate data or contain business logic.
 """
 from uuid import UUID
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, QuerySet
 
 from apps.issues.models import Issue, IssueActivity, IssueAttachment, IssueComment
+from apps.permissions.services import permission_service
 from apps.sprints.selectors import get_project_kanban_sprint
 from apps.workflow.selectors import get_project_statuses
 from apps.workflow.slug_utils import status_slug
@@ -28,7 +30,7 @@ def _optimized_comment_queryset() -> QuerySet[IssueComment]:
 
 
 def _optimized_activity_queryset() -> QuerySet[IssueActivity]:
-    return IssueActivity.objects.select_related("actor")
+    return IssueActivity.objects.select_related("actor", "actor__profile")
 
 
 def _optimized_attachment_queryset() -> QuerySet[IssueAttachment]:
@@ -61,6 +63,100 @@ def get_issue_attachments(issue_id: UUID) -> QuerySet[IssueAttachment]:
 
 def get_issue_activity(issue_id: UUID) -> QuerySet[IssueActivity]:
     return _optimized_activity_queryset().filter(issue_id=issue_id).order_by("-created_at")
+
+
+def _select_visible_activity_project_ids(user_id: UUID) -> list[UUID]:
+    candidate_project_ids = (
+        IssueActivity.objects.values_list("issue__project_id", flat=True).distinct()
+    )
+    return [
+        project_id
+        for project_id in candidate_project_ids
+        if permission_service.can_view_project(user_id, project_id)
+    ]
+
+
+def _activity_actor_name(activity: IssueActivity) -> str | None:
+    actor = activity.actor
+    if actor is None:
+        return None
+
+    try:
+        profile = actor.profile
+    except ObjectDoesNotExist:
+        profile = None
+
+    if profile is not None:
+        display_name = f"{profile.first_name} {profile.last_name}".strip()
+        if display_name:
+            return display_name
+
+    return actor.email
+
+
+def _activity_feed_item(activity: IssueActivity) -> dict:
+    issue = activity.issue
+    project = issue.project
+    return {
+        "id": str(activity.id),
+        "actor": _activity_actor_name(activity),
+        "event_type": activity.event_type,
+        "issue": {
+            "id": str(issue.id),
+            "key": issue.key,
+            "title": issue.title,
+        },
+        "project": {
+            "id": str(project.id),
+            "name": project.name,
+        },
+        "old_value": activity.old_value,
+        "new_value": activity.new_value,
+        "timestamp": activity.created_at.isoformat(),
+    }
+
+
+def select_dashboard_activity_feed(user_id: UUID, *, limit: int = 20) -> list[dict]:
+    project_ids = _select_visible_activity_project_ids(user_id)
+    activities = (
+        _optimized_activity_queryset()
+        .select_related("issue", "issue__project")
+        .filter(issue__project_id__in=project_ids)
+        .order_by("-created_at")
+    )
+    return [_activity_feed_item(activity) for activity in activities[:limit]]
+
+
+def select_project_recent_activity(project_id: UUID) -> str | None:
+    """Return a short human-friendly string describing the most recent activity for a project."""
+    activity = (
+        _optimized_activity_queryset()
+        .select_related("actor", "issue")
+        .filter(issue__project_id=project_id)
+        .order_by("-created_at")
+        .first()
+    )
+    if activity is None:
+        return None
+
+    actor = _activity_actor_name(activity) or "System"
+    issue_key = activity.issue.key if activity.issue is not None else None
+    et = activity.event_type
+
+    if et == "status_changed":
+        verb = "changed status on"
+    elif et == "sprint_changed":
+        verb = "moved"
+    elif et == "comment_added":
+        verb = "commented on"
+    elif et == "assignee_changed":
+        verb = "changed assignee for"
+    else:
+        verb = et.replace("_", " ")
+
+    if issue_key:
+        return f"{actor} {verb} {issue_key}"
+    return f"{actor} {verb}"
 
 
 def get_project_issue_by_id(project_id: UUID, issue_id: UUID) -> Issue | None:

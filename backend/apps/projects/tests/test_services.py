@@ -2,6 +2,8 @@ import uuid
 
 import pytest
 
+from apps.contracts.workflow_contract import get_status_by_slug
+from apps.issues.models import Issue
 from apps.projects.exceptions import (
     ProjectKeyConflictError,
     ProjectMembershipError,
@@ -12,6 +14,7 @@ from apps.projects.selectors import (
     select_project_by_id,
     select_project_member,
     select_project_role,
+    select_project_summary,
     select_projects_for_organization,
 )
 from apps.projects.services import create_project, update_project
@@ -110,6 +113,59 @@ def test_select_projects_for_organization(superuser, organization, project):
 
     assert len(results) == 1
     assert results[0].id == project.id
+
+
+@pytest.mark.django_db
+def test_select_project_summary_open_issue_count(superuser, project):
+    todo_status = get_status_by_slug(project.id, "todo")
+    in_progress_status = get_status_by_slug(project.id, "in_progress")
+    done_status = get_status_by_slug(project.id, "done")
+
+    assert todo_status is not None
+    assert in_progress_status is not None
+    assert done_status is not None
+
+    Issue.objects.create(
+        project_id=project.id,
+        key="HKP01-4",
+        title="Todo issue 1",
+        description="",
+        priority="medium",
+        status_id=todo_status.id,
+        reporter_id=superuser.id,
+    )
+    Issue.objects.create(
+        project_id=project.id,
+        key="HKP01-6",
+        title="Todo issue 2",
+        description="",
+        priority="medium",
+        status_id=todo_status.id,
+        reporter_id=superuser.id,
+    )
+    Issue.objects.create(
+        project_id=project.id,
+        key="HKP01-7",
+        title="In Progress issue",
+        description="",
+        priority="medium",
+        status_id=in_progress_status.id,
+        reporter_id=superuser.id,
+    )
+    Issue.objects.create(
+        project_id=project.id,
+        key="HKP01-1",
+        title="Done issue",
+        description="",
+        priority="medium",
+        status_id=done_status.id,
+        reporter_id=superuser.id,
+    )
+
+    summary = select_project_summary(project.id)
+
+    assert summary is not None
+    assert summary.open_issue_count == 3
 
 
 @pytest.mark.django_db

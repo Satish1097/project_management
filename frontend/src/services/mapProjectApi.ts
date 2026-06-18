@@ -31,6 +31,7 @@ export function mapProjectSummaryToUi(
     openIssuesLabel: `${issueCount} Open ${issueCount === 1 ? 'Issue' : 'Issues'}`,
     members: [],
     isMember: true,
+    recentActivity: summary.recent_activity ?? null,
   }
 }
 

@@ -5,7 +5,11 @@ import { syncSprintIssueCounts } from '@/services/issuesRegistry'
 let sprints: Sprint[] = []
 
 function hydrate(sprint: Sprint): Sprint {
-  const synced = syncSprintIssueCounts(sprint)
+  // Only sync issue counts from registry if they're not already set from API
+  const synced =
+    sprint.issueCount > 0 || sprint.completedCount > 0
+      ? sprint
+      : syncSprintIssueCounts(sprint)
   return {
     ...synced,
     dateRange: formatDateRange(synced.startDate, synced.endDate),

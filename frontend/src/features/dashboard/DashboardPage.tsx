@@ -1,3 +1,4 @@
+import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Bug,
@@ -10,9 +11,11 @@ import { TopHeader } from '@/components/layout/TopHeader'
 import { MetricCard } from '@/components/ui/MetricCard'
 import { QuickActionCard } from '@/components/ui/QuickActionCard'
 import { ROUTES } from '@/constants/routes'
+import { ActivityFeed } from './ActivityFeed'
+import { getDashboardSummary, getDashboardActivity } from '@/api/dashboard'
+import type { DashboardSummaryApi, DashboardActivityApi } from '@/types/dashboard'
 import { mockProjects } from '@/services/mockProjects'
 import { getActiveSprint } from '@/services/projectData'
-import { ActivityFeed } from './ActivityFeed'
 import { projectOverviewPath } from '@/constants/routes'
 
 const quickLinks = [
@@ -43,8 +46,44 @@ const quickLinks = [
 ] as const
 
 export function DashboardPage() {
-  const activeProjects = mockProjects.filter((p) => p.status === 'active').length
-  const activeSprints = mockProjects.filter((p) => getActiveSprint(p.id)).length
+  const [summary, setSummary] = useState<DashboardSummaryApi | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+
+  const [activities, setActivities] = useState<DashboardActivityApi[] | null>(null)
+  const [activityLoading, setActivityLoading] = useState(false)
+  const [activityError, setActivityError] = useState<string | null>(null)
+
+  const loadSummary = useCallback(async () => {
+    setSummaryLoading(true)
+    setSummaryError(null)
+    try {
+      const data = await getDashboardSummary()
+      setSummary(data)
+    } catch (err: unknown) {
+      setSummaryError(err instanceof Error ? err.message : 'Failed to load summary')
+    } finally {
+      setSummaryLoading(false)
+    }
+  }, [])
+
+  const loadActivity = useCallback(async () => {
+    setActivityLoading(true)
+    setActivityError(null)
+    try {
+      const items = await getDashboardActivity()
+      setActivities(items)
+    } catch (err: unknown) {
+      setActivityError(err instanceof Error ? err.message : 'Failed to load activity')
+    } finally {
+      setActivityLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadSummary()
+    void loadActivity()
+  }, [loadSummary, loadActivity])
 
   return (
     <>
@@ -58,28 +97,44 @@ export function DashboardPage() {
               board.
             </p>
           </div>
+          {summaryError && (
+            <p className="mt-2 text-caption text-devflow-error">{summaryError}</p>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
               label="Projects"
-              value={String(mockProjects.length)}
-              footer={`${activeProjects} active`}
+              value={summaryLoading || !summary ? '—' : String(summary.visible_project_count)}
+              footer={summaryLoading ? 'Loading…' : 'Workspace-wide'}
             />
             <MetricCard
               label="Active sprints"
-              value={String(activeSprints)}
-              footer="Across your assigned projects"
+              value={summaryLoading || !summary ? '—' : String(summary.active_sprint_count)}
+              footer={summaryLoading ? 'Loading…' : 'Across your assigned projects'}
               badge={{ text: 'Live', variant: 'success' }}
             />
             <MetricCard
               label="Open issues"
-              value="54"
-              footer="Workspace-wide"
+              value={summaryLoading || !summary ? '—' : String(summary.open_issue_count)}
+              footer={summaryLoading ? 'Loading…' : 'Workspace-wide'}
             />
+
             <MetricCard
-              label="Releases this month"
-              value="3"
-              footer="2 shipped, 1 scheduled"
+              label="Assigned to me"
+              value={summaryLoading || !summary ? '—' : String(summary.assigned_to_me_count)}
+              footer={summaryLoading ? 'Loading…' : 'Issues assigned to you'}
+            />
+
+            <MetricCard
+              label="Overdue issues"
+              value={summaryLoading || !summary ? '—' : String(summary.overdue_issue_count)}
+              footer={summaryLoading ? 'Loading…' : 'Workspace-wide'}
+            />
+
+            <MetricCard
+              label="Unread notifications"
+              value={summaryLoading || !summary ? '—' : String(summary.unread_notification_count)}
+              footer={summaryLoading ? 'Loading…' : 'Unread'}
             />
           </div>
 
@@ -145,7 +200,12 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <ActivityFeed />
+        <ActivityFeed
+          activities={activities}
+          isLoading={activityLoading}
+          error={activityError}
+          onRetry={loadActivity}
+        />
       </main>
     </>
   )
