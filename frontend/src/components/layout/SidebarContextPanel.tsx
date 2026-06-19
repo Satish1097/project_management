@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   projectBacklogPath,
-  projectKanbanPath,
+  projectBoardPath,
   projectSprintsPath,
 } from '@/constants/routes'
 import { useProjects } from '@/contexts/ProjectsContext'
@@ -26,7 +26,7 @@ function projectSwitchPath(pathname: string, projectId: string): string {
   const suffix = projectMatch.groups?.suffix ?? ''
   if (suffix.startsWith('/sprints/')) {
     return suffix.includes('/board')
-      ? projectKanbanPath(projectId)
+      ? projectBoardPath(projectId)
       : projectSprintsPath(projectId)
   }
 

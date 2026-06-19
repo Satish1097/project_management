@@ -72,9 +72,45 @@ def get_kanban_board(
     project_id: UUID,
     sprint_id: Optional[UUID] = None,
 ) -> IssueKanbanDTO:
-    from apps.issues.selectors import select_kanban_board
+    from apps.issues.selectors import get_project_kanban, get_sprint_kanban
+    from apps.workflow.slug_utils import status_slug
 
-    return select_kanban_board(project_id, sprint_id=sprint_id)
+    if sprint_id is not None:
+        board = get_sprint_kanban(sprint_id)
+        if board is None:
+            return IssueKanbanDTO(project_id=project_id, columns=[])
+        project_id = board["sprint"].project_id
+    else:
+        board = get_project_kanban(project_id)
+
+    columns: list[IssueBoardColumnDTO] = []
+    for column in board["columns"]:
+        status = column["status"]
+        slug = status_slug(name=status.name, category=status.category)
+        issues = [
+            IssueSummaryDTO(
+                id=issue.id,
+                project_id=issue.project_id,
+                key=issue.key,
+                title=issue.title,
+                issue_type=issue.type,
+                priority=issue.priority,
+                status_slug=slug,
+                position=issue.position,
+                assignee_id=issue.assignee_id,
+                sprint_id=issue.sprint_id,
+            )
+            for issue in column["issues"]
+        ]
+        columns.append(
+            IssueBoardColumnDTO(
+                status_slug=slug,
+                status_name=status.name,
+                issues=issues,
+            )
+        )
+
+    return IssueKanbanDTO(project_id=project_id, columns=columns)
 
 
 def get_sprint_issues(sprint_id: UUID) -> list[IssueSummaryDTO]:

@@ -117,7 +117,7 @@ def test_subtask_same_project_parent_enforcement(
 
 
 @pytest.mark.django_db
-def test_kanban_compatibility_api_filters_to_active_sprint(
+def test_kanban_api_returns_all_project_issues(
     superuser_client,
     project,
     create_test_issue,
@@ -129,37 +129,46 @@ def test_kanban_compatibility_api_filters_to_active_sprint(
     )
     planned_sprint = Sprint.objects.create(project_id=project.id, name="Planned Sprint")
     active_issue = create_test_issue(title="Active sprint card", sprint_id=active_sprint.id)
-    create_test_issue(title="Planned sprint card", sprint_id=planned_sprint.id)
-    create_test_issue(title="Backlog card")
+    planned_issue = create_test_issue(title="Planned sprint card", sprint_id=planned_sprint.id)
+    backlog_issue = create_test_issue(title="Backlog card")
 
     response = superuser_client.get(f"/api/projects/{project.id}/kanban")
 
     assert response.status_code == 200
     board = response.json()["data"]["board"]
-    issue_titles = [
+    issue_titles = {
         issue["title"]
         for column in board["columns"]
         for issue in column["issues"]
-    ]
-    assert issue_titles == [active_issue.title]
+    }
+    assert issue_titles == {
+        active_issue.title,
+        planned_issue.title,
+        backlog_issue.title,
+    }
+    assert board["selected_sprint"] is None
 
 
 @pytest.mark.django_db
-def test_kanban_compatibility_api_empty_without_active_sprint(
+def test_kanban_api_includes_issues_without_active_sprint(
     superuser_client,
     project,
     create_test_issue,
 ):
     planned_sprint = Sprint.objects.create(project_id=project.id, name="Planned Sprint")
-    create_test_issue(title="Planned sprint card", sprint_id=planned_sprint.id)
-    create_test_issue(title="Backlog card")
+    planned_issue = create_test_issue(title="Planned sprint card", sprint_id=planned_sprint.id)
+    backlog_issue = create_test_issue(title="Backlog card")
 
     response = superuser_client.get(f"/api/projects/{project.id}/kanban")
 
     assert response.status_code == 200
     board = response.json()["data"]["board"]
-    assert board["project_id"] == str(project.id)
-    assert all(column["issues"] == [] for column in board["columns"])
+    issue_titles = {
+        issue["title"]
+        for column in board["columns"]
+        for issue in column["issues"]
+    }
+    assert issue_titles == {planned_issue.title, backlog_issue.title}
 
 
 @pytest.mark.django_db

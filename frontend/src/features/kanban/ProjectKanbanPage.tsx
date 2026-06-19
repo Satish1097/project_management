@@ -2,20 +2,30 @@ import { useCallback, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { ApiError } from '@/api/types'
 import { transitionIssue } from '@/api/issues'
+import { projectSprintsPath } from '@/constants/routes'
 import { BoardFilters } from '@/features/kanban/BoardFilters'
 import { KanbanBoardView } from '@/features/kanban/KanbanBoardView'
 import { useProjectKanban } from '@/features/kanban/useProjectKanban'
-import { sprintAdvancedBoardPath } from '@/constants/routes'
-import { getProjectById } from '@/services/projectData'
+import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
+import { getProjectById, getSprintById } from '@/services/projectData'
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function ProjectKanbanPage() {
-  const { projectId = '' } = useParams()
+  const { projectId = '', sprintId } = useParams<{
+    projectId: string
+    sprintId?: string
+  }>()
   const project = getProjectById(projectId)
+  const sprint = sprintId ? getSprintById(projectId, sprintId) : undefined
+  const { loading: sprintsLoading } = useLoadProjectSprints(projectId)
+  const boardReady =
+    !sprintId || (!sprintsLoading && !!sprint && UUID_RE.test(sprintId))
   const [transitioningIssueId, setTransitioningIssueId] = useState<string | null>(null)
   const [transitionError, setTransitionError] = useState<string | null>(null)
   const {
     columns,
-    selectedSprint,
     loading,
     error,
     totalIssues,
@@ -25,7 +35,7 @@ export function ProjectKanbanPage() {
     clearFilters,
     assigneeOptions,
     refreshBoard,
-  } = useProjectKanban(projectId)
+  } = useProjectKanban(projectId, { sprintId, enabled: boardReady })
 
   const handleTransitionIssue = useCallback(
     async (issueId: string, targetStatusId: string) => {
@@ -50,17 +60,28 @@ export function ProjectKanbanPage() {
     return <Navigate to="/projects" replace />
   }
 
+  if (sprintId) {
+    if (sprintsLoading && !sprint) {
+      return (
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-devflow-surface p-8 text-body text-devflow-text-secondary">
+          Loading sprint…
+        </div>
+      )
+    }
+
+    if (!sprint || !UUID_RE.test(sprintId)) {
+      return <Navigate to={projectSprintsPath(projectId)} replace />
+    }
+  }
+
   const showFilteredEmpty = !loading && totalIssues > 0 && filteredIssueCount === 0
-  const showNoSprintEmpty = !loading && !error && !selectedSprint
+  const emptyHint = sprintId
+    ? 'Add issues to this sprint or adjust filters to see them here.'
+    : 'Adjust assignee, priority, or label filters to see issues.'
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-devflow-surface">
       <BoardFilters
-        advancedBoardPath={
-          selectedSprint
-            ? sprintAdvancedBoardPath(projectId, selectedSprint.id)
-            : undefined
-        }
         filters={filters}
         onFiltersChange={setFilters}
         onClearFilters={clearFilters}
@@ -91,21 +112,19 @@ export function ProjectKanbanPage() {
 
         {loading && columns.length === 0 && totalIssues === 0 ? (
           <div className="issue-board-empty">
-            <p className="issue-board-empty__title">Loading board…</p>
-          </div>
-        ) : showNoSprintEmpty ? (
-          <div className="issue-board-empty">
-            <p className="issue-board-empty__title">No sprint selected</p>
-            <p className="issue-board-empty__hint">
-              Start or select a sprint to see issues on the board.
+            <p className="issue-board-empty__title">
+              {sprintId ? 'Loading sprint board…' : 'Loading board…'}
             </p>
           </div>
         ) : showFilteredEmpty ? (
           <div className="issue-board-empty">
             <p className="issue-board-empty__title">No issues match filters</p>
-            <p className="issue-board-empty__hint">
-              Adjust assignee, priority, or label filters to see issues.
-            </p>
+            <p className="issue-board-empty__hint">{emptyHint}</p>
+          </div>
+        ) : !loading && totalIssues === 0 ? (
+          <div className="issue-board-empty">
+            <p className="issue-board-empty__title">No issues on the board</p>
+            <p className="issue-board-empty__hint">{emptyHint}</p>
           </div>
         ) : (
           <KanbanBoardView

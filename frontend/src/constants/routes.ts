@@ -57,6 +57,19 @@ export function projectKanbanPath(projectId: string) {
   return `${projectPath(projectId)}/board`
 }
 
+/** Primary project board route — all issues, never sprint-scoped. */
+export const projectBoardPath = projectKanbanPath
+
+/** Project-wide board (all issues) — not a sprint-scoped board. */
+export function isProjectBoardPath(pathname: string): boolean {
+  return /\/projects\/[^/]+\/board\/?$/.test(pathname)
+}
+
+/** Sprint-scoped board views (board / list / activity). */
+export function isSprintBoardPath(pathname: string): boolean {
+  return /\/sprints\/[^/]+\/board(?:\/|$)/.test(pathname)
+}
+
 export function projectSprintsPath(projectId: string) {
   return `${projectPath(projectId)}/sprints`
 }

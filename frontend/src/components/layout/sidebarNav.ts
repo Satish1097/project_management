@@ -12,7 +12,7 @@ import {
 import {
   ROUTES,
   projectBacklogPath,
-  projectKanbanPath,
+  projectBoardPath,
   projectOverviewPath,
   projectSettingsMembersPath,
   projectSettingsPath,
@@ -87,7 +87,7 @@ export function projectNavPath(
     case 'backlog':
       return projectBacklogPath(projectId)
     case 'board':
-      return projectKanbanPath(projectId)
+      return projectBoardPath(projectId)
     case 'sprints':
       return projectSprintsPath(projectId)
     case 'members':
@@ -107,7 +107,7 @@ export function isProjectNavActive(
     return pathname === base
   }
   if (navId === 'board') {
-    return pathname === projectKanbanPath(projectId)
+    return pathname === projectBoardPath(projectId)
   }
   if (navId === 'backlog') {
     return pathname.startsWith(projectBacklogPath(projectId))
@@ -116,7 +116,8 @@ export function isProjectNavActive(
     return (
       pathname === projectSprintsPath(projectId) ||
       (/\/projects\/[^/]+\/sprints\/[^/]+/.test(pathname) &&
-        pathname.startsWith(projectSprintsPath(projectId)))
+        pathname.startsWith(projectSprintsPath(projectId)) &&
+        !/\/sprints\/[^/]+\/(board|list|activity|planning)(?:\/|$)/.test(pathname))
     )
   }
   if (navId === 'members') {

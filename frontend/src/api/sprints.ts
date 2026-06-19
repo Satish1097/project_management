@@ -99,10 +99,13 @@ export async function getSprintActivity(
   }
 }
 
-export async function getSprintBoard(sprintId: string): Promise<KanbanBoardApi> {
+export async function getSprintBoard(
+  projectId: string,
+  sprintId: string,
+): Promise<KanbanBoardApi> {
   try {
     const { data } = await apiClient.get<ApiResponse<{ board: KanbanBoardApi }>>(
-      `/sprints/${sprintId}/board`,
+      `/projects/${projectId}/sprints/${sprintId}/board`,
     )
     return data.data.board
   } catch (error) {

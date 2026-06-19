@@ -10,7 +10,7 @@ from django.db.models import Q, QuerySet
 
 from apps.issues.models import Issue, IssueActivity, IssueAttachment, IssueComment
 from apps.permissions.services import permission_service
-from apps.sprints.selectors import get_project_kanban_sprint
+from apps.sprints.selectors import get_sprint_by_id
 from apps.workflow.selectors import get_project_statuses
 from apps.workflow.slug_utils import status_slug
 
@@ -251,15 +251,9 @@ def get_backlog_issues(project_id: UUID) -> QuerySet[Issue]:
     )
 
 
-def get_project_kanban(project_id: UUID) -> dict:
+def _build_kanban_board(project_id: UUID, issues: QuerySet[Issue], *, sprint=None) -> dict:
     statuses = list(get_project_statuses(project_id))
-    issues_by_status_id = {
-        status.id: []
-        for status in statuses
-    }
-
-    sprint = get_project_kanban_sprint(project_id)
-    issues = get_sprint_issues(sprint.id) if sprint is not None else Issue.objects.none()
+    issues_by_status_id = {status.id: [] for status in statuses}
 
     for issue in issues:
         if issue.status_id in issues_by_status_id:
@@ -275,6 +269,20 @@ def get_project_kanban(project_id: UUID) -> dict:
             for status in statuses
         ],
     }
+
+
+def get_project_kanban(project_id: UUID) -> dict:
+    issues = get_project_issues(project_id)
+    return _build_kanban_board(project_id, issues, sprint=None)
+
+
+def get_sprint_kanban(sprint_id: UUID) -> dict | None:
+    sprint = get_sprint_by_id(sprint_id)
+    if sprint is None:
+        return None
+
+    issues = get_sprint_issues(sprint_id)
+    return _build_kanban_board(sprint.project_id, issues, sprint=sprint)
 
 
 def select_project_kanban_board(project_id: UUID) -> dict:

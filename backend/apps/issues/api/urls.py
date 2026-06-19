@@ -12,6 +12,7 @@ from apps.issues.api.views import (
     IssueListCreateView,
     IssueTransitionView,
     ProjectKanbanView,
+    SprintKanbanView,
 )
 
 urlpatterns = [
@@ -20,6 +21,11 @@ urlpatterns = [
         "projects/<uuid:project_id>/kanban",
         ProjectKanbanView.as_view(),
         name="project-kanban",
+    ),
+    path(
+        "sprints/<uuid:sprint_id>/board",
+        SprintKanbanView.as_view(),
+        name="sprint-kanban",
     ),
     path(
         "issues/bulk/assign-sprint",

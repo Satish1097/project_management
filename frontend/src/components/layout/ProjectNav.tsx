@@ -2,7 +2,7 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import {
   projectActivityPath,
   projectBacklogPath,
-  projectKanbanPath,
+  projectBoardPath,
   projectOverviewPath,
   projectReleasesPath,
   projectSettingsGeneralPath,
@@ -32,7 +32,7 @@ export function ProjectNav() {
       case '':
         return projectOverviewPath(projectId)
       case 'board':
-        return projectKanbanPath(projectId)
+        return projectBoardPath(projectId)
       case 'activity':
         return projectActivityPath(projectId)
       case 'backlog':
@@ -54,7 +54,7 @@ export function ProjectNav() {
       return pathname === base
     }
     if (segment === 'board') {
-      return pathname === projectKanbanPath(projectId)
+      return pathname === projectBoardPath(projectId)
     }
     if (segment === 'activity') {
       return pathname === projectActivityPath(projectId)

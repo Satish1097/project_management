@@ -1,8 +1,9 @@
 import pytest
 
-from apps.contracts.issue_contract import get_backlog_issues, get_kanban_board
-from apps.issues.selectors import select_backlog_issues, select_kanban_board
+from apps.contracts.issue_contract import get_backlog_issues
+from apps.issues.selectors import get_sprint_kanban, select_backlog_issues
 from apps.sprints.services.sprint_service import create_sprint
+from apps.workflow.slug_utils import status_slug
 
 
 @pytest.mark.django_db
@@ -31,15 +32,21 @@ def test_backlog_api(superuser_client, project, create_test_issue):
 
 
 @pytest.mark.django_db
-def test_kanban_selector_groups_by_status(project, superuser, create_test_issue, status_ids):
+def test_kanban_selector_groups_all_project_issues(project, superuser, create_test_issue, status_ids):
     create_test_issue(title="Todo card")
     create_test_issue(title="Another todo")
 
-    board = select_kanban_board(project.id)
-    todo_column = next(c for c in board.columns if c.status_slug == "todo")
+    from apps.issues.selectors import get_project_kanban
 
-    assert len(todo_column.issues) == 2
-    assert board.project_id == project.id
+    board = get_project_kanban(project.id)
+    todo_column = next(
+        column for column in board["columns"] if status_slug(
+            name=column["status"].name,
+            category=column["status"].category,
+        ) == "todo"
+    )
+
+    assert len(todo_column["issues"]) == 2
 
 
 @pytest.mark.django_db
@@ -57,28 +64,58 @@ def test_kanban_api_backlog_scope(superuser_client, project, create_test_issue):
 @pytest.mark.django_db
 def test_sprint_board_selector(project, superuser, create_test_issue):
     sprint = create_sprint(project_id=project.id, name="Board Sprint", actor_id=superuser.id)
-    create_test_issue(title="Sprint board card", sprint_id=sprint.id)
+    sprint_issue = create_test_issue(title="Sprint board card", sprint_id=sprint.id)
     create_test_issue(title="Backlog only")
 
-    board = select_kanban_board(project.id, sprint_id=sprint.id)
+    board = get_sprint_kanban(sprint.id)
     issue_keys = [
-        issue.key for column in board.columns for issue in column.issues
+        issue.key for column in board["columns"] for issue in column["issues"]
     ]
 
     assert len(issue_keys) == 1
-    assert issue_keys[0].startswith("HRMS-")
+    assert issue_keys[0] == sprint_issue.key
 
 
 @pytest.mark.django_db
 def test_sprint_board_api(superuser_client, project, superuser, create_test_issue):
     sprint = create_sprint(project_id=project.id, name="API Sprint", actor_id=superuser.id)
-    create_test_issue(title="On sprint board", sprint_id=sprint.id)
+    sprint_issue = create_test_issue(title="On sprint board", sprint_id=sprint.id)
+    create_test_issue(title="Backlog only")
 
     response = superuser_client.get(f"/api/sprints/{sprint.id}/board")
 
     assert response.status_code == 200
     board = response.json()["data"]["board"]
     assert board["project_id"] == str(project.id)
+    issue_titles = {
+        issue["title"]
+        for column in board["columns"]
+        for issue in column["issues"]
+    }
+    assert issue_titles == {sprint_issue.title}
+    assert board["selected_sprint"]["id"] == str(sprint.id)
+
+
+@pytest.mark.django_db
+def test_project_sprint_board_api(superuser_client, project, superuser, create_test_issue):
+    sprint = create_sprint(project_id=project.id, name="Project API Sprint", actor_id=superuser.id)
+    sprint_issue = create_test_issue(title="On project sprint board", sprint_id=sprint.id)
+    create_test_issue(title="Backlog only")
+
+    response = superuser_client.get(
+        f"/api/projects/{project.id}/sprints/{sprint.id}/board",
+    )
+
+    assert response.status_code == 200
+    board = response.json()["data"]["board"]
+    assert board["project_id"] == str(project.id)
+    issue_titles = {
+        issue["title"]
+        for column in board["columns"]
+        for issue in column["issues"]
+    }
+    assert issue_titles == {sprint_issue.title}
+    assert board["selected_sprint"]["id"] == str(sprint.id)
 
 
 @pytest.mark.django_db

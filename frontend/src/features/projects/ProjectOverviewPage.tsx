@@ -21,6 +21,7 @@ import {
   projectActivityPath,
   projectSprintsPath,
   sprintBoardPath,
+  sprintDetailPath,
 } from '@/constants/routes'
 import { layout } from '@/constants/layout'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
@@ -208,7 +209,7 @@ function ActiveSprintCard({
             to={sprintBoardPath(projectId, sprint.id)}
             className="inline-flex items-center gap-0.5 text-[11px] text-devflow-primary hover:underline"
           >
-            Board
+            Sprint board
             <ArrowRight className="size-3" />
           </Link>
         </div>
@@ -262,7 +263,7 @@ function SprintListSection({
         {sprints.slice(0, 5).map((sprint) => (
           <li key={sprint.id}>
             <Link
-              to={sprintBoardPath(projectId, sprint.id)}
+              to={sprintDetailPath(projectId, sprint.id)}
               className="block rounded-lg border border-devflow-border bg-devflow-card px-3 py-2 transition-colors hover:border-devflow-primary/30 hover:bg-devflow-muted/40"
             >
               <div className="flex items-center justify-between gap-3">

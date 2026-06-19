@@ -48,7 +48,6 @@ import { ProjectBacklogPage } from '@/features/projects/ProjectBacklogPage'
 import { ProjectKanbanPage } from '@/features/kanban/ProjectKanbanPage'
 import { SprintDetailPage } from '@/features/projects/SprintDetailPage'
 import { SprintPlanningPage } from '@/features/projects/SprintPlanningPage'
-import { SprintBoardPage } from '@/features/projects/SprintBoardPage'
 import { SprintListPage } from '@/features/projects/SprintListPage'
 import { SprintActivityPage } from '@/features/projects/SprintActivityPage'
 import { BoardLegacyRedirect } from '@/features/projects/BoardLegacyRedirect'
@@ -162,7 +161,7 @@ export const router = createBrowserRouter([
                   },
                 ],
               },
-              { path: 'sprints/:sprintId/board', element: <SprintBoardPage /> },
+              { path: 'sprints/:sprintId/board', element: <ProjectKanbanPage /> },
               { path: 'sprints/:sprintId/list', element: <SprintListPage /> },
               {
                 path: 'sprints/:sprintId/activity',

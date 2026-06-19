@@ -1,5 +1,6 @@
 from django.urls import path
 
+from apps.issues.api.views import ProjectSprintKanbanView
 from apps.sprints.api.views import (
     ProjectSprintListCreateView,
     ProjectSprintDetailView,
@@ -45,5 +46,10 @@ urlpatterns = [
         "projects/<uuid:project_id>/sprints/<uuid:sprint_id>/activity",
         SprintActivityView.as_view(),
         name="project-sprint-activity",
+    ),
+    path(
+        "projects/<uuid:project_id>/sprints/<uuid:sprint_id>/board",
+        ProjectSprintKanbanView.as_view(),
+        name="project-sprint-board",
     ),
 ]

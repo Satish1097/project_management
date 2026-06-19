@@ -26,7 +26,10 @@ from apps.issues.selectors import (
     get_issue_comments,
     get_project_issues,
     get_project_kanban,
+    get_sprint_kanban,
 )
+from apps.sprints.exceptions import SprintNotFoundError
+from apps.sprints.selectors import get_project_sprint_by_id
 from apps.issues.services import attachment_service, comment_service, issue_service
 from apps.permissions.drf_permissions import Authenticated
 from apps.permissions.services import permission_service
@@ -191,6 +194,39 @@ class ProjectKanbanView(APIView):
         _require_issue_view(request.user.id, project_id)
 
         board = get_project_kanban(project_id)
+        return success_response(data={"board": _kanban_board_data(project_id, board)})
+
+
+class SprintKanbanView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["issues"])
+    def get(self, request, sprint_id: UUID):
+        board = get_sprint_kanban(sprint_id)
+        if board is None:
+            raise SprintNotFoundError(f"Sprint '{sprint_id}' not found.")
+
+        project_id = board["sprint"].project_id
+        _require_issue_view(request.user.id, project_id)
+        return success_response(data={"board": _kanban_board_data(project_id, board)})
+
+
+class ProjectSprintKanbanView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["issues"])
+    def get(self, request, project_id: UUID, sprint_id: UUID):
+        _require_project(project_id)
+        if get_project_sprint_by_id(project_id, sprint_id) is None:
+            raise SprintNotFoundError(
+                f"Sprint '{sprint_id}' not found in project '{project_id}'."
+            )
+
+        board = get_sprint_kanban(sprint_id)
+        if board is None:
+            raise SprintNotFoundError(f"Sprint '{sprint_id}' not found.")
+
+        _require_issue_view(request.user.id, project_id)
         return success_response(data={"board": _kanban_board_data(project_id, board)})
 
 

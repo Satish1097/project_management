@@ -1,9 +1,18 @@
 import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
 import { LayoutGrid, Plus, Users } from 'lucide-react'
-import { ROUTES } from '@/constants/routes'
+import {
+  isProjectBoardPath,
+  isSprintBoardPath,
+  resolveSprintViewTab,
+  ROUTES,
+  sprintActivityPath,
+  sprintBoardPath,
+  sprintListPath,
+} from '@/constants/routes'
 import { AvatarGroup } from '@/components/ui/AvatarGroup'
 import { ProjectStatusBadge } from '@/components/ui/ProjectStatusBadge'
 import { ProjectNav } from '@/components/layout/ProjectNav'
+import { SprintViewTabs } from '@/components/layout/SprintViewTabs'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { Avatar } from '@/components/ui/Avatar'
@@ -17,6 +26,31 @@ import {
   getTeamCount,
 } from '@/services/projectData'
 
+function resolveHeaderSubtitle(
+  pathname: string,
+  projectId: string,
+  activeSprint: ReturnType<typeof getActiveSprint>,
+): string {
+  if (isProjectBoardPath(pathname)) {
+    return 'Board'
+  }
+
+  const sprintMatch = pathname.match(/\/sprints\/([^/]+)/)
+  const viewingSprint = sprintMatch
+    ? getSprintById(projectId, sprintMatch[1])
+    : undefined
+
+  if (viewingSprint) {
+    return formatSprintMetaLine(viewingSprint)
+  }
+
+  if (activeSprint) {
+    return formatSprintMetaLine(activeSprint)
+  }
+
+  return 'No active sprint'
+}
+
 export function ProjectShell() {
   const { projectId = '' } = useParams()
   const { pathname } = useLocation()
@@ -25,10 +59,14 @@ export function ProjectShell() {
   const activeSprint = getActiveSprint(projectId)
 
   const sprintMatch = pathname.match(/\/sprints\/([^/]+)/)
-  const viewingSprint = sprintMatch
-    ? getSprintById(projectId, sprintMatch[1])
-    : undefined
-  const headerSprint = viewingSprint ?? activeSprint
+  const sprintId = sprintMatch?.[1]
+  const sprintViewTab = resolveSprintViewTab(pathname)
+  const showSprintViewTabs =
+    sprintId &&
+    sprintViewTab &&
+    sprintViewTab !== 'Board' &&
+    !isSprintBoardPath(pathname)
+
   const { openCreateIssue } = useCreateIssue()
 
   if (!project) {
@@ -36,6 +74,7 @@ export function ProjectShell() {
   }
 
   const teamCount = getTeamCount(project)
+  const headerSubtitle = resolveHeaderSubtitle(pathname, projectId, activeSprint)
 
   return (
     <>
@@ -53,9 +92,7 @@ export function ProjectShell() {
                 <ProjectStatusBadge status={project.status} size="sm" />
               </div>
               <p className="truncate text-caption text-devflow-text-secondary">
-                {headerSprint
-                  ? formatSprintMetaLine(headerSprint)
-                  : 'No active sprint'}
+                {headerSubtitle}
               </p>
             </div>
           </div>
@@ -105,6 +142,14 @@ export function ProjectShell() {
 
         <ProjectNav />
       </header>
+      {showSprintViewTabs ? (
+        <SprintViewTabs
+          activeTab={sprintViewTab}
+          boardPath={sprintBoardPath(projectId, sprintId)}
+          listPath={sprintListPath(projectId, sprintId)}
+          activityPath={sprintActivityPath(projectId, sprintId)}
+        />
+      ) : null}
       <div className="flex min-h-0 flex-1 flex-col">
         <Outlet />
       </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getProjectKanban, type KanbanBoardApi } from '@/api/issues'
+import { getProjectKanban } from '@/api/issues'
 import { getProjectMembers, type ProjectMemberRecord } from '@/api/members'
+import { getSprintBoard } from '@/api/sprints'
 import { ApiError } from '@/api/types'
 import {
   DEFAULT_KANBAN_FILTERS,
@@ -10,35 +11,46 @@ import { registerKanbanRefresh } from '@/features/kanban/kanbanRefreshBridge'
 import { mapKanbanBoardToColumns } from '@/services/mapKanbanApi'
 import type { KanbanBoardFilters, KanbanColumn } from '@/types/kanban'
 
-export function useProjectKanban(projectId: string) {
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+type UseProjectKanbanOptions = {
+  sprintId?: string
+  enabled?: boolean
+}
+
+export function useProjectKanban(
+  projectId: string,
+  options: UseProjectKanbanOptions = {},
+) {
+  const { sprintId, enabled = true } = options
   const [columns, setColumns] = useState<KanbanColumn[]>([])
-  const [selectedSprint, setSelectedSprint] =
-    useState<KanbanBoardApi['selected_sprint']>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<KanbanBoardFilters>(DEFAULT_KANBAN_FILTERS)
   const [members, setMembers] = useState<ProjectMemberRecord[]>([])
 
   const loadBoard = useCallback(async () => {
-    if (!projectId) return
+    if (!projectId || !enabled) return
+    if (sprintId && !UUID_RE.test(sprintId)) return
 
     setLoading(true)
     setError(null)
 
     try {
-      const board = await getProjectKanban(projectId)
+      const board = sprintId
+        ? await getSprintBoard(projectId, sprintId)
+        : await getProjectKanban(projectId)
       setColumns(mapKanbanBoardToColumns(board, projectId))
-      setSelectedSprint(board.selected_sprint ?? null)
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : 'Failed to load kanban board.'
       setError(message)
       setColumns([])
-      setSelectedSprint(null)
     } finally {
       setLoading(false)
     }
-  }, [projectId])
+  }, [projectId, sprintId, enabled])
 
   useEffect(() => {
     void loadBoard()
@@ -105,7 +117,6 @@ export function useProjectKanban(projectId: string) {
   return {
     columns: filteredColumns,
     rawColumns: columns,
-    selectedSprint,
     loading,
     error,
     totalIssues,

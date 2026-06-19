@@ -25,7 +25,7 @@ import {
 } from '@/components/layout/sidebarNav'
 import { useCreateIssue } from '@/contexts/CreateIssueContext'
 import { useSidebar } from '@/contexts/SidebarContext'
-import { ROUTES } from '@/constants/routes'
+import { parseProjectRoute, projectBoardPath, ROUTES } from '@/constants/routes'
 import { layout } from '@/constants/layout'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useAppContext } from '@/features/context/useAppContext'
@@ -39,7 +39,8 @@ export function Sidebar() {
   const { logout } = useAuth()
   const { openCreateIssue } = useCreateIssue()
   const { currentProject } = useAppContext()
-  const projectId = currentProject?.id ?? null
+  const { projectId: routeProjectId } = parseProjectRoute(pathname)
+  const projectId = routeProjectId ?? currentProject?.id ?? null
   const [createSprintOpen, setCreateSprintOpen] = useState(false)
 
   const handleLogout = async () => {
@@ -87,7 +88,11 @@ export function Sidebar() {
             {PROJECT_NAV_ITEMS.map(({ id, label, icon }) => (
               <SidebarNavLink
                 key={id}
-                to={projectNavPath(projectId, id)}
+                to={
+                  id === 'board'
+                    ? projectBoardPath(projectId)
+                    : projectNavPath(projectId, id)
+                }
                 label={label}
                 icon={icon}
                 active={isProjectNavActive(pathname, projectId, id)}
