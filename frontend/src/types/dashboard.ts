@@ -1,3 +1,13 @@
+export type DashboardSummaryResponseApi = {
+  total_visible_projects: number
+  active_projects: number
+  active_sprints: number
+  open_issues: number
+  assigned_to_me: number
+  overdue_issues: number
+  unread_notification_count: number
+}
+
 export type DashboardSummaryApi = {
   visible_project_count: number
   active_sprint_count: number
