@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback, useEffect } from 'react'
 import { FolderKanban, Plus } from 'lucide-react'
 import { TopHeader } from '@/components/layout/TopHeader'
 import { ProjectCard } from '@/components/ui/ProjectCard'
@@ -10,6 +10,8 @@ import {
 import { useProjects } from '@/contexts/ProjectsContext'
 import { CreateProjectDrawer } from '@/features/projects/CreateProjectDrawer'
 import { ActivityFeed } from '@/features/dashboard/ActivityFeed'
+import { getDashboardActivity } from '@/api/dashboard'
+import type { DashboardActivityApi } from '@/types/dashboard'
 import { getActiveSprint, getTeamCount } from '@/services/projectData'
 import {
   filterProjects,
@@ -22,6 +24,26 @@ export function ProjectsListPage() {
   const [activeFilter, setActiveFilter] = useState<ProjectFilterId>('all')
   const [viewMode, setViewMode] = useState<ProjectViewMode>('grid')
   const [createOpen, setCreateOpen] = useState(false)
+  const [activities, setActivities] = useState<DashboardActivityApi[] | null>(null)
+  const [activityLoading, setActivityLoading] = useState(false)
+  const [activityError, setActivityError] = useState<string | null>(null)
+
+  const loadActivity = useCallback(async () => {
+    setActivityLoading(true)
+    setActivityError(null)
+    try {
+      const items = await getDashboardActivity(5)
+      setActivities(items)
+    } catch (err: unknown) {
+      setActivityError(err instanceof Error ? err.message : 'Failed to load activity')
+    } finally {
+      setActivityLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadActivity()
+  }, [loadActivity])
 
   const filteredProjects = useMemo(
     () => sortProjectsByName(filterProjects(projects, activeFilter)),
@@ -110,7 +132,13 @@ export function ProjectsListPage() {
           )}
         </div>
 
-        <ActivityFeed variant="secondary" />
+        <ActivityFeed
+          variant="secondary"
+          activities={activities}
+          isLoading={activityLoading}
+          error={activityError}
+          onRetry={loadActivity}
+        />
       </main>
 
       <CreateProjectDrawer open={createOpen} onClose={() => setCreateOpen(false)} />

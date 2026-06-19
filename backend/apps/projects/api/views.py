@@ -13,8 +13,14 @@ from apps.contracts.project_contract import (
     get_projects_for_organization,
 )
 from apps.foundation.responses import success_response
-from apps.issues.selectors import select_dashboard_activity_feed
-from apps.issues.selectors import select_project_recent_activity
+from apps.foundation.pagination import StandardPagination
+from apps.issues.selectors import (
+    get_project_activity_queryset,
+    select_dashboard_activity_feed,
+    select_project_activity_feed,
+    select_project_recent_activity,
+    serialize_activity_feed_items,
+)
 from apps.organizations.exceptions import OrganizationAccessDeniedError, OrganizationNotFoundError
 from apps.permissions.drf_permissions import (
     Authenticated,
@@ -152,8 +158,40 @@ class DashboardActivityView(APIView):
 
     @extend_schema(tags=["dashboard"])
     def get(self, request):
-        activity = select_dashboard_activity_feed(request.user.id)
+        raw_limit = request.query_params.get("limit", "5")
+        try:
+            limit = max(1, min(int(raw_limit), 100))
+        except (TypeError, ValueError):
+            limit = 5
+        activity = select_dashboard_activity_feed(request.user.id, limit=limit)
         return success_response(data={"activities": activity})
+
+
+class ProjectActivityView(APIView):
+    permission_classes = [Authenticated, CanViewProject]
+
+    @extend_schema(tags=["projects"])
+    def get(self, request, project_id):
+        _require_project_view(request.user.id, project_id)
+
+        if request.query_params.get("page") is not None:
+            queryset = get_project_activity_queryset(request.user.id, project_id)
+            paginator = StandardPagination()
+            page = paginator.paginate_queryset(queryset, request)
+            items = serialize_activity_feed_items(page)
+            return paginator.get_paginated_response(items)
+
+        raw_limit = request.query_params.get("limit", "5")
+        try:
+            limit = max(1, min(int(raw_limit), 100))
+        except (TypeError, ValueError):
+            limit = 5
+        activities = select_project_activity_feed(
+            request.user.id,
+            project_id=project_id,
+            limit=limit,
+        )
+        return success_response(data={"activities": activities})
 
 
 class ProjectDetailView(APIView):

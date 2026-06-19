@@ -71,7 +71,7 @@ export function DashboardPage() {
     setActivityLoading(true)
     setActivityError(null)
     try {
-      const items = await getDashboardActivity()
+      const items = await getDashboardActivity(5)
       setActivities(items)
     } catch (err: unknown) {
       setActivityError(err instanceof Error ? err.message : 'Failed to load activity')

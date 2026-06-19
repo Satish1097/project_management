@@ -54,22 +54,24 @@ export function ProjectActivityPage() {
   }
 
   return (
-    <main className="page-main">
+    <main className="page-main p-4">
       <ActivityFeed
         variant="full"
+        showProjectName={false}
         activities={activityPage?.results ?? null}
         isLoading={activityLoading}
         error={activityError}
         onRetry={loadActivity}
         emptyMessage="No activity recorded yet"
+        emptyHelperText="Activity will appear here when issues, comments, sprint changes, or status updates occur."
         pagination={
           activityPage
             ? {
-                count: activityPage.count,
-                next: activityPage.next,
-                previous: activityPage.previous,
-                page,
-                pageSize: PAGE_SIZE,
+                count: activityPage.pagination.count,
+                next: activityPage.pagination.next,
+                previous: activityPage.pagination.previous,
+                page: activityPage.pagination.page,
+                pageSize: activityPage.pagination.page_size,
                 onPageChange: handlePageChange,
               }
             : undefined

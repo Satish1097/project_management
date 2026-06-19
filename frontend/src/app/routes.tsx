@@ -41,6 +41,7 @@ import { QAManagementPage } from '@/features/qa/QAManagementPage'
 import { ReleaseManagementPage } from '@/features/releases/ReleaseManagementPage'
 import { ProjectsListPage } from '@/features/projects/ProjectsListPage'
 import { ProjectOverviewPage } from '@/features/projects/ProjectOverviewPage'
+import { ProjectActivityPage } from '@/features/projects/ProjectActivityPage'
 import { ProjectSprintsPage } from '@/features/projects/ProjectSprintsPage'
 import { ProjectPlaceholderPage } from '@/features/projects/ProjectPlaceholderPage'
 import { ProjectBacklogPage } from '@/features/projects/ProjectBacklogPage'
@@ -107,6 +108,7 @@ export const router = createBrowserRouter([
             element: <ProjectShell />,
             children: [
               { index: true, element: <ProjectOverviewPage /> },
+              { path: 'activity', element: <ProjectActivityPage /> },
               { path: 'backlog', element: <ProjectBacklogPage /> },
               { path: 'board', element: <ProjectKanbanPage /> },
               { path: 'sprints', element: <ProjectSprintsPage /> },

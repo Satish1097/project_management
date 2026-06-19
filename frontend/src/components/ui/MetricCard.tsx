@@ -27,6 +27,7 @@ export function MetricCard({
     <div
       className={cn(
         layout.uiCard,
+        'flex h-full flex-col',
         className,
       )}
     >

@@ -1,7 +1,10 @@
 import { History, Rocket } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Avatar } from '@/components/ui/Avatar'
 import { layout } from '@/constants/layout'
+import type { DashboardActivityApi } from '@/types/dashboard'
 import { cn } from '@/utils/cn'
+import { formatActivityAction, formatActivityTimestamp } from '@/utils/formatActivity'
 
 function ActivityAvatar({
   type,
@@ -36,36 +39,60 @@ function ActivityAvatar({
   return <Avatar name={value} color={color ?? '#94a3b8'} size={26} />
 }
 
+type ActivityFeedPagination = {
+  count: number
+  next: string | null
+  previous: string | null
+  page: number
+  pageSize: number
+  onPageChange: (page: number) => void
+}
+
 type ActivityFeedProps = {
-  variant?: 'default' | 'secondary'
-  activities?: {
-    id: string
-    actor: string | null
-    event_type: string
-    issue?: { key?: string; title?: string } | null
-    project?: { name?: string } | null
-    timestamp: string
-  }[] | null
+  variant?: 'default' | 'secondary' | 'full' | 'preview'
+  embedded?: boolean
+  activities?: DashboardActivityApi[] | null
   isLoading?: boolean
   error?: string | null
   onRetry?: () => void
+  viewAllTo?: string
+  showProjectName?: boolean
+  emptyMessage?: string
+  emptyHelperText?: string
+  pagination?: ActivityFeedPagination
 }
 
 export function ActivityFeed({
   variant = 'default',
+  embedded = false,
   activities = null,
   isLoading = false,
   error = null,
   onRetry,
+  viewAllTo,
+  showProjectName = true,
+  emptyMessage = 'No recent activity yet',
+  emptyHelperText = 'Activity will appear here when issues, comments, sprint changes, or status updates occur.',
+  pagination,
 }: ActivityFeedProps) {
   const isSecondary = variant === 'secondary'
+  const isPreview = variant === 'preview'
+  const isFull = variant === 'full'
+  const isCompact = isSecondary || isPreview
 
   const renderContent = () => {
     if (isLoading) {
+      const skeletonCount = isPreview ? 5 : 3
       return (
-        <ul className={cn('flex flex-col', isSecondary ? 'gap-3' : 'gap-4')}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <li key={i} className="flex gap-2.5">
+        <ul
+          className={cn(
+            'flex flex-col',
+            isPreview && 'divide-y divide-[var(--df-border-faint)]',
+            !isPreview && (isCompact ? 'gap-3' : 'gap-4'),
+          )}
+        >
+          {Array.from({ length: skeletonCount }).map((_, i) => (
+            <li key={i} className={cn('flex gap-2.5', isPreview && 'py-2.5 first:pt-0 last:pb-0')}>
               <ActivityAvatar type="initials" value="" />
               <div className="min-w-0 flex-1">
                 <div className="h-4 w-3/4 animate-pulse rounded bg-devflow-table-header" />
@@ -96,30 +123,65 @@ export function ActivityFeed({
 
     if (!activities || activities.length === 0) {
       return (
-        <div className="text-caption text-devflow-text-secondary">No recent activity</div>
+        <div className="space-y-1">
+          <p className="text-caption text-devflow-text-secondary">{emptyMessage}</p>
+          {emptyHelperText && (
+            <p className="text-[11px] leading-snug text-devflow-text-muted">{emptyHelperText}</p>
+          )}
+        </div>
       )
     }
 
     return (
-      <ul className={cn('flex flex-col', isSecondary ? 'gap-3' : 'gap-4')}>
+      <ul
+        className={cn(
+          'flex flex-col',
+          isPreview && 'divide-y divide-[var(--df-border-faint)]',
+          !isPreview && (isCompact ? 'gap-3' : 'gap-4'),
+        )}
+      >
         {activities.map((a) => (
-          <li key={a.id} className="flex gap-2.5">
+          <li
+            key={a.id}
+            className={cn('flex gap-2.5', isPreview && 'py-2.5 first:pt-0 last:pb-0')}
+          >
             <ActivityAvatar
               type={a.actor ? 'user' : 'system'}
               value={a.actor ?? 'System'}
             />
             <div className="min-w-0 flex-1">
-              <p className={cn('text-devflow-text', isSecondary ? 'text-caption leading-snug' : 'text-body')}>
-                <span className="font-medium">{a.actor ?? 'System'}</span>
-                <span className="font-normal text-devflow-text-secondary">{' '}{a.event_type.replace(/_/g, ' ')}{' '}</span>
-                {a.issue && a.issue.key && (
-                  <span className="rounded bg-[var(--df-activity-highlight)] px-0.5 font-mono text-[11px] text-devflow-primary">{a.issue.key}</span>
+              <p
+                className={cn(
+                  'text-devflow-text',
+                  isPreview && 'text-[13px] leading-snug',
+                  !isPreview && (isCompact ? 'text-caption leading-snug' : 'text-body'),
                 )}
-                {a.project && (
-                  <span className="font-normal text-devflow-text-secondary">{' '}in {a.project.name}</span>
+              >
+                <span className="font-medium">{a.actor ?? 'System'}</span>
+                <span className="font-normal text-devflow-text-secondary">
+                  {' '}
+                  {formatActivityAction(a.event_type)}{' '}
+                </span>
+                {a.issue?.key && (
+                  <span
+                    className={cn(
+                      'whitespace-nowrap rounded bg-[var(--df-activity-highlight)] px-0.5 font-mono text-[11px] text-devflow-primary',
+                      isPreview && 'inline',
+                    )}
+                  >
+                    {a.issue.key}
+                  </span>
+                )}
+                {!isFull && showProjectName && a.project && (
+                  <span className="font-normal text-devflow-text-secondary">
+                    {' '}
+                    in {a.project.name}
+                  </span>
                 )}
               </p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-wide text-devflow-text-muted">{a.timestamp}</p>
+              <p className="mt-0.5 text-[11px] text-devflow-text-muted">
+                {formatActivityTimestamp(a.timestamp)}
+              </p>
             </div>
           </li>
         ))}
@@ -127,21 +189,13 @@ export function ActivityFeed({
     )
   }
 
-  return (
-    <aside
-      className={cn(
-        'w-full shrink-0',
-        isSecondary
-          ? 'pt-1 lg:w-[15.5rem] xl:w-[14.5rem]'
-          : 'pt-1 lg:w-72',
-      )}
-    >
-      <div
-        className={cn(
-          layout.uiCard,
-          isSecondary && 'border-devflow-border/70 bg-devflow-muted/30 p-2.5 shadow-none',
-        )}
-      >
+  const totalPages = pagination
+    ? Math.max(1, Math.ceil(pagination.count / pagination.pageSize))
+    : 1
+
+  const content = (
+    <>
+      {!embedded && (
         <div
           className={cn(
             'mb-3 flex items-center gap-2',
@@ -164,18 +218,67 @@ export function ActivityFeed({
             Recent Activity
           </h3>
         </div>
+      )}
 
-        {renderContent()}
+      {renderContent()}
 
-        <button
-          type="button"
+      {pagination && totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between border-t border-[var(--df-border-faint)] pt-3">
+          <button
+            type="button"
+            disabled={!pagination.previous}
+            onClick={() => pagination.onPageChange(pagination.page - 1)}
+            className="text-caption text-devflow-primary disabled:text-devflow-text-muted"
+          >
+            Previous
+          </button>
+          <span className="text-caption text-devflow-text-secondary">
+            Page {pagination.page} of {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={!pagination.next}
+            onClick={() => pagination.onPageChange(pagination.page + 1)}
+            className="text-caption text-devflow-primary disabled:text-devflow-text-muted"
+          >
+            Next
+          </button>
+        </div>
+      )}
+
+      {!isFull && !embedded && viewAllTo && (
+        <Link
+          to={viewAllTo}
           className={cn(
-            'mt-3 w-full text-center text-btn text-devflow-primary hover:underline',
+            'mt-3 block w-full text-center text-btn text-devflow-primary hover:underline',
             isSecondary && 'mt-2.5 text-caption',
           )}
         >
-          View all activity
-        </button>
+          View all →
+        </Link>
+      )}
+    </>
+  )
+
+  if (embedded) {
+    return content
+  }
+
+  return (
+    <aside
+      className={cn(
+        'w-full shrink-0',
+        isFull ? 'max-w-3xl' : isSecondary ? 'pt-1 lg:w-[15.5rem] xl:w-[14.5rem]' : 'pt-1 lg:w-72',
+      )}
+    >
+      <div
+        className={cn(
+          layout.uiCard,
+          isSecondary && 'border-devflow-border/70 bg-devflow-muted/30 p-2.5 shadow-none',
+          isFull && 'w-full',
+        )}
+      >
+        {content}
       </div>
     </aside>
   )

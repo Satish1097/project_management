@@ -116,6 +116,10 @@ def _activity_feed_item(activity: IssueActivity) -> dict:
     }
 
 
+def serialize_activity_feed_items(activities) -> list[dict]:
+    return [_activity_feed_item(activity) for activity in activities]
+
+
 def select_dashboard_activity_feed(user_id: UUID, *, limit: int = 20) -> list[dict]:
     project_ids = _select_visible_activity_project_ids(user_id)
     activities = (
@@ -125,6 +129,47 @@ def select_dashboard_activity_feed(user_id: UUID, *, limit: int = 20) -> list[di
         .order_by("-created_at")
     )
     return [_activity_feed_item(activity) for activity in activities[:limit]]
+
+
+def select_sprint_activity_feed(
+    user_id: UUID,
+    *,
+    project_id: UUID,
+    sprint_id: UUID,
+    limit: int = 20,
+) -> list[dict]:
+    if not permission_service.can_view_project(user_id, project_id):
+        return []
+
+    activities = (
+        _optimized_activity_queryset()
+        .select_related("issue", "issue__project")
+        .filter(issue__project_id=project_id, issue__sprint_id=sprint_id)
+        .order_by("-created_at")
+    )
+    return [_activity_feed_item(activity) for activity in activities[:limit]]
+
+
+def get_project_activity_queryset(user_id: UUID, project_id: UUID) -> QuerySet[IssueActivity]:
+    if not permission_service.can_view_project(user_id, project_id):
+        return IssueActivity.objects.none()
+
+    return (
+        _optimized_activity_queryset()
+        .select_related("issue", "issue__project")
+        .filter(issue__project_id=project_id)
+        .order_by("-created_at")
+    )
+
+
+def select_project_activity_feed(
+    user_id: UUID,
+    *,
+    project_id: UUID,
+    limit: int = 5,
+) -> list[dict]:
+    activities = get_project_activity_queryset(user_id, project_id)[:limit]
+    return [_activity_feed_item(activity) for activity in activities]
 
 
 def select_project_recent_activity(project_id: UUID) -> str | None:

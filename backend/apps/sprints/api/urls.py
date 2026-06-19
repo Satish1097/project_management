@@ -3,6 +3,7 @@ from django.urls import path
 from apps.sprints.api.views import (
     ProjectSprintListCreateView,
     ProjectSprintDetailView,
+    SprintActivityView,
     SprintCompleteView,
     SprintPauseView,
     SprintResumeView,
@@ -39,5 +40,10 @@ urlpatterns = [
         "projects/<uuid:project_id>/sprints/<uuid:sprint_id>/complete",
         SprintCompleteView.as_view(),
         name="project-sprint-complete",
+    ),
+    path(
+        "projects/<uuid:project_id>/sprints/<uuid:sprint_id>/activity",
+        SprintActivityView.as_view(),
+        name="project-sprint-activity",
     ),
 ]

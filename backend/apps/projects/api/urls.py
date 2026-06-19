@@ -4,6 +4,7 @@ from apps.projects.api.views import (
     DashboardActivityView,
     DashboardSummaryView,
     OrganizationProjectListCreateView,
+    ProjectActivityView,
     ProjectArchiveView,
     ProjectDetailView,
     ProjectInviteView,
@@ -21,6 +22,11 @@ urlpatterns = [
         name="organization-project-list-create",
     ),
     path("projects/<uuid:project_id>", ProjectDetailView.as_view(), name="project-detail"),
+    path(
+        "projects/<uuid:project_id>/activity",
+        ProjectActivityView.as_view(),
+        name="project-activity",
+    ),
     path(
         "projects/<uuid:project_id>/archive",
         ProjectArchiveView.as_view(),

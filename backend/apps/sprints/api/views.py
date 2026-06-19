@@ -4,6 +4,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework.views import APIView
 
 from apps.foundation.responses import success_response
+from apps.issues.selectors import select_sprint_activity_feed
 from apps.permissions.drf_permissions import Authenticated, CanManageSprint, CanPlanSprint, CanViewProject
 from apps.projects.exceptions import ProjectNotFoundError
 from apps.projects.selectors import select_project_by_id
@@ -152,3 +153,18 @@ class SprintCompleteView(APIView):
         _require_project_sprint(project_id=project_id, sprint_id=sprint_id)
         sprint = sprint_service.complete_sprint(user=request.user, sprint_id=sprint_id)
         return success_response(data={"sprint": _sprint_to_data(sprint)})
+
+
+class SprintActivityView(APIView):
+    permission_classes = [Authenticated, CanViewProject]
+
+    @extend_schema(tags=["sprints"])
+    def get(self, request, project_id: UUID, sprint_id: UUID):
+        _require_project(project_id)
+        _require_project_sprint(project_id=project_id, sprint_id=sprint_id)
+        activities = select_sprint_activity_feed(
+            request.user.id,
+            project_id=project_id,
+            sprint_id=sprint_id,
+        )
+        return success_response(data={"activities": activities})

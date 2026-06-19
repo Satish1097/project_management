@@ -61,6 +61,10 @@ export function projectSprintsPath(projectId: string) {
   return `${projectPath(projectId)}/sprints`
 }
 
+export function projectActivityPath(projectId: string) {
+  return `${projectPath(projectId)}/activity`
+}
+
 export function projectTeamPath(projectId: string) {
   return `${projectPath(projectId)}/team`
 }

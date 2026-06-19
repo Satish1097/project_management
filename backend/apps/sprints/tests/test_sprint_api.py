@@ -237,3 +237,87 @@ def test_move_issues_between_sprints(
 
     updated = get_issue_by_id(issue.id)
     assert str(updated.sprint_id) == target_id
+
+
+@pytest.mark.django_db
+def test_sprint_activity_returns_issue_events(
+    manager_client,
+    project_with_manager,
+    superuser,
+):
+    from apps.issues.models.activity import IssueActivity, IssueActivityEventType
+    from apps.issues.services.issue_service import issue_service
+
+    create = manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints",
+        SPRINT_PAYLOAD,
+        format="json",
+    )
+    sprint_id = create.json()["data"]["sprint"]["id"]
+
+    issue = issue_service.create_issue(
+        user=superuser,
+        project_id=project_with_manager.id,
+        title="Sprint activity issue",
+    )
+    issue_service.assign_sprint(
+        user=superuser,
+        issue_id=issue.id,
+        sprint_id=sprint_id,
+    )
+
+    IssueActivity.objects.create(
+        issue=issue,
+        actor=superuser,
+        event_type=IssueActivityEventType.COMMENT_ADDED,
+        new_value="Looks good",
+    )
+
+    response = manager_client.get(
+        f"/api/projects/{project_with_manager.id}/sprints/{sprint_id}/activity",
+    )
+
+    assert response.status_code == 200
+    activities = response.json()["data"]["activities"]
+    assert len(activities) >= 2
+    event_types = {activity["event_type"] for activity in activities}
+    assert "comment_added" in event_types
+    assert "sprint_changed" in event_types
+    assert all(activity["issue"]["id"] == str(issue.id) for activity in activities)
+
+
+@pytest.mark.django_db
+def test_sprint_activity_excludes_backlog_issues(
+    manager_client,
+    project_with_manager,
+    superuser,
+):
+    from apps.issues.models.activity import IssueActivity, IssueActivityEventType
+    from apps.issues.services.issue_service import issue_service
+
+    create = manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints",
+        SPRINT_PAYLOAD,
+        format="json",
+    )
+    sprint_id = create.json()["data"]["sprint"]["id"]
+
+    backlog_issue = issue_service.create_issue(
+        user=superuser,
+        project_id=project_with_manager.id,
+        title="Backlog only",
+    )
+    IssueActivity.objects.create(
+        issue=backlog_issue,
+        actor=superuser,
+        event_type=IssueActivityEventType.STATUS_CHANGED,
+        old_value="To Do",
+        new_value="In Progress",
+    )
+
+    response = manager_client.get(
+        f"/api/projects/{project_with_manager.id}/sprints/{sprint_id}/activity",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["activities"] == []

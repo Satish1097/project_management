@@ -44,10 +44,11 @@ export async function getDashboardSummary(): Promise<DashboardSummaryApi> {
   }
 }
 
-export async function getDashboardActivity(): Promise<DashboardActivityApi[]> {
+export async function getDashboardActivity(limit = 5): Promise<DashboardActivityApi[]> {
   try {
     const { data } = await apiClient.get<ApiResponse<{ activities: DashboardActivityApi[] }>>(
       '/dashboard/activity',
+      { params: { limit } },
     )
     return data.data.activities
   } catch (error) {

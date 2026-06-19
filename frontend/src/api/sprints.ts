@@ -2,6 +2,7 @@ import type { KanbanBoardApi } from './issues'
 import type { ApiResponse } from './types'
 import { ApiError } from './types'
 import { apiClient } from './client'
+import type { DashboardActivityApi } from '@/types/dashboard'
 
 export type SprintSummaryApi = {
   id: string
@@ -79,6 +80,20 @@ export async function getSprint(
       `/projects/${projectId}/sprints/${sprintId}`,
     )
     return data.data.sprint
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getSprintActivity(
+  projectId: string,
+  sprintId: string,
+): Promise<DashboardActivityApi[]> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ activities: DashboardActivityApi[] }>>(
+      `/projects/${projectId}/sprints/${sprintId}/activity`,
+    )
+    return data.data.activities
   } catch (error) {
     throw toApiError(error)
   }

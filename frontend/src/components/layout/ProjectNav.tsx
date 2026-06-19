@@ -1,5 +1,6 @@
 import { Link, useLocation, useParams } from 'react-router-dom'
 import {
+  projectActivityPath,
   projectBacklogPath,
   projectKanbanPath,
   projectOverviewPath,
@@ -8,9 +9,7 @@ import {
   projectSettingsPath,
   projectSprintsPath,
   projectTeamPath,
-  sprintActivityPath,
 } from '@/constants/routes'
-import { getActiveSprint } from '@/services/projectData'
 import { cn } from '@/utils/cn'
 
 const navItems = [
@@ -27,7 +26,6 @@ const navItems = [
 export function ProjectNav() {
   const { projectId = '' } = useParams()
   const { pathname } = useLocation()
-  const activeSprint = getActiveSprint(projectId)
 
   const pathFor = (segment: (typeof navItems)[number]['segment']) => {
     switch (segment) {
@@ -36,9 +34,7 @@ export function ProjectNav() {
       case 'board':
         return projectKanbanPath(projectId)
       case 'activity':
-        return activeSprint
-          ? sprintActivityPath(projectId, activeSprint.id)
-          : projectSprintsPath(projectId)
+        return projectActivityPath(projectId)
       case 'backlog':
         return projectBacklogPath(projectId)
       case 'sprints':
@@ -61,7 +57,7 @@ export function ProjectNav() {
       return pathname === projectKanbanPath(projectId)
     }
     if (segment === 'activity') {
-      return /\/sprints\/[^/]+\/activity(?:\/|$)/.test(pathname)
+      return pathname === projectActivityPath(projectId)
     }
     if (segment === 'sprints') {
       return (
