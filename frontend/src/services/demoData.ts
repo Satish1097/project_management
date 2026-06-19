@@ -1,7 +1,7 @@
 import type { Project } from '@/types/projects'
 import type { ProjectIssue, IssueBoardStatus } from '@/types/issues'
 import type { Sprint } from '@/types/sprints'
-import { formatDateRange } from '@/utils/sprintDates'
+import { computeSprintProgress, formatDateRange } from '@/utils/sprintDates'
 
 export type WorkspaceMember = {
   id: string
@@ -165,7 +165,10 @@ export const demoProjects: Project[] = [
 
 // ─── Sprints (raw) ───────────────────────────────────────────────────────────
 
-type RawSprint = Omit<Sprint, 'dateRange'>
+type RawSprint = Omit<
+  Sprint,
+  'dateRange' | 'remainingCount' | 'inProgressCount' | 'progressPercentage'
+>
 
 const rawSprints: RawSprint[] = [
   // Mobile App
@@ -365,10 +368,17 @@ const rawSprints: RawSprint[] = [
   },
 ]
 
-export const demoSprints: Sprint[] = rawSprints.map((s) => ({
-  ...s,
-  dateRange: formatDateRange(s.startDate, s.endDate),
-}))
+export const demoSprints: Sprint[] = rawSprints.map((s) => {
+  const remainingCount = Math.max(0, s.issueCount - s.completedCount)
+  const progressPercentage = computeSprintProgress(s.completedCount, s.issueCount)
+  return {
+    ...s,
+    dateRange: formatDateRange(s.startDate, s.endDate),
+    remainingCount,
+    inProgressCount: 0,
+    progressPercentage,
+  }
+})
 
 // ─── Issue seeds ─────────────────────────────────────────────────────────────
 

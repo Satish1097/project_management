@@ -1,6 +1,6 @@
 import type { SprintDetailApi, SprintSummaryApi } from '@/api/sprints'
 import type { Sprint, SprintStatus } from '@/types/sprints'
-import { computeDaysRemaining, formatDateRange } from '@/utils/sprintDates'
+import { computeDaysRemaining, computeSprintProgress, formatDateRange } from '@/utils/sprintDates'
 
 function mapStatus(status: string): SprintStatus {
   if (
@@ -22,6 +22,24 @@ function formatRange(startDate: string | null, endDate: string | null): string {
   return '—'
 }
 
+function mapSprintMetrics(sprint: SprintSummaryApi) {
+  const totalIssues = sprint.total_issues ?? sprint.issue_count ?? 0
+  const completedIssues = sprint.completed_issues ?? sprint.completed_issue_count ?? 0
+  const remainingIssues =
+    sprint.remaining_issues ?? Math.max(0, totalIssues - completedIssues)
+  const inProgressIssues = sprint.in_progress_issues ?? 0
+  const progressPercentage =
+    sprint.progress_percentage ?? computeSprintProgress(completedIssues, totalIssues)
+
+  return {
+    issueCount: totalIssues,
+    completedCount: completedIssues,
+    remainingCount: remainingIssues,
+    inProgressCount: inProgressIssues,
+    progressPercentage,
+  }
+}
+
 export function mapSprintSummaryToUi(
   sprint: SprintSummaryApi,
   projectId?: string,
@@ -37,8 +55,7 @@ export function mapSprintSummaryToUi(
     startDate,
     endDate,
     dateRange: formatRange(sprint.start_date, sprint.end_date),
-    issueCount: 'issue_count' in sprint ? (sprint.issue_count ?? 0) : 0,
-    completedCount: 'completed_issue_count' in sprint ? (sprint.completed_issue_count ?? 0) : 0,
+    ...mapSprintMetrics(sprint),
     capacityPoints: sprint.capacity_points ?? undefined,
   }
 }

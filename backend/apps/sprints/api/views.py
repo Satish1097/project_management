@@ -11,8 +11,10 @@ from apps.projects.selectors import select_project_by_id
 from apps.sprints.api.serializers import SprintCreateSerializer, SprintUpdateSerializer
 from apps.sprints.exceptions import SprintNotFoundError
 from apps.sprints.selectors import (
+    _sprint_health_queryset,
     get_project_sprint_by_id,
     get_project_sprints_with_health,
+    get_sprint_metrics,
     select_project_sprint_health,
 )
 from apps.sprints.services.sprint_service import sprint_service
@@ -36,10 +38,22 @@ def _sprint_to_data(sprint, include_health: bool = False) -> dict:
         "updated_at": sprint.updated_at.isoformat() if sprint.updated_at else None,
     }
 
-    # Include issue counts if sprint has health annotations
-    if include_health and hasattr(sprint, "issue_count"):
-        data["issue_count"] = sprint.issue_count or 0
-        data["completed_issue_count"] = sprint.completed_issue_count or 0
+    if include_health and hasattr(sprint, "total_issues"):
+        data["total_issues"] = sprint.total_issues or 0
+        data["completed_issues"] = sprint.completed_issues or 0
+        data["remaining_issues"] = (sprint.total_issues or 0) - (sprint.completed_issues or 0)
+        data["in_progress_issues"] = sprint.in_progress_issues or 0
+        total = sprint.total_issues or 0
+        completed = sprint.completed_issues or 0
+        data["progress_percentage"] = round((completed / total) * 100) if total > 0 else 0
+        data["issue_count"] = data["total_issues"]
+        data["completed_issue_count"] = data["completed_issues"]
+    elif include_health:
+        metrics = get_sprint_metrics(sprint.id)
+        if metrics is not None:
+            data.update(metrics)
+            data["issue_count"] = metrics["total_issues"]
+            data["completed_issue_count"] = metrics["completed_issues"]
 
     return data
 
@@ -54,6 +68,14 @@ def _require_project_sprint(project_id: UUID, sprint_id: UUID):
     if sprint is None:
         raise SprintNotFoundError(f"Sprint '{sprint_id}' not found in project '{project_id}'.")
     return sprint
+
+
+def _sprint_with_health(project_id: UUID, sprint_id: UUID):
+    return (
+        _sprint_health_queryset()
+        .filter(project_id=project_id, pk=sprint_id)
+        .first()
+    )
 
 
 class ProjectSprintListCreateView(APIView):
@@ -80,7 +102,8 @@ class ProjectSprintListCreateView(APIView):
             project_id=project_id,
             **serializer.validated_data,
         )
-        return success_response(data={"sprint": _sprint_to_data(sprint)}, status=201)
+        sprint = _sprint_with_health(project_id, sprint.id) or sprint
+        return success_response(data={"sprint": _sprint_to_data(sprint, include_health=True)}, status=201)
 
 
 class ProjectSprintDetailView(APIView):
@@ -94,8 +117,13 @@ class ProjectSprintDetailView(APIView):
     @extend_schema(tags=["sprints"])
     def get(self, request, project_id: UUID, sprint_id: UUID):
         _require_project(project_id)
-        sprint = _require_project_sprint(project_id=project_id, sprint_id=sprint_id)
-        return success_response(data={"sprint": _sprint_to_data(sprint)})
+        _require_project_sprint(project_id=project_id, sprint_id=sprint_id)
+        sprint = (
+            _sprint_with_health(project_id, sprint_id)
+        )
+        return success_response(
+            data={"sprint": _sprint_to_data(sprint, include_health=True)},
+        )
 
     @extend_schema(request=SprintUpdateSerializer, tags=["sprints"])
     def patch(self, request, project_id: UUID, sprint_id: UUID):
@@ -108,7 +136,8 @@ class ProjectSprintDetailView(APIView):
             sprint_id=sprint_id,
             **serializer.validated_data,
         )
-        return success_response(data={"sprint": _sprint_to_data(sprint)})
+        sprint = _sprint_with_health(project_id, sprint.id) or sprint
+        return success_response(data={"sprint": _sprint_to_data(sprint, include_health=True)})
 
 
 class SprintStartView(APIView):
@@ -119,7 +148,8 @@ class SprintStartView(APIView):
         _require_project(project_id)
         _require_project_sprint(project_id=project_id, sprint_id=sprint_id)
         sprint = sprint_service.start_sprint(user=request.user, sprint_id=sprint_id)
-        return success_response(data={"sprint": _sprint_to_data(sprint)})
+        sprint = _sprint_with_health(project_id, sprint.id) or sprint
+        return success_response(data={"sprint": _sprint_to_data(sprint, include_health=True)})
 
 
 class SprintPauseView(APIView):
@@ -130,7 +160,8 @@ class SprintPauseView(APIView):
         _require_project(project_id)
         _require_project_sprint(project_id=project_id, sprint_id=sprint_id)
         sprint = sprint_service.pause_sprint(user=request.user, sprint_id=sprint_id)
-        return success_response(data={"sprint": _sprint_to_data(sprint)})
+        sprint = _sprint_with_health(project_id, sprint.id) or sprint
+        return success_response(data={"sprint": _sprint_to_data(sprint, include_health=True)})
 
 
 class SprintResumeView(APIView):
@@ -141,7 +172,8 @@ class SprintResumeView(APIView):
         _require_project(project_id)
         _require_project_sprint(project_id=project_id, sprint_id=sprint_id)
         sprint = sprint_service.resume_sprint(user=request.user, sprint_id=sprint_id)
-        return success_response(data={"sprint": _sprint_to_data(sprint)})
+        sprint = _sprint_with_health(project_id, sprint.id) or sprint
+        return success_response(data={"sprint": _sprint_to_data(sprint, include_health=True)})
 
 
 class SprintCompleteView(APIView):
@@ -152,7 +184,8 @@ class SprintCompleteView(APIView):
         _require_project(project_id)
         _require_project_sprint(project_id=project_id, sprint_id=sprint_id)
         sprint = sprint_service.complete_sprint(user=request.user, sprint_id=sprint_id)
-        return success_response(data={"sprint": _sprint_to_data(sprint)})
+        sprint = _sprint_with_health(project_id, sprint.id) or sprint
+        return success_response(data={"sprint": _sprint_to_data(sprint, include_health=True)})
 
 
 class SprintActivityView(APIView):

@@ -53,6 +53,13 @@ export type ProjectActivityPageApi = {
   }
 }
 
+export type ProjectReportSummaryApi = {
+  total_issues: number
+  open_issues: number
+  done_issues: number
+  backlog_issues: number
+}
+
 function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
 
@@ -89,6 +96,19 @@ export async function getProject(projectId: string): Promise<ProjectDetailApi> {
       `/projects/${projectId}`,
     )
     return data.data.project
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getProjectReportSummary(
+  projectId: string,
+): Promise<ProjectReportSummaryApi> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ report: ProjectReportSummaryApi }>>(
+      `/projects/${projectId}/reports/summary`,
+    )
+    return data.data.report
   } catch (error) {
     throw toApiError(error)
   }

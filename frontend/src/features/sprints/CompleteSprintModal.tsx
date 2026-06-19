@@ -3,7 +3,6 @@ import { X } from 'lucide-react'
 import { RadioOptionGroup } from '@/components/ui/RadioOptionGroup'
 import { SelectField } from '@/components/ui/SelectField'
 import { getSprintsForProject } from '@/services/projectData'
-import { getSprintIssues } from '@/services/issuesRegistry'
 import type { Sprint } from '@/types/sprints'
 
 type CompleteSprintModalProps = {
@@ -29,9 +28,8 @@ export function CompleteSprintModal({
 
   if (!open) return null
 
-  const issues = getSprintIssues(projectId, sprint.id)
-  const completed = issues.filter((i) => i.done || i.status === 'done').length
-  const remaining = issues.length - completed
+  const completed = sprint.completedCount
+  const remaining = sprint.remainingCount
 
   const plannedSprints = getSprintsForProject(projectId).filter(
     (s) => s.status === 'planned' && s.id !== sprint.id,

@@ -31,7 +31,10 @@ export function useProjectKanban(
   const [members, setMembers] = useState<ProjectMemberRecord[]>([])
 
   const loadBoard = useCallback(async () => {
-    if (!projectId || !enabled) return
+    if (!projectId || !enabled) {
+      setLoading(false)
+      return
+    }
     if (sprintId && !UUID_RE.test(sprintId)) return
 
     setLoading(true)

@@ -1,13 +1,19 @@
 import { useCallback, useState } from 'react'
-import { Navigate, useParams } from 'react-router-dom'
+import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/types'
 import { transitionIssue } from '@/api/issues'
 import { projectSprintsPath } from '@/constants/routes'
 import { BoardFilters } from '@/features/kanban/BoardFilters'
+import { BoardViewSwitcher } from '@/features/kanban/BoardViewSwitcher'
+import { IssueListPagination } from '@/features/kanban/IssueListPagination'
 import { KanbanBoardView } from '@/features/kanban/KanbanBoardView'
+import { useBoardViewMode } from '@/features/kanban/useBoardViewMode'
+import { useProjectIssueList } from '@/features/kanban/useProjectIssueList'
 import { useProjectKanban } from '@/features/kanban/useProjectKanban'
+import { IssueListView } from '@/features/tasks/IssueListView'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
 import { getProjectById, getSprintById } from '@/services/projectData'
+import { syncProjectOpenIssueCount } from '@/services/projectStats'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -17,17 +23,20 @@ export function ProjectKanbanPage() {
     projectId: string
     sprintId?: string
   }>()
+  const [searchParams, setSearchParams] = useSearchParams()
   const project = getProjectById(projectId)
   const sprint = sprintId ? getSprintById(projectId, sprintId) : undefined
   const { loading: sprintsLoading } = useLoadProjectSprints(projectId)
   const boardReady =
     !sprintId || (!sprintsLoading && !!sprint && UUID_RE.test(sprintId))
+  const { viewMode, setViewMode } = useBoardViewMode()
+  const isListView = viewMode === 'list'
   const [transitioningIssueId, setTransitioningIssueId] = useState<string | null>(null)
   const [transitionError, setTransitionError] = useState<string | null>(null)
   const {
     columns,
-    loading,
-    error,
+    loading: boardLoading,
+    error: boardError,
     totalIssues,
     filteredIssueCount,
     filters,
@@ -35,7 +44,25 @@ export function ProjectKanbanPage() {
     clearFilters,
     assigneeOptions,
     refreshBoard,
-  } = useProjectKanban(projectId, { sprintId, enabled: boardReady })
+  } = useProjectKanban(projectId, {
+    sprintId,
+    enabled: boardReady && !isListView,
+  })
+  const {
+    tasks: listTasks,
+    loading: listLoading,
+    error: listError,
+    pagination: listPagination,
+    refreshList,
+    handlePageChange,
+  } = useProjectIssueList({
+    project: project!,
+    sprintId,
+    enabled: boardReady && isListView && !!project,
+    filters,
+    searchParams,
+    setSearchParams,
+  })
 
   const handleTransitionIssue = useCallback(
     async (issueId: string, targetStatusId: string) => {
@@ -45,6 +72,7 @@ export function ProjectKanbanPage() {
       try {
         await transitionIssue(issueId, targetStatusId)
         await refreshBoard()
+        void syncProjectOpenIssueCount(projectId)
       } catch (err) {
         const message =
           err instanceof ApiError ? err.message : 'Failed to transition issue.'
@@ -53,7 +81,7 @@ export function ProjectKanbanPage() {
         setTransitioningIssueId(null)
       }
     },
-    [refreshBoard],
+    [refreshBoard, projectId],
   )
 
   if (!project) {
@@ -74,7 +102,12 @@ export function ProjectKanbanPage() {
     }
   }
 
-  const showFilteredEmpty = !loading && totalIssues > 0 && filteredIssueCount === 0
+  const loading = isListView ? listLoading : boardLoading
+  const error = isListView ? listError : boardError
+  const showFilteredEmpty =
+    !isListView && !boardLoading && totalIssues > 0 && filteredIssueCount === 0
+  const showListEmpty =
+    isListView && !listLoading && (listPagination?.count ?? 0) === 0
   const emptyHint = sprintId
     ? 'Add issues to this sprint or adjust filters to see them here.'
     : 'Adjust assignee, priority, or label filters to see issues.'
@@ -102,15 +135,42 @@ export function ProjectKanbanPage() {
         <div className="mb-3 flex items-center justify-end gap-2">
           <button
             type="button"
-            onClick={() => void refreshBoard()}
+            onClick={() => void (isListView ? refreshList() : refreshBoard())}
             disabled={loading}
             className="rounded-lg border border-devflow-border bg-devflow-card px-3 py-1.5 text-btn text-devflow-text-secondary hover:bg-devflow-surface disabled:opacity-50"
           >
             Refresh board
           </button>
+          <BoardViewSwitcher value={viewMode} onChange={setViewMode} />
         </div>
 
-        {loading && columns.length === 0 && totalIssues === 0 ? (
+        {isListView ? (
+          listLoading && listTasks.length === 0 ? (
+            <div className="issue-board-empty">
+              <p className="issue-board-empty__title">
+                {sprintId ? 'Loading sprint issues…' : 'Loading issues…'}
+              </p>
+            </div>
+          ) : showListEmpty ? (
+            <div className="issue-board-empty">
+              <p className="issue-board-empty__title">No issues match filters</p>
+              <p className="issue-board-empty__hint">{emptyHint}</p>
+            </div>
+          ) : (
+            <>
+              <IssueListView tasks={listTasks} />
+              {listPagination ? (
+                <IssueListPagination
+                  page={listPagination.page}
+                  totalPages={listPagination.total_pages}
+                  hasPrevious={listPagination.previous != null}
+                  hasNext={listPagination.next != null}
+                  onPageChange={handlePageChange}
+                />
+              ) : null}
+            </>
+          )
+        ) : boardLoading && columns.length === 0 && totalIssues === 0 ? (
           <div className="issue-board-empty">
             <p className="issue-board-empty__title">
               {sprintId ? 'Loading sprint board…' : 'Loading board…'}
@@ -121,7 +181,7 @@ export function ProjectKanbanPage() {
             <p className="issue-board-empty__title">No issues match filters</p>
             <p className="issue-board-empty__hint">{emptyHint}</p>
           </div>
-        ) : !loading && totalIssues === 0 ? (
+        ) : !boardLoading && totalIssues === 0 ? (
           <div className="issue-board-empty">
             <p className="issue-board-empty__title">No issues on the board</p>
             <p className="issue-board-empty__hint">{emptyHint}</p>

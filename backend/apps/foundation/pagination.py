@@ -26,3 +26,7 @@ class StandardPagination(PageNumberPagination):
                 },
             }
         )
+
+
+class IssueListPagination(StandardPagination):
+    page_size = 25

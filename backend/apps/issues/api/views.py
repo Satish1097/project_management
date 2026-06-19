@@ -5,6 +5,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 
+from apps.foundation.pagination import IssueListPagination
 from apps.foundation.responses import success_response
 from apps.issues.api.serializers import (
     AttachmentSerializer,
@@ -150,15 +151,40 @@ class IssueListCreateView(APIView):
         sprint_is_null = sprint_param is not None and sprint_param.lower() == "null"
         sprint_id = None if sprint_is_null else _parse_uuid(sprint_param)
 
+        assignee_param = request.query_params.get("assignee")
+        assignee_is_null = assignee_param is not None and assignee_param.lower() == "unassigned"
+        assignee_id = None if assignee_is_null else _parse_uuid(assignee_param)
+
+        label_params = [value.strip() for value in request.query_params.getlist("label") if value.strip()]
+        labels_csv = request.query_params.get("labels")
+        if labels_csv:
+            label_params.extend(
+                value.strip() for value in labels_csv.split(",") if value.strip()
+            )
+        labels = label_params or None
+
         issues = get_project_issues(
             project_id,
             sprint_id=sprint_id,
             sprint_is_null=sprint_is_null,
-            assignee_id=_parse_uuid(request.query_params.get("assignee")),
+            assignee_id=assignee_id,
+            assignee_is_null=assignee_is_null,
             status_id=_parse_uuid(request.query_params.get("status")),
             priority=request.query_params.get("priority") or None,
+            labels=labels,
             search=request.query_params.get("search") or None,
+            sort=request.query_params.get("sort") or None,
         )
+
+        if (
+            request.query_params.get("page") is not None
+            or request.query_params.get("page_size") is not None
+        ):
+            paginator = IssueListPagination()
+            page = paginator.paginate_queryset(issues, request)
+            serialized = IssueSerializer(page, many=True).data
+            return paginator.get_paginated_response(serialized)
+
         return success_response(
             data={"issues": IssueSerializer(issues, many=True).data},
         )

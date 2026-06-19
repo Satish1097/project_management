@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useProjects } from '@/contexts/ProjectsContext'
 import { mapProjectDetailToUi } from '@/services/mapProjectApi'
-import { upsertProjectInRegistry } from '@/services/projectsRegistry'
+import { getProjectByIdFromRegistry, upsertProjectInRegistry } from '@/services/projectsRegistry'
 import type { Project } from '@/types/projects'
 import { PROJECT_DESCRIPTION_MAX_LENGTH, PROJECT_NAME_MAX_LENGTH } from '@/utils/projectKey'
 
@@ -38,7 +38,8 @@ export function ProjectSettingsGeneralPage() {
       try {
         const detail = await getProject(projectId)
         if (cancelled) return
-        const mapped = mapProjectDetailToUi(detail)
+        const existing = getProjectByIdFromRegistry(projectId)
+        const mapped = mapProjectDetailToUi(detail, existing?.openIssueCount)
         upsertProjectInRegistry(mapped)
         setProject(mapped)
         setName(mapped.name)

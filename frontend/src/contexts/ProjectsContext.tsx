@@ -18,6 +18,7 @@ import {
 import { useAppContext } from '@/features/context/useAppContext'
 import {
   getProjectKeys,
+  getProjectByIdFromRegistry,
   setProjectsInRegistry,
   upsertProjectInRegistry,
 } from '@/services/projectsRegistry'
@@ -132,7 +133,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const updateProject = useCallback(
     async (projectId: string, payload: UpdateProjectPayload): Promise<Project> => {
       const updated = await apiUpdateProject(projectId, payload)
-      const project = mapProjectDetailToUi(updated)
+      const existing = getProjectByIdFromRegistry(projectId)
+      const project = mapProjectDetailToUi(updated, existing?.openIssueCount)
 
       upsertProjectInRegistry(project)
       setProjects((prev) =>

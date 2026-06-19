@@ -12,7 +12,14 @@ export type SprintSummaryApi = {
   start_date: string | null
   end_date: string | null
   capacity_points?: number | null
+  total_issues?: number
+  completed_issues?: number
+  remaining_issues?: number
+  in_progress_issues?: number
+  progress_percentage?: number
+  /** @deprecated Use total_issues */
   issue_count?: number
+  /** @deprecated Use completed_issues */
   completed_issue_count?: number
 }
 

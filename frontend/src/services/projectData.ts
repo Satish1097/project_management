@@ -1,13 +1,10 @@
-import { getSprintIssues } from '@/services/issuesRegistry'
 import { getProjectByIdFromRegistry } from '@/services/projectsRegistry'
 import {
   getSprintByIdRegistry,
   getSprintsForProjectRegistry,
 } from '@/services/sprintsRegistry'
 import type { Project } from '@/types/projects'
-import { mapWorkflowToBoardStatus, type ProjectIssue } from '@/types/issues'
 import type { Sprint, SprintStatus } from '@/types/sprints'
-import { computeSprintProgress } from '@/utils/sprintDates'
 
 export type SprintIssueStats = {
   completed: number
@@ -15,35 +12,11 @@ export type SprintIssueStats = {
   inProgress: number
 }
 
-function isIssueInProgress(issue: ProjectIssue): boolean {
-  if (issue.status === 'in_progress') return true
-  if (issue.workflowStatus) {
-    return mapWorkflowToBoardStatus(issue.workflowStatus) === 'in_progress'
-  }
-  return false
-}
-
-function isIssueCompleted(issue: ProjectIssue): boolean {
-  return issue.done === true || issue.status === 'done'
-}
-
 export function getSprintIssueStats(sprint: Sprint): SprintIssueStats {
-  const issues = getSprintIssues(sprint.projectId, sprint.id)
-  if (issues.length > 0) {
-    const completed = issues.filter(isIssueCompleted).length
-    const inProgress = issues.filter(isIssueInProgress).length
-    return {
-      completed,
-      inProgress,
-      remaining: issues.length - completed,
-    }
-  }
-
-  const completed = sprint.completedCount
   return {
-    completed,
-    inProgress: 0,
-    remaining: Math.max(0, sprint.issueCount - completed),
+    completed: sprint.completedCount,
+    remaining: sprint.remainingCount,
+    inProgress: sprint.inProgressCount,
   }
 }
 
@@ -113,15 +86,14 @@ export function formatSprintMetaLine(sprint: Sprint): string {
 }
 
 export function getSprintCompletionPercent(sprint: Sprint): number {
-  return computeSprintProgress(sprint.completedCount, sprint.issueCount)
+  return sprint.progressPercentage
 }
 
 export function getSprintSuccessRate(sprint: Sprint): number {
-  if (sprint.issueCount === 0) return 0
-  return computeSprintProgress(sprint.completedCount, sprint.issueCount)
+  return sprint.progressPercentage
 }
 
 export function getTeamCount(project: Project): number {
   return project.members.length + (project.extraMembers ?? 0)
 }
-
+

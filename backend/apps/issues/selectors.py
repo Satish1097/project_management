@@ -212,15 +212,32 @@ def get_project_issue_by_id(project_id: UUID, issue_id: UUID) -> Issue | None:
     )
 
 
+ISSUE_LIST_SORT_FIELDS = frozenset(
+    {
+        "created_at",
+        "-created_at",
+        "title",
+        "-title",
+        "priority",
+        "-priority",
+        "key",
+        "-key",
+    }
+)
+
+
 def get_project_issues(
     project_id: UUID,
     *,
     sprint_id: UUID | None = None,
     sprint_is_null: bool = False,
     assignee_id: UUID | None = None,
+    assignee_is_null: bool = False,
     status_id: UUID | None = None,
     priority: str | None = None,
+    labels: list[str] | None = None,
     search: str | None = None,
+    sort: str | None = None,
 ) -> QuerySet[Issue]:
     qs = _optimized_issue_queryset().filter(project_id=project_id)
 
@@ -228,16 +245,24 @@ def get_project_issues(
         qs = qs.filter(sprint__isnull=True)
     elif sprint_id is not None:
         qs = qs.filter(sprint_id=sprint_id)
-    if assignee_id is not None:
+    if assignee_is_null:
+        qs = qs.filter(assignee__isnull=True)
+    elif assignee_id is not None:
         qs = qs.filter(assignee_id=assignee_id)
     if status_id is not None:
         qs = qs.filter(status_id=status_id)
     if priority is not None:
         qs = qs.filter(priority=priority)
+    if labels:
+        label_filter = Q()
+        for label in labels:
+            label_filter |= Q(labels__name__iexact=label)
+        qs = qs.filter(label_filter).distinct()
     if search:
         qs = qs.filter(Q(title__icontains=search) | Q(key__icontains=search))
 
-    return qs.order_by("-created_at")
+    order = sort if sort in ISSUE_LIST_SORT_FIELDS else "-created_at"
+    return qs.order_by(order)
 
 
 def get_sprint_issues(sprint_id: UUID) -> QuerySet[Issue]:

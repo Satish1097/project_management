@@ -14,11 +14,13 @@ from apps.projects.selectors import (
     select_project_by_id,
     select_project_member,
     select_project_role,
+    select_project_report_summary,
     select_project_summary,
     select_projects_for_organization,
 )
 from apps.projects.services import create_project, update_project
 from apps.projects.services.membership_service import add_project_member, remove_project_member
+from apps.sprints.models import Sprint, SprintStatus
 
 
 @pytest.mark.django_db
@@ -166,6 +168,102 @@ def test_select_project_summary_open_issue_count(superuser, project):
 
     assert summary is not None
     assert summary.open_issue_count == 3
+
+
+@pytest.mark.django_db
+def test_select_project_summary_open_issue_count_includes_non_active_sprint(
+    superuser,
+    project,
+):
+    todo_status = get_status_by_slug(project.id, "todo")
+    done_status = get_status_by_slug(project.id, "done")
+    completed_sprint = Sprint.objects.create(
+        project_id=project.id,
+        name="Completed Sprint",
+        status=SprintStatus.COMPLETED,
+    )
+
+    Issue.objects.create(
+        project_id=project.id,
+        key="HRMS-1",
+        title="Open in completed sprint",
+        description="",
+        priority="medium",
+        status_id=todo_status.id,
+        sprint_id=completed_sprint.id,
+        reporter_id=superuser.id,
+    )
+    Issue.objects.create(
+        project_id=project.id,
+        key="HRMS-2",
+        title="Done in completed sprint",
+        description="",
+        priority="medium",
+        status_id=done_status.id,
+        sprint_id=completed_sprint.id,
+        reporter_id=superuser.id,
+    )
+
+    summary = select_project_summary(project.id)
+
+    assert summary is not None
+    assert summary.open_issue_count == 1
+
+
+@pytest.mark.django_db
+def test_select_project_summary_open_issue_count_by_status_breakdown(superuser, project):
+    todo_status = get_status_by_slug(project.id, "todo")
+    in_progress_status = get_status_by_slug(project.id, "in_progress")
+    in_review_status = get_status_by_slug(project.id, "in_review")
+    done_status = get_status_by_slug(project.id, "done")
+
+    for index in range(3):
+        Issue.objects.create(
+            project_id=project.id,
+            key=f"HRMS-T{index}",
+            title=f"Todo issue {index}",
+            description="",
+            priority="medium",
+            status_id=todo_status.id,
+            reporter_id=superuser.id,
+        )
+    Issue.objects.create(
+        project_id=project.id,
+        key="HRMS-IP",
+        title="In progress issue",
+        description="",
+        priority="medium",
+        status_id=in_progress_status.id,
+        reporter_id=superuser.id,
+    )
+    Issue.objects.create(
+        project_id=project.id,
+        key="HRMS-IR",
+        title="In review issue",
+        description="",
+        priority="medium",
+        status_id=in_review_status.id,
+        reporter_id=superuser.id,
+    )
+    Issue.objects.create(
+        project_id=project.id,
+        key="HRMS-D",
+        title="Done issue",
+        description="",
+        priority="medium",
+        status_id=done_status.id,
+        reporter_id=superuser.id,
+    )
+
+    summary = select_project_summary(project.id)
+    report = select_project_report_summary(superuser.id, project.id)
+
+    assert summary is not None
+    assert report is not None
+    assert summary.open_issue_count == 5
+    assert report["total_issues"] == 6
+    assert report["open_issues"] == 5
+    assert report["done_issues"] == 1
 
 
 @pytest.mark.django_db

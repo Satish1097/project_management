@@ -78,6 +78,51 @@ def get_project_sprint_by_id(project_id: UUID, sprint_id: UUID) -> Sprint | None
     return _optimized_sprint_queryset().filter(project_id=project_id, pk=sprint_id).first()
 
 
+def _sprint_metrics_queryset() -> QuerySet[Sprint]:
+    return Sprint.objects.annotate(
+        total_issues=Count("issues"),
+        completed_issues=Count(
+            "issues",
+            filter=Q(issues__status__category=WorkflowStatusCategory.DONE),
+        ),
+        in_progress_issues=Count(
+            "issues",
+            filter=Q(issues__status__category=WorkflowStatusCategory.IN_PROGRESS),
+        ),
+    )
+
+
+def _build_sprint_metrics(
+    *,
+    total_issues: int,
+    completed_issues: int,
+    in_progress_issues: int,
+) -> dict[str, int]:
+    remaining_issues = total_issues - completed_issues
+    progress_percentage = (
+        round((completed_issues / total_issues) * 100) if total_issues > 0 else 0
+    )
+    return {
+        "total_issues": total_issues,
+        "completed_issues": completed_issues,
+        "remaining_issues": remaining_issues,
+        "in_progress_issues": in_progress_issues,
+        "progress_percentage": progress_percentage,
+    }
+
+
+def get_sprint_metrics(sprint_id: UUID) -> dict[str, int] | None:
+    sprint = _sprint_metrics_queryset().filter(pk=sprint_id).first()
+    if sprint is None:
+        return None
+
+    return _build_sprint_metrics(
+        total_issues=sprint.total_issues,
+        completed_issues=sprint.completed_issues,
+        in_progress_issues=sprint.in_progress_issues,
+    )
+
+
 def _sprint_health_queryset() -> QuerySet[Sprint]:
     return _optimized_sprint_queryset().annotate(
         committed_story_points=Coalesce(
@@ -101,6 +146,15 @@ def _sprint_health_queryset() -> QuerySet[Sprint]:
             Value(0),
             output_field=IntegerField(),
         ),
+        total_issues=Count("issues"),
+        completed_issues=Count(
+            "issues",
+            filter=Q(issues__status__category=WorkflowStatusCategory.DONE),
+        ),
+        in_progress_issues=Count(
+            "issues",
+            filter=Q(issues__status__category=WorkflowStatusCategory.IN_PROGRESS),
+        ),
         issue_count=Count("issues"),
         completed_issue_count=Count(
             "issues",
@@ -110,6 +164,11 @@ def _sprint_health_queryset() -> QuerySet[Sprint]:
 
 
 def _sprint_health_to_dict(sprint: Sprint) -> dict:
+    metrics = _build_sprint_metrics(
+        total_issues=sprint.total_issues,
+        completed_issues=sprint.completed_issues,
+        in_progress_issues=sprint.in_progress_issues,
+    )
     return {
         "sprint_id": sprint.id,
         "sprint_name": sprint.name,
@@ -120,8 +179,9 @@ def _sprint_health_to_dict(sprint: Sprint) -> dict:
         "committed_story_points": sprint.committed_story_points,
         "completed_story_points": sprint.completed_story_points,
         "remaining_story_points": sprint.remaining_story_points,
-        "issue_count": sprint.issue_count,
-        "completed_issue_count": sprint.completed_issue_count,
+        **metrics,
+        "issue_count": metrics["total_issues"],
+        "completed_issue_count": metrics["completed_issues"],
     }
 
 

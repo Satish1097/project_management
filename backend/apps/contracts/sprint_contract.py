@@ -48,3 +48,9 @@ def list_sprints_for_project(project_id: UUID) -> list[SprintSummaryDTO]:
     from apps.sprints.selectors import select_sprints_for_project
 
     return select_sprints_for_project(project_id)
+
+
+def get_sprint_metrics(sprint_id: UUID) -> dict[str, int] | None:
+    from apps.sprints.selectors import get_sprint_metrics as _get_sprint_metrics
+
+    return _get_sprint_metrics(sprint_id)

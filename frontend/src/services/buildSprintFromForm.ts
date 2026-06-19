@@ -21,6 +21,9 @@ export function buildSprintFromForm(
     dateRange: formatDateRange(values.startDate, values.endDate),
     issueCount: 0,
     completedCount: 0,
+    remainingCount: 0,
+    inProgressCount: 0,
+    progressPercentage: 0,
     capacityPoints: values.capacityPoints
       ? Number(values.capacityPoints)
       : undefined,

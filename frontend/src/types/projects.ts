@@ -22,6 +22,8 @@ export type Project = {
   extraMembers?: number
   /** Display label for open issues (e.g. "12 Open Issues") */
   openIssuesLabel?: string
+  /** Non-completed issue count from the API */
+  openIssueCount?: number
   progress?: number
   recentActivity?: string
   /** Shown in "My Projects" filter */

@@ -66,6 +66,25 @@ export type IssueListFilters = {
   assignee?: string
   priority?: string
   status?: string
+  label?: string[]
+  sort?: string
+}
+
+export type IssueListPaginationApi = {
+  results: IssueApi[]
+  pagination: {
+    count: number
+    page: number
+    page_size: number
+    total_pages: number
+    next: string | null
+    previous: string | null
+  }
+}
+
+export type IssueListQuery = IssueListFilters & {
+  page?: number
+  page_size?: number
 }
 
 export type CreateIssuePayload = {
@@ -180,9 +199,9 @@ function toApiError(error: unknown): ApiError {
 
 function buildIssueQueryParams(
   projectId: string,
-  filters: IssueListFilters = {},
-): Record<string, string> {
-  const params: Record<string, string> = { project: projectId }
+  filters: IssueListQuery = {},
+): Record<string, string | string[]> {
+  const params: Record<string, string | string[]> = { project: projectId }
 
   if (filters.sprint === null) {
     params.sprint = 'null'
@@ -193,6 +212,12 @@ function buildIssueQueryParams(
   if (filters.assignee) params.assignee = filters.assignee
   if (filters.priority) params.priority = filters.priority
   if (filters.status) params.status = filters.status
+  if (filters.sort) params.sort = filters.sort
+  if (filters.label && filters.label.length > 0) {
+    params.label = filters.label
+  }
+  if (filters.page != null) params.page = String(filters.page)
+  if (filters.page_size != null) params.page_size = String(filters.page_size)
 
   return params
 }
@@ -206,6 +231,24 @@ export async function listIssues(
       params: buildIssueQueryParams(projectId, filters),
     })
     return data.data.issues
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function listIssuesPaginated(
+  projectId: string,
+  query: IssueListQuery = {},
+): Promise<IssueListPaginationApi> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<IssueListPaginationApi>>('/issues', {
+      params: buildIssueQueryParams(projectId, {
+        page: 1,
+        page_size: 25,
+        ...query,
+      }),
+    })
+    return data.data
   } catch (error) {
     throw toApiError(error)
   }

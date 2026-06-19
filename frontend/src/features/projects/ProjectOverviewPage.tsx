@@ -25,12 +25,14 @@ import {
 } from '@/constants/routes'
 import { layout } from '@/constants/layout'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
+import { useProjectIssueStats } from '@/hooks/useProjectIssueStats'
 import { cn } from '@/utils/cn'
 
 export function ProjectOverviewPage() {
   const { projectId = '' } = useParams()
   const project = getProjectById(projectId)
   const { loading: sprintsLoading } = useLoadProjectSprints(projectId)
+  const { stats: issueStats, loading: issueStatsLoading } = useProjectIssueStats(projectId)
   const activeSprint = getActiveSprint(projectId)
   const sprints = getSprintsForProject(projectId)
   const [activities, setActivities] = useState<DashboardActivityApi[] | null>(null)
@@ -59,7 +61,11 @@ export function ProjectOverviewPage() {
   if (!project) return null
 
   const teamCount = getTeamCount(project)
-  const openLabel = project.openIssuesLabel ?? project.issuesLabel
+  const openIssueCount = issueStats?.openIssues ?? project.openIssueCount
+  const openLabel =
+    openIssueCount != null
+      ? `${openIssueCount} Open ${openIssueCount === 1 ? 'Issue' : 'Issues'}`
+      : (project.openIssuesLabel ?? project.issuesLabel)
   const sprintProgress = activeSprint ? getSprintCompletionPercent(activeSprint) : 0
 
   return (
@@ -82,8 +88,14 @@ export function ProjectOverviewPage() {
         <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label="Open issues"
-            value={openLabel.replace(/\D/g, '') || '—'}
-            footer={openLabel}
+            value={
+              issueStatsLoading
+                ? '—'
+                : openIssueCount != null
+                  ? String(openIssueCount)
+                  : openLabel.replace(/\D/g, '') || '—'
+            }
+            footer={issueStatsLoading ? 'Loading issue stats…' : openLabel}
             badge={
               project.issuesCritical
                 ? { text: 'Needs attention', variant: 'danger' }

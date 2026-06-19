@@ -14,6 +14,14 @@ function resolveIcon(name: string): Project['icon'] {
   return 'mobile'
 }
 
+export function buildIssueCountLabels(issueCount: number) {
+  return {
+    issuesLabel: `${issueCount} ${issueCount === 1 ? 'Issue' : 'Issues'}`,
+    openIssuesLabel: `${issueCount} Open ${issueCount === 1 ? 'Issue' : 'Issues'}`,
+    openIssueCount: issueCount,
+  }
+}
+
 export function mapProjectSummaryToUi(
   summary: ProjectSummaryApi,
   description = '',
@@ -27,15 +35,18 @@ export function mapProjectSummaryToUi(
     description: description || 'No description provided.',
     status: mapStatus(summary.status ?? 'active'),
     icon: resolveIcon(name),
-    issuesLabel: `${issueCount} ${issueCount === 1 ? 'Issue' : 'Issues'}`,
-    openIssuesLabel: `${issueCount} Open ${issueCount === 1 ? 'Issue' : 'Issues'}`,
+    ...buildIssueCountLabels(issueCount),
     members: [],
     isMember: true,
     recentActivity: summary.recent_activity,
   }
 }
 
-export function mapProjectDetailToUi(detail: ProjectDetailApi): Project {
+export function mapProjectDetailToUi(
+  detail: ProjectDetailApi,
+  openIssueCount?: number,
+): Project {
+  const issueCount = openIssueCount ?? 0
   return mapProjectSummaryToUi(
     {
       id: detail.id,
@@ -43,7 +54,7 @@ export function mapProjectDetailToUi(detail: ProjectDetailApi): Project {
       slug: detail.slug,
       name: detail.name,
       status: detail.status,
-      open_issue_count: 0,
+      open_issue_count: issueCount,
       active_sprint_id: null,
     },
     detail.description,

@@ -1,18 +1,12 @@
 import type { Sprint } from '@/types/sprints'
 import { formatDateRange } from '@/utils/sprintDates'
-import { syncSprintIssueCounts } from '@/services/issuesRegistry'
 
 let sprints: Sprint[] = []
 
 function hydrate(sprint: Sprint): Sprint {
-  // Only sync issue counts from registry if they're not already set from API
-  const synced =
-    sprint.issueCount > 0 || sprint.completedCount > 0
-      ? sprint
-      : syncSprintIssueCounts(sprint)
   return {
-    ...synced,
-    dateRange: formatDateRange(synced.startDate, synced.endDate),
+    ...sprint,
+    dateRange: formatDateRange(sprint.startDate, sprint.endDate),
   }
 }
 

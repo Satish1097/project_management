@@ -31,6 +31,7 @@ import {
   mapIssueDetailToUi,
   mapIssueSummaryToUi,
 } from '@/services/mapIssueApi'
+import { syncProjectOpenIssueCount } from '@/services/projectStats'
 import type { ProjectIssue } from '@/types/issues'
 
 type IssuesContextValue = {
@@ -134,6 +135,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       if (issue.sprintId) {
         await loadSprintIssues(projectId, issue.sprintId)
       }
+      void syncProjectOpenIssueCount(projectId)
       return issue
     },
     [loadBacklog, loadSprintIssues],
@@ -149,6 +151,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       const issue = mapIssueDetailToUi(updated, projectId)
       upsertApiIssue(issue)
       setIssues(getIssues())
+      void syncProjectOpenIssueCount(projectId)
       return issue
     },
     [],
@@ -194,6 +197,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       await loadSprintIssues(projectId, sprintId)
       await loadProjectSprints(projectId)
       setIssues(getIssues())
+      void syncProjectOpenIssueCount(projectId)
     },
     [loadBacklog, loadSprintIssues, loadProjectSprints],
   )
@@ -206,6 +210,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       await loadSprintIssues(projectId, fromSprintId)
       await loadProjectSprints(projectId)
       setIssues(getIssues())
+      void syncProjectOpenIssueCount(projectId)
     },
     [loadBacklog, loadSprintIssues, loadProjectSprints],
   )

@@ -19,6 +19,9 @@ export type Sprint = {
   dateRange: string
   issueCount: number
   completedCount: number
+  remainingCount: number
+  inProgressCount: number
+  progressPercentage: number
   goal?: string
   /** Remaining days for active sprints (display only). */
   daysRemaining?: number

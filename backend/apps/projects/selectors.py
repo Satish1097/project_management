@@ -35,11 +35,9 @@ def _project_to_dto(project: Project) -> ProjectDTO:
 
 
 def _project_to_summary_dto(project: Project) -> ProjectSummaryDTO:
-    # Count open issues excluding DONE and issues in non-active sprints
     open_issue_count = (
         Issue.objects.filter(project_id=project.id)
         .exclude(status__category=WorkflowStatusCategory.DONE)
-        .filter(Q(sprint__isnull=True) | Q(sprint__status=SprintStatus.ACTIVE))
         .count()
     )
     return ProjectSummaryDTO(
