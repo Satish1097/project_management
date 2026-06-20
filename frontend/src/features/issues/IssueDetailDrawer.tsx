@@ -47,7 +47,10 @@ import {
   updateComment as apiUpdateComment,
   uploadIssueAttachment as apiUploadIssueAttachment,
 } from '@/api/issues'
-import { getProjectMembers } from '@/api/members'
+import {
+  ensureProjectMembersLoaded,
+  getProjectMembersSnapshot,
+} from '@/services/projectMembersStore'
 import { ApiError } from '@/api/types'
 import { getWorkflow, type WorkflowStatusApi } from '@/api/workflow'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -361,10 +364,9 @@ export function IssueDetailDrawer({
       setCommentsLoading(true)
       setCommentError(null)
       try {
-        const [members, comments] = await Promise.all([
-          getProjectMembers(projectId),
-          apiGetIssueComments(issueId),
-        ])
+        await ensureProjectMembersLoaded(projectId)
+        const { members } = getProjectMembersSnapshot(projectId)
+        const comments = await apiGetIssueComments(issueId)
 
         const nextMemberNamesById = members.reduce<Record<string, string>>((acc, member) => {
           acc[member.user_id] = member.display_name || member.email || member.user_id

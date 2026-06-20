@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getProjectKanban } from '@/api/issues'
-import { getProjectMembers, type ProjectMemberRecord } from '@/api/members'
+import type { ProjectMemberRecord } from '@/api/members'
 import { getSprintBoard } from '@/api/sprints'
 import { ApiError } from '@/api/types'
 import {
@@ -8,6 +8,7 @@ import {
   filterKanbanColumns,
 } from '@/features/kanban/kanbanFilters'
 import { registerKanbanRefresh } from '@/features/kanban/kanbanRefreshBridge'
+import { useProjectMembersData } from '@/hooks/useProjectMembersData'
 import { mapKanbanBoardToColumns } from '@/services/mapKanbanApi'
 import type { KanbanBoardFilters, KanbanColumn } from '@/types/kanban'
 
@@ -28,7 +29,7 @@ export function useProjectKanban(
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<KanbanBoardFilters>(DEFAULT_KANBAN_FILTERS)
-  const [members, setMembers] = useState<ProjectMemberRecord[]>([])
+  const { members } = useProjectMembersData(projectId)
 
   const loadBoard = useCallback(async () => {
     if (!projectId || !enabled) {
@@ -58,16 +59,6 @@ export function useProjectKanban(
   useEffect(() => {
     void loadBoard()
   }, [loadBoard])
-
-  useEffect(() => {
-    if (!projectId) return
-
-    void getProjectMembers(projectId)
-      .then(setMembers)
-      .catch(() => {
-        setMembers([])
-      })
-  }, [projectId])
 
   useEffect(() => {
     return registerKanbanRefresh(() => {

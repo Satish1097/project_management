@@ -12,7 +12,9 @@ import { CreateProjectDrawer } from '@/features/projects/CreateProjectDrawer'
 import { ActivityFeed } from '@/features/dashboard/ActivityFeed'
 import { getDashboardActivity } from '@/api/dashboard'
 import type { DashboardActivityApi } from '@/types/dashboard'
-import { getActiveSprint, getTeamCount } from '@/services/projectData'
+import { projectMembersToAvatarGroup } from '@/features/members/memberUtils'
+import { useProjectsMembersData } from '@/hooks/useProjectMembersData'
+import { getActiveSprint } from '@/services/projectData'
 import {
   filterProjects,
   sortProjectsByName,
@@ -48,6 +50,10 @@ export function ProjectsListPage() {
   const filteredProjects = useMemo(
     () => sortProjectsByName(filterProjects(projects, activeFilter)),
     [projects, activeFilter],
+  )
+
+  const membersByProject = useProjectsMembersData(
+    filteredProjects.map((project) => project.id),
   )
 
   const hasAnyProjects = projects.length > 0
@@ -94,7 +100,9 @@ export function ProjectsListPage() {
             >
               {filteredProjects.map((project) => {
                 const activeSprint = getActiveSprint(project.id)
-                const teamCount = getTeamCount(project)
+                const membersState = membersByProject[project.id]
+                const { members: avatarMembers, extra: avatarExtra } =
+                  projectMembersToAvatarGroup(membersState?.members ?? [])
                 return (
                   <ProjectCard
                     key={project.id}
@@ -104,7 +112,10 @@ export function ProjectsListPage() {
                     activeSprintStatus={
                       activeSprint ? 'Active Sprint' : undefined
                     }
-                    teamCount={teamCount}
+                    memberCount={membersState?.members.length ?? 0}
+                    membersLoading={membersState?.loading ?? true}
+                    avatarMembers={avatarMembers}
+                    avatarExtra={avatarExtra}
                     viewMode={viewMode}
                   />
                 )

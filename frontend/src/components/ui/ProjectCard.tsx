@@ -2,7 +2,7 @@ import { Globe, Server, Smartphone } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { AvatarGroup } from '@/components/ui/AvatarGroup'
 import { ProjectStatusBadge } from '@/components/ui/ProjectStatusBadge'
-import type { Project } from '@/types/projects'
+import type { Project, ProjectMember } from '@/types/projects'
 import { cn } from '@/utils/cn'
 
 const icons = {
@@ -16,7 +16,10 @@ type ProjectCardProps = {
   to: string
   activeSprintName?: string
   activeSprintStatus?: string
-  teamCount?: number
+  memberCount?: number
+  membersLoading?: boolean
+  avatarMembers?: ProjectMember[]
+  avatarExtra?: number
   viewMode?: 'grid' | 'list'
 }
 
@@ -25,12 +28,17 @@ export function ProjectCard({
   to,
   activeSprintName,
   activeSprintStatus,
-  teamCount,
+  memberCount,
+  membersLoading = false,
+  avatarMembers = [],
+  avatarExtra,
   viewMode = 'grid',
 }: ProjectCardProps) {
   const Icon = icons[project.icon]
   const issuesLabel = project.openIssuesLabel ?? project.issuesLabel
-  const memberCount = teamCount ?? project.members.length + (project.extraMembers ?? 0)
+  const memberLabel = membersLoading
+    ? 'Loading members…'
+    : `${memberCount ?? 0} ${memberCount === 1 ? 'Member' : 'Members'}`
   const showProgress =
     project.progress !== undefined &&
     (project.status === 'active' || project.status === 'at_risk')
@@ -119,14 +127,9 @@ export function ProjectCard({
               {issuesLabel}
             </span>
             <span className="text-devflow-text-muted"> • </span>
-            <span>
-              {memberCount} {memberCount === 1 ? 'Member' : 'Members'}
-            </span>
+            <span>{memberLabel}</span>
           </p>
-          <AvatarGroup
-            members={project.members}
-            extra={project.extraMembers}
-          />
+          <AvatarGroup members={avatarMembers} extra={avatarExtra} />
         </div>
 
         {project.recentActivity && viewMode === 'grid' && (

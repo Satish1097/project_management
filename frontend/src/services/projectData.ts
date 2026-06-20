@@ -93,7 +93,3 @@ export function getSprintSuccessRate(sprint: Sprint): number {
   return sprint.progressPercentage
 }
 
-export function getTeamCount(project: Project): number {
-  return project.members.length + (project.extraMembers ?? 0)
-}
-

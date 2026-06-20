@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { ChevronDown } from 'lucide-react'
-import { getProjectMembers, type ProjectMemberRecord } from '@/api/members'
 import { Avatar } from '@/components/ui/Avatar'
+import { useProjectMembersData } from '@/hooks/useProjectMembersData'
 import { mockMembers } from '@/services/mockMembers'
 import { cn } from '@/utils/cn'
 
@@ -35,20 +35,7 @@ export function AssigneeSelect({
   className,
   projectId,
 }: AssigneeSelectProps) {
-  const [members, setMembers] = useState<ProjectMemberRecord[]>([])
-
-  useEffect(() => {
-    if (!projectId) return
-
-    let cancelled = false
-    void getProjectMembers(projectId).then((data) => {
-      if (!cancelled) setMembers(data)
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [projectId])
+  const { members } = useProjectMembersData(projectId ?? '')
 
   const options = useMemo(() => {
     if (projectId && members.length > 0) {

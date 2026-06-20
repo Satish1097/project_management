@@ -10,13 +10,14 @@ import { CreateSprintDrawer } from '@/features/sprints/CreateSprintDrawer'
 import { useSprintActions } from '@/hooks/useSprintActions'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
 import { useIssues } from '@/contexts/IssuesContext'
+import { useProjectMembersContext } from '@/contexts/ProjectMembersContext'
 import { useSprints } from '@/contexts/SprintsContext'
+import { projectMembersToAvatarGroup } from '@/features/members/memberUtils'
 import {
   formatSprintStatus,
   getProjectById,
   getSprintById,
   getSprintCompletionPercent,
-  getTeamCount,
 } from '@/services/projectData'
 import { getSprintIssues } from '@/services/issuesRegistry'
 import { AvatarGroup } from '@/components/ui/AvatarGroup'
@@ -34,6 +35,9 @@ export function SprintDetailPage() {
   } = useIssues()
   const { startSprint, pauseSprint, resumeSprint, completeSprint } =
     useSprintActions(projectId)
+  const { members, loading: membersLoading } = useProjectMembersContext()
+  const { members: avatarMembers, extra: avatarExtra } =
+    projectMembersToAvatarGroup(members)
   const [completeOpen, setCompleteOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,7 +76,7 @@ export function SprintDetailPage() {
 
   const pct = getSprintCompletionPercent(sprint)
   const issues = getSprintIssues(projectId, sprintId)
-  const teamCount = getTeamCount(project)
+  const teamCount = members.length
 
   const handleStart = async () => {
     setError(null)
@@ -163,9 +167,9 @@ export function SprintDetailPage() {
 
           <div className="mt-4 flex items-center gap-2">
             <span className="text-caption text-devflow-text-secondary">Team</span>
-            <AvatarGroup members={project.members} extra={project.extraMembers} />
+            <AvatarGroup members={avatarMembers} extra={avatarExtra} />
             <span className="text-caption text-devflow-text-muted">
-              {teamCount} members
+              {membersLoading ? '—' : `${teamCount} members`}
             </span>
           </div>
 

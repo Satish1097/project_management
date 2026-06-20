@@ -16,6 +16,8 @@ import {
   type SprintSortKey,
 } from '@/features/sprints/SprintFiltersBar'
 import { useSprints } from '@/contexts/SprintsContext'
+import { projectMembersToAvatarGroup } from '@/features/members/memberUtils'
+import { useProjectMembersData } from '@/hooks/useProjectMembersData'
 import { demoProjects, getWorkspaceSprintStats } from '@/services/demoData'
 import {
   formatSprintStatusLabel,
@@ -151,6 +153,11 @@ export function WorkspaceSprintsPage() {
 
 function WorkspaceSprintCard({ sprint }: { sprint: Sprint }) {
   const project = getProjectById(sprint.projectId)
+  const { members, loading: membersLoading } = useProjectMembersData(
+    sprint.projectId,
+  )
+  const { members: avatarMembers, extra: avatarExtra } =
+    projectMembersToAvatarGroup(members)
   const pct = getSprintCompletionPercent(sprint)
   const daysLeft = getSprintDaysRemaining(sprint)
   const isActive = sprint.status === 'active'
@@ -210,8 +217,8 @@ function WorkspaceSprintCard({ sprint }: { sprint: Sprint }) {
           <span>{pct}% delivered</span>
         )}
         <AvatarGroup
-          members={project.members}
-          extra={project.extraMembers}
+          members={membersLoading ? [] : avatarMembers}
+          extra={membersLoading ? undefined : avatarExtra}
           size={24}
         />
       </div>
