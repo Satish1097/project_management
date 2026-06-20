@@ -44,6 +44,7 @@ import { ProjectOverviewPage } from '@/features/projects/ProjectOverviewPage'
 import { ProjectActivityPage } from '@/features/projects/ProjectActivityPage'
 import { ProjectSprintsPage } from '@/features/projects/ProjectSprintsPage'
 import { ProjectPlaceholderPage } from '@/features/projects/ProjectPlaceholderPage'
+import { ProjectTeamPage } from '@/features/projects/ProjectTeamPage'
 import { ProjectBacklogPage } from '@/features/projects/ProjectBacklogPage'
 import { ProjectKanbanPage } from '@/features/kanban/ProjectKanbanPage'
 import { SprintDetailPage } from '@/features/projects/SprintDetailPage'
@@ -116,15 +117,7 @@ export const router = createBrowserRouter([
                 path: 'sprints/:sprintId/planning',
                 element: <SprintPlanningPage />,
               },
-              {
-                path: 'team',
-                element: (
-                  <ProjectPlaceholderPage
-                    title="Team"
-                    description="Members, roles, and project access."
-                  />
-                ),
-              },
+              { path: 'team', element: <ProjectTeamPage /> },
               {
                 path: 'releases',
                 element: (

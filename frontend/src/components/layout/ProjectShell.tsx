@@ -17,13 +17,14 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { Avatar } from '@/components/ui/Avatar'
 import { useCreateIssue } from '@/contexts/CreateIssueContext'
+import { ProjectMembersProvider, useProjectMembersContext } from '@/contexts/ProjectMembersContext'
+import { projectMembersToAvatarGroup } from '@/features/members/memberUtils'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
 import {
   formatSprintMetaLine,
   getActiveSprint,
   getProjectById,
   getSprintById,
-  getTeamCount,
 } from '@/services/projectData'
 
 function resolveHeaderSubtitle(
@@ -53,10 +54,31 @@ function resolveHeaderSubtitle(
 
 export function ProjectShell() {
   const { projectId = '' } = useParams()
-  const { pathname } = useLocation()
   const project = getProjectById(projectId)
+
+  if (!project) {
+    return <Navigate to={ROUTES.projects} replace />
+  }
+
+  return (
+    <ProjectMembersProvider projectId={projectId}>
+      <ProjectShellContent project={project} projectId={projectId} />
+    </ProjectMembersProvider>
+  )
+}
+
+function ProjectShellContent({
+  project,
+  projectId,
+}: {
+  project: NonNullable<ReturnType<typeof getProjectById>>
+  projectId: string
+}) {
+  const { pathname } = useLocation()
   useLoadProjectSprints(projectId)
   const activeSprint = getActiveSprint(projectId)
+  const { members, loading: membersLoading } = useProjectMembersContext()
+  const { members: avatarMembers, extra } = projectMembersToAvatarGroup(members)
 
   const sprintMatch = pathname.match(/\/sprints\/([^/]+)/)
   const sprintId = sprintMatch?.[1]
@@ -69,11 +91,6 @@ export function ProjectShell() {
 
   const { openCreateIssue } = useCreateIssue()
 
-  if (!project) {
-    return <Navigate to={ROUTES.projects} replace />
-  }
-
-  const teamCount = getTeamCount(project)
   const headerSubtitle = resolveHeaderSubtitle(pathname, projectId, activeSprint)
 
   return (
@@ -101,12 +118,9 @@ export function ProjectShell() {
             <div className="hidden items-center gap-2 lg:flex">
               <Users className="size-3.5 text-devflow-text-secondary" />
               <span className="text-caption text-devflow-text-secondary">
-                {teamCount}
+                {membersLoading ? '—' : members.length}
               </span>
-              <AvatarGroup
-                members={project.members}
-                extra={project.extraMembers}
-              />
+              <AvatarGroup members={avatarMembers} extra={extra} />
             </div>
             {project.progress !== undefined && (
               <div className="hidden w-20 xl:block">

@@ -8,6 +8,7 @@ import { ActivityFeed } from '@/features/dashboard/ActivityFeed'
 import { getProjectActivityPreview } from '@/api/projects'
 import type { DashboardActivityApi } from '@/types/dashboard'
 import type { Sprint } from '@/types/sprints'
+import { useProjectMembersContext } from '@/contexts/ProjectMembersContext'
 import {
   formatSprintStatus,
   getActiveSprint,
@@ -15,7 +16,6 @@ import {
   getSprintsForProject,
   getSprintCompletionPercent,
   getSprintIssueStats,
-  getTeamCount,
 } from '@/services/projectData'
 import {
   projectActivityPath,
@@ -33,6 +33,7 @@ export function ProjectOverviewPage() {
   const project = getProjectById(projectId)
   const { loading: sprintsLoading } = useLoadProjectSprints(projectId)
   const { stats: issueStats, loading: issueStatsLoading } = useProjectIssueStats(projectId)
+  const { members, loading: membersLoading } = useProjectMembersContext()
   const activeSprint = getActiveSprint(projectId)
   const sprints = getSprintsForProject(projectId)
   const [activities, setActivities] = useState<DashboardActivityApi[] | null>(null)
@@ -60,7 +61,6 @@ export function ProjectOverviewPage() {
 
   if (!project) return null
 
-  const teamCount = getTeamCount(project)
   const openIssueCount = issueStats?.openIssues ?? project.openIssueCount
   const openLabel =
     openIssueCount != null
@@ -115,8 +115,10 @@ export function ProjectOverviewPage() {
           />
           <MetricCard
             label="Team members"
-            value={String(teamCount)}
-            footer="Members with project access"
+            value={membersLoading ? '—' : String(members.length)}
+            footer={
+              membersLoading ? 'Loading members…' : 'Members with project access'
+            }
           />
           <MetricCard
             label="Sprint progress"
