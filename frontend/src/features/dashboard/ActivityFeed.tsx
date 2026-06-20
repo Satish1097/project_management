@@ -192,6 +192,12 @@ export function ActivityFeed({
   const totalPages = pagination
     ? Math.max(1, Math.ceil(pagination.count / pagination.pageSize))
     : 1
+  const rangeStart = pagination
+    ? Math.min((pagination.page - 1) * pagination.pageSize + 1, pagination.count)
+    : 0
+  const rangeEnd = pagination
+    ? Math.min(pagination.page * pagination.pageSize, pagination.count)
+    : 0
 
   const content = (
     <>
@@ -222,27 +228,32 @@ export function ActivityFeed({
 
       {renderContent()}
 
-      {pagination && totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between border-t border-[var(--df-border-faint)] pt-3">
-          <button
-            type="button"
-            disabled={!pagination.previous}
-            onClick={() => pagination.onPageChange(pagination.page - 1)}
-            className="text-caption text-devflow-primary disabled:text-devflow-text-muted"
-          >
-            Previous
-          </button>
-          <span className="text-caption text-devflow-text-secondary">
-            Page {pagination.page} of {totalPages}
-          </span>
-          <button
-            type="button"
-            disabled={!pagination.next}
-            onClick={() => pagination.onPageChange(pagination.page + 1)}
-            className="text-caption text-devflow-primary disabled:text-devflow-text-muted"
-          >
-            Next
-          </button>
+      {pagination && pagination.count > 0 && (
+        <div className="mt-4 space-y-2 border-t border-[var(--df-border-faint)] pt-3">
+          <p className="text-caption text-devflow-text-secondary">
+            Showing {rangeStart}-{rangeEnd} of {pagination.count} activities
+          </p>
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              disabled={!pagination.previous}
+              onClick={() => pagination.onPageChange(pagination.page - 1)}
+              className="text-caption text-devflow-primary disabled:text-devflow-text-muted"
+            >
+              Previous
+            </button>
+            <span className="text-caption text-devflow-text-secondary">
+              Page {pagination.page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={!pagination.next}
+              onClick={() => pagination.onPageChange(pagination.page + 1)}
+              className="text-caption text-devflow-primary disabled:text-devflow-text-muted"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
 

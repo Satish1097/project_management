@@ -5,7 +5,7 @@ import { getProjectActivity, type ProjectActivityPageApi } from '@/api/projects'
 import { ActivityFeed } from '@/features/dashboard/ActivityFeed'
 import { getProjectById } from '@/services/projectData'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 export function ProjectActivityPage() {
   const { projectId = '' } = useParams()

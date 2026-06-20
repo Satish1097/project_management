@@ -5,7 +5,6 @@ import { transitionIssue } from '@/api/issues'
 import { projectSprintsPath } from '@/constants/routes'
 import { BoardFilters } from '@/features/kanban/BoardFilters'
 import { BoardViewSwitcher } from '@/features/kanban/BoardViewSwitcher'
-import { IssueListPagination } from '@/features/kanban/IssueListPagination'
 import { KanbanBoardView } from '@/features/kanban/KanbanBoardView'
 import { useBoardViewMode } from '@/features/kanban/useBoardViewMode'
 import { useProjectIssueList } from '@/features/kanban/useProjectIssueList'
@@ -107,7 +106,7 @@ export function ProjectKanbanPage() {
   const showFilteredEmpty =
     !isListView && !boardLoading && totalIssues > 0 && filteredIssueCount === 0
   const showListEmpty =
-    isListView && !listLoading && (listPagination?.count ?? 0) === 0
+    isListView && !listLoading && (listPagination?.totalCount ?? 0) === 0
   const emptyHint = sprintId
     ? 'Add issues to this sprint or adjust filters to see them here.'
     : 'Adjust assignee, priority, or label filters to see issues.'
@@ -158,16 +157,17 @@ export function ProjectKanbanPage() {
             </div>
           ) : (
             <>
-              <IssueListView tasks={listTasks} />
-              {listPagination ? (
-                <IssueListPagination
-                  page={listPagination.page}
-                  totalPages={listPagination.total_pages}
-                  hasPrevious={listPagination.previous != null}
-                  hasNext={listPagination.next != null}
-                  onPageChange={handlePageChange}
-                />
-              ) : null}
+              <IssueListView
+                tasks={listTasks}
+                pagination={
+                  listPagination
+                    ? {
+                        ...listPagination,
+                        onPageChange: handlePageChange,
+                      }
+                    : null
+                }
+              />
             </>
           )
         ) : boardLoading && columns.length === 0 && totalIssues === 0 ? (

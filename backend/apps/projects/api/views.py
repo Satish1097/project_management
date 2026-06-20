@@ -13,7 +13,7 @@ from apps.contracts.project_contract import (
     get_projects_for_organization,
 )
 from apps.foundation.responses import success_response
-from apps.foundation.pagination import StandardPagination
+from apps.foundation.pagination import ActivityPagination
 from apps.issues.selectors import (
     get_project_activity_queryset,
     select_dashboard_activity_feed,
@@ -174,9 +174,12 @@ class ProjectActivityView(APIView):
     def get(self, request, project_id):
         _require_project_view(request.user.id, project_id)
 
-        if request.query_params.get("page") is not None:
+        if (
+            request.query_params.get("page") is not None
+            or request.query_params.get("page_size") is not None
+        ):
             queryset = get_project_activity_queryset(request.user.id, project_id)
-            paginator = StandardPagination()
+            paginator = ActivityPagination()
             page = paginator.paginate_queryset(queryset, request)
             items = serialize_activity_feed_items(page)
             return paginator.get_paginated_response(items)

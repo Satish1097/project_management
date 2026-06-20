@@ -10,13 +10,14 @@ const GRID =
 
 type TaskListTableProps = {
   tasks: Task[]
+  embedded?: boolean
 }
 
-export function TaskListTable({ tasks }: TaskListTableProps) {
+export function TaskListTable({ tasks, embedded = false }: TaskListTableProps) {
   const openIssue = useOpenIssueFromTask()
 
-  return (
-    <div className="overflow-hidden rounded-lg border border-devflow-border bg-devflow-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
+  const table = (
+    <>
       <div className={cn(GRID, 'border-b border-devflow-border bg-devflow-table-header px-4 py-2')}>
         <span className="text-center text-table-header uppercase tracking-wide text-devflow-text-secondary">
           !
@@ -87,6 +88,16 @@ export function TaskListTable({ tasks }: TaskListTableProps) {
           </div>
         )
       })}
+    </>
+  )
+
+  if (embedded) {
+    return table
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-devflow-border bg-devflow-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
+      {table}
     </div>
   )
 }

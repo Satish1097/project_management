@@ -85,6 +85,23 @@ export function useProjectIssueList({
     [listPage, project],
   )
 
+  const pagination = useMemo(() => {
+    if (!listPage) return null
+
+    const page = query.page ?? 1
+    const pageSize = query.page_size ?? DEFAULT_LIST_PAGE_SIZE
+    const totalPages = Math.max(1, Math.ceil(listPage.count / pageSize))
+
+    return {
+      page,
+      pageSize,
+      totalCount: listPage.count,
+      totalPages,
+      hasPrevious: listPage.previous != null,
+      hasNext: listPage.next != null,
+    }
+  }, [listPage, query.page, query.page_size])
+
   const handlePageChange = useCallback(
     (nextPage: number) => {
       setSearchParams(
@@ -111,7 +128,7 @@ export function useProjectIssueList({
     tasks,
     loading,
     error,
-    pagination: listPage?.pagination ?? null,
+    pagination,
     refreshList: loadList,
     handlePageChange,
   }

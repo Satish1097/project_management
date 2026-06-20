@@ -174,7 +174,7 @@ export async function getProjectActivity(
       {
         params: {
           page: options.page ?? 1,
-          page_size: options.pageSize ?? 20,
+          page_size: options.pageSize ?? 10,
         },
       },
     )

@@ -71,28 +71,102 @@ def test_project_activity_paginated_returns_results(
     project_with_manager,
     superuser,
 ):
-    issue = issue_service.create_issue(
-        user=superuser,
-        project_id=project_with_manager.id,
-        title="Paginated activity issue",
-    )
-    IssueActivity.objects.create(
-        issue=issue,
-        actor=superuser,
-        event_type=IssueActivityEventType.STATUS_CHANGED,
-        old_value="To Do",
-        new_value="Done",
-    )
+    for index in range(12):
+        issue = issue_service.create_issue(
+            user=superuser,
+            project_id=project_with_manager.id,
+            title=f"Paginated activity issue {index}",
+        )
+        IssueActivity.objects.create(
+            issue=issue,
+            actor=superuser,
+            event_type=IssueActivityEventType.STATUS_CHANGED,
+            old_value="To Do",
+            new_value="Done",
+        )
 
     response = manager_client.get(
         f"/api/projects/{project_with_manager.id}/activity",
-        {"page": 1, "page_size": 20},
+        {"page": 1},
     )
 
     assert response.status_code == 200
     payload = response.json()["data"]
-    assert len(payload["results"]) >= 1
-    assert payload["pagination"]["count"] >= 1
+    assert len(payload["results"]) == 10
+    assert payload["pagination"]["count"] >= 12
+    assert payload["pagination"]["page"] == 1
+    assert payload["pagination"]["page_size"] == 10
+    assert payload["pagination"]["total_pages"] >= 2
+    assert payload["pagination"]["next"] is not None
+    assert payload["pagination"]["previous"] is None
+
+    timestamps = [activity["timestamp"] for activity in payload["results"]]
+    assert timestamps == sorted(timestamps, reverse=True)
+
+
+@pytest.mark.django_db
+def test_project_activity_paginated_second_page(
+    manager_client,
+    project_with_manager,
+    superuser,
+):
+    for index in range(12):
+        issue = issue_service.create_issue(
+            user=superuser,
+            project_id=project_with_manager.id,
+            title=f"Second page activity {index}",
+        )
+        IssueActivity.objects.create(
+            issue=issue,
+            actor=superuser,
+            event_type=IssueActivityEventType.STATUS_CHANGED,
+            old_value="To Do",
+            new_value="Done",
+        )
+
+    response = manager_client.get(
+        f"/api/projects/{project_with_manager.id}/activity",
+        {"page": 2, "page_size": 10},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert len(payload["results"]) == 2
+    assert payload["pagination"]["page"] == 2
+    assert payload["pagination"]["previous"] is not None
+    assert payload["pagination"]["next"] is None
+
+
+@pytest.mark.django_db
+def test_project_activity_paginated_respects_custom_page_size(
+    manager_client,
+    project_with_manager,
+    superuser,
+):
+    for index in range(5):
+        issue = issue_service.create_issue(
+            user=superuser,
+            project_id=project_with_manager.id,
+            title=f"Custom page size activity {index}",
+        )
+        IssueActivity.objects.create(
+            issue=issue,
+            actor=superuser,
+            event_type=IssueActivityEventType.ASSIGNEE_CHANGED,
+            old_value=None,
+            new_value=str(superuser.id),
+        )
+
+    response = manager_client.get(
+        f"/api/projects/{project_with_manager.id}/activity",
+        {"page_size": 3},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert len(payload["results"]) == 3
+    assert payload["pagination"]["page_size"] == 3
+    assert payload["pagination"]["count"] >= 5
 
 
 @pytest.mark.django_db

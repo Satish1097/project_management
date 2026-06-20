@@ -71,15 +71,10 @@ export type IssueListFilters = {
 }
 
 export type IssueListPaginationApi = {
+  count: number
+  next: string | null
+  previous: string | null
   results: IssueApi[]
-  pagination: {
-    count: number
-    page: number
-    page_size: number
-    total_pages: number
-    next: string | null
-    previous: string | null
-  }
 }
 
 export type IssueListQuery = IssueListFilters & {
@@ -244,7 +239,7 @@ export async function listIssuesPaginated(
     const { data } = await apiClient.get<ApiResponse<IssueListPaginationApi>>('/issues', {
       params: buildIssueQueryParams(projectId, {
         page: 1,
-        page_size: 25,
+        page_size: 10,
         ...query,
       }),
     })

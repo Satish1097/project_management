@@ -14,13 +14,10 @@ def test_issue_list_pagination_default_page_size(superuser_client, project, crea
     payload = response.json()["data"]
 
     assert response.status_code == 200
-    assert len(payload["results"]) == 25
-    assert payload["pagination"]["count"] == 30
-    assert payload["pagination"]["page"] == 1
-    assert payload["pagination"]["page_size"] == 25
-    assert payload["pagination"]["total_pages"] == 2
-    assert payload["pagination"]["next"] is not None
-    assert payload["pagination"]["previous"] is None
+    assert len(payload["results"]) == 10
+    assert payload["count"] == 30
+    assert payload["next"] is not None
+    assert payload["previous"] is None
 
 
 @pytest.mark.django_db
@@ -28,14 +25,13 @@ def test_issue_list_pagination_second_page(superuser_client, project, create_tes
     for index in range(50):
         create_test_issue(title=f"Issue {index}")
 
-    page_one = _list_issues(superuser_client, project.id, page=1, page_size=25).json()["data"]
-    page_two = _list_issues(superuser_client, project.id, page=2, page_size=25).json()["data"]
+    page_one = _list_issues(superuser_client, project.id, page=1, page_size=10).json()["data"]
+    page_two = _list_issues(superuser_client, project.id, page=2, page_size=10).json()["data"]
 
-    assert len(page_one["results"]) == 25
-    assert len(page_two["results"]) == 25
-    assert page_two["pagination"]["page"] == 2
-    assert page_two["pagination"]["previous"] is not None
-    assert page_two["pagination"]["next"] is None
+    assert len(page_one["results"]) == 10
+    assert len(page_two["results"]) == 10
+    assert page_two["previous"] is not None
+    assert page_two["next"] is not None
 
     page_one_ids = {issue["id"] for issue in page_one["results"]}
     page_two_ids = {issue["id"] for issue in page_two["results"]}
@@ -57,13 +53,12 @@ def test_issue_list_pagination_returns_only_current_page(
         superuser_client,
         project.id,
         page=2,
-        page_size=25,
+        page_size=10,
     )
     payload = response.json()["data"]
 
-    assert len(payload["results"]) == 25
-    assert payload["pagination"]["count"] == total_issues
-    assert payload["pagination"]["page"] == 2
+    assert len(payload["results"]) == 10
+    assert payload["count"] == total_issues
 
 
 @pytest.mark.django_db
@@ -84,8 +79,41 @@ def test_issue_list_pagination_preserves_filters(
     )
     payload = response.json()["data"]
 
-    assert payload["pagination"]["count"] == 1
+    assert payload["count"] == 1
     assert payload["results"][0]["title"] == "Unassigned issue"
+
+
+@pytest.mark.django_db
+def test_issue_list_pagination_preserves_search(
+    superuser_client,
+    project,
+    create_test_issue,
+):
+    create_test_issue(title="Login API")
+    create_test_issue(title="Logout flow")
+
+    response = _list_issues(
+        superuser_client,
+        project.id,
+        page=1,
+        search="Login",
+    )
+    payload = response.json()["data"]
+
+    assert payload["count"] == 1
+    assert payload["results"][0]["title"] == "Login API"
+
+
+@pytest.mark.django_db
+def test_issue_list_pagination_max_page_size(superuser_client, project, create_test_issue):
+    for index in range(150):
+        create_test_issue(title=f"Issue {index}")
+
+    response = _list_issues(superuser_client, project.id, page=1, page_size=200)
+    payload = response.json()["data"]
+
+    assert len(payload["results"]) == 100
+    assert payload["count"] == 150
 
 
 @pytest.mark.django_db
@@ -98,3 +126,4 @@ def test_issue_list_unpaginated_response_unchanged(superuser_client, project, cr
     assert "issues" in payload
     assert len(payload["issues"]) == 1
     assert "pagination" not in payload
+    assert "count" not in payload
