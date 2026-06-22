@@ -93,6 +93,7 @@ export type CreateIssuePayload = {
   due_date?: string | null
   estimate_hours?: number | null
   story_points?: number | null
+  parent_issue?: string | null
 }
 
 export type UpdateIssuePayload = {
@@ -151,9 +152,29 @@ export type IssueAttachmentApi = {
   created_at: string
 }
 
+export type IssueSubtaskApi = {
+  id: string
+  key: string
+  title: string
+  done: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type UpdateSubtaskPayload = {
+  title?: string
+  done?: boolean
+}
+
 function normalizeIssueType(type?: string): CreateIssuePayload['type'] {
   if (!type) return type
-  if (type === 'task' || type === 'bug' || type === 'story' || type === 'epic') {
+  if (
+    type === 'task' ||
+    type === 'bug' ||
+    type === 'story' ||
+    type === 'epic' ||
+    type === 'subtask'
+  ) {
     return type
   }
   return 'task'
@@ -484,6 +505,55 @@ export async function updateComment(
 export async function deleteComment(commentId: string): Promise<void> {
   try {
     await apiClient.delete(`/comments/${commentId}`)
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getIssueSubtasks(issueId: string): Promise<IssueSubtaskApi[]> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ subtasks: IssueSubtaskApi[] }>>(
+      `/issues/${issueId}/subtasks`,
+    )
+    return data.data.subtasks
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function createIssueSubtask(
+  issueId: string,
+  title: string,
+): Promise<IssueSubtaskApi> {
+  try {
+    const { data } = await apiClient.post<ApiResponse<{ subtask: IssueSubtaskApi }>>(
+      `/issues/${issueId}/subtasks`,
+      { title },
+    )
+    return data.data.subtask
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function updateSubtask(
+  subtaskId: string,
+  payload: UpdateSubtaskPayload,
+): Promise<IssueSubtaskApi> {
+  try {
+    const { data } = await apiClient.patch<ApiResponse<{ subtask: IssueSubtaskApi }>>(
+      `/subtasks/${subtaskId}`,
+      payload,
+    )
+    return data.data.subtask
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function deleteSubtask(subtaskId: string): Promise<void> {
+  try {
+    await apiClient.delete(`/subtasks/${subtaskId}`)
   } catch (error) {
     throw toApiError(error)
   }

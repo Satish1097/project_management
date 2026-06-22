@@ -13,6 +13,7 @@ class IssueType(models.TextChoices):
     BUG = "bug", "Bug"
     STORY = "story", "Story"
     EPIC = "epic", "Epic"
+    SUBTASK = "subtask", "Subtask"
 
 
 class Priority(models.TextChoices):
@@ -78,6 +79,13 @@ class Issue(BaseModel):
         blank=True,
     )
     story_points = models.IntegerField(null=True, blank=True)
+    parent_issue = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="subtasks",
+    )
 
     class Meta:
         verbose_name = "issue"

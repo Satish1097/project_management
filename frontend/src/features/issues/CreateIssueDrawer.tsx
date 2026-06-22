@@ -182,6 +182,9 @@ export function CreateIssueDrawer({
     if (values.dueDate) {
       payload.due_date = values.dueDate
     }
+    if (values.issueType === 'subtask' && values.parentIssueId) {
+      payload.parent_issue = values.parentIssueId
+    }
     const estimateHours = Number.parseFloat(values.estimatedTime)
     if (!Number.isNaN(estimateHours) && estimateHours >= 0) {
       payload.estimate_hours = estimateHours

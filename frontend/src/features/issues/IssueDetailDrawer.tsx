@@ -35,16 +35,20 @@ import {
 } from '@/constants/issueOptions'
 import {
   createComment as apiCreateComment,
+  createIssueSubtask as apiCreateIssueSubtask,
   deleteComment as apiDeleteComment,
   deleteIssueAttachment as apiDeleteIssueAttachment,
   getIssueActivity as apiGetIssueActivity,
   getIssueAttachments as apiGetIssueAttachments,
   getIssue as apiGetIssue,
   getIssueComments as apiGetIssueComments,
+  getIssueSubtasks as apiGetIssueSubtasks,
   type IssueActivityApi,
   type IssueAttachmentApi,
+  type IssueSubtaskApi,
   transitionIssue as apiTransitionIssue,
   updateComment as apiUpdateComment,
+  updateSubtask as apiUpdateSubtask,
   uploadIssueAttachment as apiUploadIssueAttachment,
 } from '@/api/issues'
 import {
@@ -70,7 +74,7 @@ import {
 import { isApiIssueId, mapIssueDetailToUi } from '@/services/mapIssueApi'
 import { getProjectById, getSprintById } from '@/services/projectData'
 import { mockMembers } from '@/services/mockMembers'
-import type { IssueDetailExtras, IssueComment } from '@/types/issueDetail'
+import type { IssueDetailExtras, IssueComment, IssueSubtask } from '@/types/issueDetail'
 import {
   mapWorkflowToBoardStatus,
   type IssuePriorityLevel,
@@ -185,6 +189,14 @@ function humanizeEnumLabel(value: string): string {
     .join(' ')
 }
 
+function mapSubtaskApiToUi(subtask: IssueSubtaskApi): IssueSubtask {
+  return {
+    id: subtask.id,
+    title: subtask.title,
+    done: subtask.done,
+  }
+}
+
 function workflowToTaskStatus(status?: IssueWorkflowStatus): TaskStatus {
   switch (status) {
     case 'backlog':
@@ -247,6 +259,10 @@ export function IssueDetailDrawer({
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
   const [memberNamesById, setMemberNamesById] = useState<Record<string, string>>({})
   const [newSubtask, setNewSubtask] = useState('')
+  const [subtasksLoading, setSubtasksLoading] = useState(false)
+  const [subtasksSaving, setSubtasksSaving] = useState(false)
+  const [subtaskBusyId, setSubtaskBusyId] = useState<string | null>(null)
+  const [subtaskError, setSubtaskError] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -279,6 +295,9 @@ export function IssueDetailDrawer({
     setAttachmentsSaving(false)
     setMemberNamesById({})
     setNewSubtask('')
+    setSubtaskError(null)
+    setSubtaskBusyId(null)
+    setSubtasksSaving(false)
     setSaveError(null)
 
     if (isApiIssueId(issue.id)) {
@@ -448,6 +467,22 @@ export function IssueDetailDrawer({
     }
   }, [])
 
+  const loadIssueSubtasks = useCallback(async (issueId: string) => {
+    setSubtasksLoading(true)
+    setSubtaskError(null)
+    try {
+      const entries = await apiGetIssueSubtasks(issueId)
+      const mapped = entries.map(mapSubtaskApiToUi)
+      setExtras((prev) => (prev ? { ...prev, subtasks: mapped } : prev))
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : 'Failed to load subtasks.'
+      setSubtaskError(message)
+    } finally {
+      setSubtasksLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!open || !persisted || !draft?.id || !draft.projectId) return
     void loadIssueComments(draft.id, draft.projectId)
@@ -462,6 +497,11 @@ export function IssueDetailDrawer({
     if (!open || !persisted || !draft?.id) return
     void loadIssueAttachments(draft.id)
   }, [draft?.id, loadIssueAttachments, open, persisted])
+
+  useEffect(() => {
+    if (!open || !persisted || !draft?.id) return
+    void loadIssueSubtasks(draft.id)
+  }, [draft?.id, loadIssueSubtasks, open, persisted])
 
   const requestClose = useCallback(() => {
     if (dirty) {
@@ -792,27 +832,77 @@ export function IssueDetailDrawer({
   )
 
   const toggleSubtask = useCallback(
-    (subtaskId: string) => {
+    async (subtaskId: string) => {
       if (!extras) return
-      patchExtras({
-        subtasks: extras.subtasks.map((s) =>
-          s.id === subtaskId ? { ...s, done: !s.done } : s,
-        ),
-      })
+      const current = extras.subtasks.find((s) => s.id === subtaskId)
+      if (!current) return
+
+      if (!persisted || !draft) {
+        patchExtras({
+          subtasks: extras.subtasks.map((s) =>
+            s.id === subtaskId ? { ...s, done: !s.done } : s,
+          ),
+        })
+        return
+      }
+
+      setSubtaskBusyId(subtaskId)
+      setSubtaskError(null)
+      try {
+        const updated = await apiUpdateSubtask(subtaskId, { done: !current.done })
+        const mapped = mapSubtaskApiToUi(updated)
+        setExtras((prev) =>
+          prev
+            ? {
+                ...prev,
+                subtasks: prev.subtasks.map((s) =>
+                  s.id === subtaskId ? mapped : s,
+                ),
+              }
+            : prev,
+        )
+      } catch (error) {
+        const message =
+          error instanceof ApiError ? error.message : 'Failed to update subtask.'
+        setSubtaskError(message)
+      } finally {
+        setSubtaskBusyId(null)
+      }
     },
-    [extras, patchExtras],
+    [draft, extras, patchExtras, persisted],
   )
 
-  const addSubtask = useCallback(() => {
+  const addSubtask = useCallback(async () => {
     if (!draft || !extras || !newSubtask.trim()) return
-    patchExtras({
-      subtasks: [
-        ...extras.subtasks,
-        { id: `${draft.id}-s-${Date.now()}`, title: newSubtask.trim(), done: false },
-      ],
-    })
-    setNewSubtask('')
-  }, [draft, extras, newSubtask, patchExtras])
+
+    if (!persisted) {
+      patchExtras({
+        subtasks: [
+          ...extras.subtasks,
+          { id: `${draft.id}-s-${Date.now()}`, title: newSubtask.trim(), done: false },
+        ],
+      })
+      setNewSubtask('')
+      return
+    }
+
+    setSubtasksSaving(true)
+    setSubtaskError(null)
+    try {
+      const created = await apiCreateIssueSubtask(draft.id, newSubtask.trim())
+      const mapped = mapSubtaskApiToUi(created)
+      setExtras((prev) =>
+        prev ? { ...prev, subtasks: [...prev.subtasks, mapped] } : prev,
+      )
+      setNewSubtask('')
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : 'Failed to create subtask.'
+      setSubtaskError(message)
+    } finally {
+      setSubtasksSaving(false)
+    }
+  }, [draft, extras, newSubtask, patchExtras, persisted])
 
   const statusLabelByKey = useMemo(() => {
     const labels: Record<string, string> = {}
@@ -1381,6 +1471,9 @@ export function IssueDetailDrawer({
 
             {tab === 'subtasks' && (
               <div className="space-y-4">
+                {subtaskError && (
+                  <p className="text-caption text-devflow-error">{subtaskError}</p>
+                )}
                 <div className="flex items-center justify-between">
                   <h3 className="flex items-center gap-2 text-card-title">
                     <ListChecks className="size-5" />
@@ -1396,34 +1489,42 @@ export function IssueDetailDrawer({
                     style={{ width: `${subtaskProgress}%` }}
                   />
                 </div>
-                <ul className="space-y-2">
-                  {extras.subtasks.map((subtask) => (
-                    <li
-                      key={subtask.id}
-                      className="flex items-center gap-3 rounded-lg border border-devflow-border px-3 py-2"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={subtask.done}
-                        onChange={() => toggleSubtask(subtask.id)}
-                        className="size-4 rounded border-devflow-border"
-                      />
-                      <span
-                        className={cn(
-                          'flex-1 text-body',
-                          subtask.done
-                            ? 'text-devflow-text-muted line-through'
-                            : 'text-devflow-text',
-                        )}
+                {subtasksLoading ? (
+                  <p className="text-body text-devflow-text-secondary">Loading subtasks…</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {extras.subtasks.map((subtask) => (
+                      <li
+                        key={subtask.id}
+                        className="flex items-center gap-3 rounded-lg border border-devflow-border px-3 py-2"
                       >
-                        {subtask.title}
-                      </span>
-                      {subtask.done && (
-                        <Check className="size-4 text-devflow-success" />
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                        <input
+                          type="checkbox"
+                          checked={subtask.done}
+                          onChange={() => void toggleSubtask(subtask.id)}
+                          disabled={subtaskBusyId === subtask.id}
+                          className="size-4 rounded border-devflow-border"
+                        />
+                        <span
+                          className={cn(
+                            'flex-1 text-body',
+                            subtask.done
+                              ? 'text-devflow-text-muted line-through'
+                              : 'text-devflow-text',
+                          )}
+                        >
+                          {subtask.title}
+                        </span>
+                        {subtask.done && (
+                          <Check className="size-4 text-devflow-success" />
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {!subtasksLoading && extras.subtasks.length === 0 && (
+                  <p className="text-body text-devflow-text-secondary">No subtasks yet.</p>
+                )}
                 <div className="flex gap-2">
                   <input
                     value={newSubtask}
@@ -1433,17 +1534,18 @@ export function IssueDetailDrawer({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
-                        addSubtask()
+                        void addSubtask()
                       }
                     }}
                   />
                   <button
                     type="button"
-                    onClick={addSubtask}
-                    className="inline-flex items-center gap-1 rounded-lg border border-devflow-border px-3 py-2 text-btn hover:bg-devflow-surface"
+                    onClick={() => void addSubtask()}
+                    disabled={!newSubtask.trim() || subtasksSaving}
+                    className="inline-flex items-center gap-1 rounded-lg border border-devflow-border px-3 py-2 text-btn hover:bg-devflow-surface disabled:opacity-50"
                   >
                     <Plus className="size-4" />
-                    Add
+                    {subtasksSaving ? 'Adding…' : 'Add'}
                   </button>
                 </div>
               </div>

@@ -2,8 +2,7 @@ pytest_plugins = ["apps.projects.tests.conftest"]
 
 import pytest
 
-from apps.contracts.workflow_contract import get_status_by_slug
-from apps.issues.services.issue_service import create_issue
+from apps.issues.services.issue_service import issue_service
 from apps.organizations.services.membership_service import add_organization_member
 from apps.projects.models import ProjectRole
 from apps.projects.services.membership_service import add_project_member
@@ -72,13 +71,20 @@ def issue_payload():
 @pytest.fixture
 def create_test_issue(project, superuser):
     def _create(**kwargs):
+        actor = kwargs.pop("actor_id", superuser.id)
+        from apps.accounts.models import User
+
+        user = User.objects.get(pk=actor)
+        issue_type = kwargs.pop("issue_type", None)
+        if issue_type is not None:
+            kwargs["type"] = issue_type
         defaults = {
             "project_id": project.id,
             "title": "Test issue",
-            "actor_id": superuser.id,
+            "user": user,
         }
         defaults.update(kwargs)
-        return create_issue(**defaults)
+        return issue_service.create_issue(**defaults)
 
     return _create
 
@@ -86,5 +92,11 @@ def create_test_issue(project, superuser):
 @pytest.fixture
 def status_ids(project):
     """Map workflow slug → status UUID for the project."""
+    from apps.workflow.selectors import select_status_by_slug
+
     slugs = ("todo", "in_progress", "in_review", "done", "blocked")
-    return {slug: get_status_by_slug(project.id, slug).id for slug in slugs}
+    return {
+        slug: select_status_by_slug(project.id, slug).id
+        for slug in slugs
+        if select_status_by_slug(project.id, slug) is not None
+    }

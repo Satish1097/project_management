@@ -8,7 +8,7 @@ from uuid import UUID
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, QuerySet
 
-from apps.issues.models import Issue, IssueActivity, IssueAttachment, IssueComment
+from apps.issues.models import Issue, IssueActivity, IssueAttachment, IssueComment, IssueType
 from apps.issues.models.activity import IssueActivityEventType
 from apps.permissions.services import permission_service
 from apps.sprints.selectors import get_sprint_by_id
@@ -52,6 +52,14 @@ def get_activity_by_id(activity_id: UUID) -> IssueActivity | None:
 
 def get_attachment_by_id(attachment_id: UUID) -> IssueAttachment | None:
     return _optimized_attachment_queryset().filter(pk=attachment_id).first()
+
+
+def get_issue_subtasks(parent_issue_id: UUID) -> QuerySet[Issue]:
+    return (
+        _optimized_issue_queryset()
+        .filter(parent_issue_id=parent_issue_id, type=IssueType.SUBTASK)
+        .order_by("created_at")
+    )
 
 
 def get_issue_comments(issue_id: UUID) -> QuerySet[IssueComment]:
@@ -264,7 +272,10 @@ def get_project_issues(
     search: str | None = None,
     sort: str | None = None,
 ) -> QuerySet[Issue]:
-    qs = _optimized_issue_queryset().filter(project_id=project_id)
+    qs = _optimized_issue_queryset().filter(
+        project_id=project_id,
+        parent_issue__isnull=True,
+    )
 
     if sprint_is_null:
         qs = qs.filter(sprint__isnull=True)

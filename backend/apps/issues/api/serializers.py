@@ -10,6 +10,12 @@ from apps.issues.models import (
 )
 from apps.label.api.serializers import LabelSerializer
 from apps.workflow.api.serializers import WorkflowStatusSerializer
+from apps.workflow.slug_utils import status_slug
+
+
+def _issue_is_done(issue: Issue) -> bool:
+    slug = status_slug(name=issue.status.name, category=issue.status.category)
+    return slug == "done"
 
 
 class IssueSerializer(serializers.ModelSerializer):
@@ -34,6 +40,7 @@ class IssueSerializer(serializers.ModelSerializer):
             "due_date",
             "estimate_hours",
             "story_points",
+            "parent_issue",
             "created_at",
             "updated_at",
         ]
@@ -103,6 +110,39 @@ class IssueCreateSerializer(_IssueMutationValidationMixin, serializers.Serialize
         default=None,
         min_value=0,
     )
+    parent_issue = serializers.UUIDField(
+        required=False,
+        allow_null=True,
+        default=None,
+    )
+
+
+class SubtaskSerializer(serializers.ModelSerializer):
+    done = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Issue
+        fields = [
+            "id",
+            "key",
+            "title",
+            "done",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_done(self, obj: Issue) -> bool:
+        return _issue_is_done(obj)
+
+
+class SubtaskCreateSerializer(_IssueMutationValidationMixin, serializers.Serializer):
+    title = serializers.CharField(max_length=500)
+
+
+class SubtaskUpdateSerializer(_IssueMutationValidationMixin, serializers.Serializer):
+    title = serializers.CharField(max_length=500, required=False)
+    done = serializers.BooleanField(required=False)
 
 
 class IssueUpdateSerializer(_IssueMutationValidationMixin, serializers.Serializer):

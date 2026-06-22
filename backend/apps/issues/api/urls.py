@@ -10,9 +10,11 @@ from apps.issues.api.views import (
     IssueCommentListCreateView,
     IssueDetailView,
     IssueListCreateView,
+    IssueSubtaskListCreateView,
     IssueTransitionView,
     ProjectKanbanView,
     SprintKanbanView,
+    SubtaskDetailView,
 )
 
 urlpatterns = [
@@ -57,6 +59,16 @@ urlpatterns = [
         "issues/<uuid:issue_id>/attachments",
         IssueAttachmentListCreateView.as_view(),
         name="issue-attachment-list-create",
+    ),
+    path(
+        "issues/<uuid:issue_id>/subtasks",
+        IssueSubtaskListCreateView.as_view(),
+        name="issue-subtask-list-create",
+    ),
+    path(
+        "subtasks/<uuid:subtask_id>",
+        SubtaskDetailView.as_view(),
+        name="subtask-detail",
     ),
     path(
         "comments/<uuid:comment_id>",

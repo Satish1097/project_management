@@ -18,6 +18,9 @@ from apps.issues.api.serializers import (
     IssueSerializer,
     IssueTransitionSerializer,
     IssueUpdateSerializer,
+    SubtaskCreateSerializer,
+    SubtaskSerializer,
+    SubtaskUpdateSerializer,
 )
 from apps.issues.exceptions import IssueNotFoundError
 from apps.issues.selectors import (
@@ -25,6 +28,7 @@ from apps.issues.selectors import (
     get_issue_attachments,
     get_issue_by_id,
     get_issue_comments,
+    get_issue_subtasks,
     get_project_issues,
     get_project_kanban,
     get_sprint_kanban,
@@ -82,6 +86,7 @@ def _create_kwargs(validated_data: dict) -> dict:
         "due_date": validated_data.get("due_date"),
         "estimate_hours": validated_data.get("estimate_hours"),
         "story_points": validated_data.get("story_points"),
+        "parent_issue_id": validated_data.get("parent_issue"),
     }
 
 
@@ -396,6 +401,57 @@ class IssueActivityListView(APIView):
         return success_response(
             data={"activity": IssueActivitySerializer(activity, many=True).data}
         )
+
+
+class IssueSubtaskListCreateView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(responses=SubtaskSerializer(many=True), tags=["issues"])
+    def get(self, request, issue_id: UUID):
+        issue = _require_issue(issue_id)
+        _require_issue_view(request.user.id, issue.project_id)
+        subtasks = get_issue_subtasks(issue_id)
+        return success_response(
+            data={"subtasks": SubtaskSerializer(subtasks, many=True).data}
+        )
+
+    @extend_schema(request=SubtaskCreateSerializer, responses=SubtaskSerializer, tags=["issues"])
+    def post(self, request, issue_id: UUID):
+        _require_issue(issue_id)
+        serializer = SubtaskCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        subtask = issue_service.create_subtask(
+            user=request.user,
+            parent_issue_id=issue_id,
+            title=serializer.validated_data["title"],
+        )
+        return success_response(
+            data={"subtask": SubtaskSerializer(subtask).data},
+            status=201,
+        )
+
+
+class SubtaskDetailView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(request=SubtaskUpdateSerializer, responses=SubtaskSerializer, tags=["issues"])
+    def patch(self, request, subtask_id: UUID):
+        subtask = _require_issue(subtask_id)
+        _require_issue_view(request.user.id, subtask.project_id)
+        serializer = SubtaskUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated = issue_service.update_subtask(
+            user=request.user,
+            subtask_id=subtask_id,
+            title=serializer.validated_data.get("title"),
+            done=serializer.validated_data.get("done"),
+        )
+        return success_response(data={"subtask": SubtaskSerializer(updated).data})
+
+    @extend_schema(tags=["issues"])
+    def delete(self, request, subtask_id: UUID):
+        issue_service.delete_issue(user=request.user, issue_id=subtask_id)
+        return success_response(status=204)
 
 
 class CommentDetailView(APIView):
