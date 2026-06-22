@@ -276,6 +276,11 @@ class IssueDetailView(APIView):
         )
         return success_response(data={"issue": IssueSerializer(issue).data})
 
+    @extend_schema(tags=["issues"])
+    def delete(self, request, issue_id: UUID):
+        issue_service.delete_issue(user=request.user, issue_id=issue_id)
+        return success_response(status=204)
+
 
 class IssueAssignSprintView(APIView):
     permission_classes = [Authenticated]

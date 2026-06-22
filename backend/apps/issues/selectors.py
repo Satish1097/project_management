@@ -9,6 +9,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, QuerySet
 
 from apps.issues.models import Issue, IssueActivity, IssueAttachment, IssueComment
+from apps.issues.models.activity import IssueActivityEventType
 from apps.permissions.services import permission_service
 from apps.sprints.selectors import get_sprint_by_id
 from apps.workflow.selectors import get_project_statuses
@@ -120,15 +121,39 @@ def serialize_activity_feed_items(activities) -> list[dict]:
     return [_activity_feed_item(activity) for activity in activities]
 
 
-def select_dashboard_activity_feed(user_id: UUID, *, limit: int = 20) -> list[dict]:
+ACTIVITY_EVENT_FILTER_GROUPS: dict[str, list[str]] = {
+    "comments": [
+        IssueActivityEventType.COMMENT_ADDED,
+        IssueActivityEventType.COMMENT_DELETED,
+    ],
+    "status_changes": [IssueActivityEventType.STATUS_CHANGED],
+    "sprint_updates": [IssueActivityEventType.SPRINT_CHANGED],
+    "member_actions": [IssueActivityEventType.ASSIGNEE_CHANGED],
+}
+
+
+def get_dashboard_activity_queryset(
+    user_id: UUID,
+    *,
+    event_filter: str | None = None,
+) -> QuerySet[IssueActivity]:
     project_ids = _select_visible_activity_project_ids(user_id)
-    activities = (
+    queryset = (
         _optimized_activity_queryset()
         .select_related("issue", "issue__project")
         .filter(issue__project_id__in=project_ids)
         .order_by("-created_at")
     )
-    return [_activity_feed_item(activity) for activity in activities[:limit]]
+    if event_filter and event_filter != "all":
+        event_types = ACTIVITY_EVENT_FILTER_GROUPS.get(event_filter)
+        if event_types:
+            queryset = queryset.filter(event_type__in=event_types)
+    return queryset
+
+
+def select_dashboard_activity_feed(user_id: UUID, *, limit: int = 20) -> list[dict]:
+    activities = get_dashboard_activity_queryset(user_id)[:limit]
+    return [_activity_feed_item(activity) for activity in activities]
 
 
 def select_sprint_activity_feed(

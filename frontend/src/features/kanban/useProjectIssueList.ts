@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SetURLSearchParams } from 'react-router-dom'
 import { listIssuesPaginated, type IssueListPaginationApi } from '@/api/issues'
 import { ApiError } from '@/api/types'
+import { registerKanbanRefresh } from '@/features/kanban/kanbanRefreshBridge'
 import {
   boardListQueryFromSearchParams,
   DEFAULT_LIST_PAGE_SIZE,
@@ -78,6 +79,12 @@ export function useProjectIssueList({
 
   useEffect(() => {
     void loadList()
+  }, [loadList])
+
+  useEffect(() => {
+    return registerKanbanRefresh(() => {
+      void loadList()
+    })
   }, [loadList])
 
   const tasks = useMemo<Task[]>(

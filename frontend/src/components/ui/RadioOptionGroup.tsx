@@ -13,6 +13,7 @@ type RadioOptionGroupProps<T extends string> = {
   options: RadioOption<T>[]
   onChange: (value: T) => void
   className?: string
+  layout?: 'default' | 'grid'
 }
 
 export function RadioOptionGroup<T extends string>({
@@ -22,11 +23,20 @@ export function RadioOptionGroup<T extends string>({
   options,
   onChange,
   className,
+  layout = 'default',
 }: RadioOptionGroupProps<T>) {
+  const isGrid = layout === 'grid'
+
   return (
     <fieldset className={cn('flex flex-col gap-1.5', className)}>
       <legend className="text-label text-devflow-text-secondary">{label}</legend>
-      <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+      <div
+        className={cn(
+          isGrid
+            ? 'grid grid-cols-1 gap-2 sm:grid-cols-2'
+            : 'flex flex-col gap-2 sm:flex-row sm:gap-2',
+        )}
+      >
         {options.map((option) => {
           const checked = value === option.value
           const inputId = `${name}-${option.value}`
@@ -36,7 +46,10 @@ export function RadioOptionGroup<T extends string>({
               key={option.value}
               htmlFor={inputId}
               className={cn(
-                'flex flex-1 cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 transition-colors',
+                'flex cursor-pointer gap-2.5 rounded-lg border px-3 py-2.5 transition-colors',
+                isGrid
+                  ? 'h-full min-h-[2.75rem] items-center'
+                  : 'flex-1 items-start',
                 checked
                   ? 'border-devflow-primary bg-[var(--df-nav-tint)] ring-1 ring-devflow-primary/25'
                   : 'border-devflow-border bg-devflow-surface hover:border-devflow-border/80 hover:bg-devflow-card',
@@ -49,10 +62,18 @@ export function RadioOptionGroup<T extends string>({
                 value={option.value}
                 checked={checked}
                 onChange={() => onChange(option.value)}
-                className="mt-0.5 size-4 shrink-0 accent-devflow-primary"
+                className={cn(
+                  'size-4 shrink-0 accent-devflow-primary',
+                  isGrid ? undefined : 'mt-0.5',
+                )}
               />
-              <span className="min-w-0">
-                <span className="block text-body font-medium text-devflow-text">
+              <span className={cn(isGrid ? 'min-w-0 flex-1' : 'min-w-0')}>
+                <span
+                  className={cn(
+                    'block text-body font-medium text-devflow-text',
+                    isGrid && 'whitespace-nowrap',
+                  )}
+                >
                   {option.label}
                 </span>
                 {option.description && (

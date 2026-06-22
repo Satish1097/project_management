@@ -1,14 +1,12 @@
-let refreshHandler: (() => void) | null = null
+let refreshHandlers = new Set<() => void>()
 
 export function registerKanbanRefresh(handler: () => void): () => void {
-  refreshHandler = handler
+  refreshHandlers.add(handler)
   return () => {
-    if (refreshHandler === handler) {
-      refreshHandler = null
-    }
+    refreshHandlers.delete(handler)
   }
 }
 
 export function refreshKanbanBoard(): void {
-  refreshHandler?.()
+  refreshHandlers.forEach((handler) => handler())
 }

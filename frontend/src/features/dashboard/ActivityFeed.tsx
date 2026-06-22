@@ -57,6 +57,7 @@ type ActivityFeedProps = {
   onRetry?: () => void
   viewAllTo?: string
   showProjectName?: boolean
+  showSectionHeader?: boolean
   emptyMessage?: string
   emptyHelperText?: string
   pagination?: ActivityFeedPagination
@@ -71,6 +72,7 @@ export function ActivityFeed({
   onRetry,
   viewAllTo,
   showProjectName = true,
+  showSectionHeader = true,
   emptyMessage = 'No recent activity yet',
   emptyHelperText = 'Activity will appear here when issues, comments, sprint changes, or status updates occur.',
   pagination,
@@ -82,7 +84,7 @@ export function ActivityFeed({
 
   const renderContent = () => {
     if (isLoading) {
-      const skeletonCount = isPreview ? 5 : 3
+      const skeletonCount = isPreview ? 5 : pagination?.pageSize ?? (isFull ? 10 : 3)
       return (
         <ul
           className={cn(
@@ -179,6 +181,11 @@ export function ActivityFeed({
                   </span>
                 )}
               </p>
+              {isFull && showProjectName && a.project && (
+                <p className="mt-0.5 text-[11px] text-devflow-text-secondary">
+                  Project {a.project.name}
+                </p>
+              )}
               <p className="mt-0.5 text-[11px] text-devflow-text-muted">
                 {formatActivityTimestamp(a.timestamp)}
               </p>
@@ -201,28 +208,42 @@ export function ActivityFeed({
 
   const content = (
     <>
-      {!embedded && (
+      {!embedded && showSectionHeader && (
         <div
           className={cn(
-            'mb-3 flex items-center gap-2',
+            'mb-3 flex items-center justify-between gap-2',
             isSecondary && 'mb-2.5',
           )}
         >
-          <History
-            className={cn(
-              'text-devflow-text-muted',
-              isSecondary ? 'size-4' : 'size-[18px] text-devflow-text-secondary',
-            )}
-          />
-          <h3
-            className={cn(
-              isSecondary
-                ? 'text-body font-medium text-devflow-text-secondary'
-                : 'text-section-title text-devflow-text',
-            )}
-          >
-            Recent Activity
-          </h3>
+          <div className="flex min-w-0 items-center gap-2">
+            <History
+              className={cn(
+                'shrink-0 text-devflow-text-muted',
+                isSecondary ? 'size-4' : 'size-[18px] text-devflow-text-secondary',
+              )}
+            />
+            <h3
+              className={cn(
+                'truncate',
+                isSecondary
+                  ? 'text-body font-medium text-devflow-text-secondary'
+                  : 'text-section-title text-devflow-text',
+              )}
+            >
+              Recent Activity
+            </h3>
+          </div>
+          {!isFull && viewAllTo && (
+            <Link
+              to={viewAllTo}
+              className={cn(
+                'inline-flex shrink-0 items-center font-medium !text-devflow-primary hover:!text-devflow-primary-hover hover:underline',
+                isSecondary ? 'text-caption' : 'text-btn',
+              )}
+            >
+              View all →
+            </Link>
+          )}
         </div>
       )}
 
@@ -257,17 +278,6 @@ export function ActivityFeed({
         </div>
       )}
 
-      {!isFull && !embedded && viewAllTo && (
-        <Link
-          to={viewAllTo}
-          className={cn(
-            'mt-3 block w-full text-center text-btn text-devflow-primary hover:underline',
-            isSecondary && 'mt-2.5 text-caption',
-          )}
-        >
-          View all →
-        </Link>
-      )}
     </>
   )
 
@@ -279,7 +289,7 @@ export function ActivityFeed({
     <aside
       className={cn(
         'w-full shrink-0',
-        isFull ? 'max-w-3xl' : isSecondary ? 'pt-1 lg:w-[15.5rem] xl:w-[14.5rem]' : 'pt-1 lg:w-72',
+        isFull ? 'w-full' : isSecondary ? 'pt-1 lg:w-[15.5rem] xl:w-[14.5rem]' : 'pt-1 lg:w-72',
       )}
     >
       <div

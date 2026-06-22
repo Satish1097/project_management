@@ -61,3 +61,33 @@ export async function inviteProjectMember(
     throw toApiError(error)
   }
 }
+
+export async function updateProjectMemberRole(
+  projectId: string,
+  userId: string,
+  role: string,
+): Promise<ProjectMemberRecord> {
+  try {
+    const { data } = await apiClient.patch<ApiResponse<{ member: ProjectMemberRecord }>>(
+      `/projects/${projectId}/members/${userId}`,
+      { role },
+    )
+    if (!data.data?.member) {
+      throw new ApiError('Unexpected member update response.')
+    }
+    return data.data.member
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function removeProjectMember(
+  projectId: string,
+  userId: string,
+): Promise<void> {
+  try {
+    await apiClient.delete(`/projects/${projectId}/members/${userId}`)
+  } catch (error) {
+    throw toApiError(error)
+  }
+}

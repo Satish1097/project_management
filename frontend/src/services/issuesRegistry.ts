@@ -65,6 +65,10 @@ export function upsertApiIssue(issue: ProjectIssue): void {
   issues = [...issues.slice(0, index), issue, ...issues.slice(index + 1)]
 }
 
+export function removeIssueFromRegistry(issueId: string): void {
+  issues = issues.filter((issue) => issue.id !== issueId)
+}
+
 export function setSprintIssuesForProject(
   projectId: string,
   sprintId: string,

@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Loader2, MoreHorizontal, UserPlus } from 'lucide-react'
+import { Loader2, UserPlus } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { BRANDING } from '@/constants/branding'
 import { Avatar } from '@/components/ui/Avatar'
 import { InviteMemberForm } from '@/features/members/InviteMemberForm'
+import { MemberActionsMenu } from '@/features/members/MemberActionsMenu'
 import {
   INVITE_EMAIL_INPUT_ID,
   PROJECT_ROLES,
@@ -27,6 +28,7 @@ export function ProjectSettingsMembersPage() {
     inviteError,
     inviteSuccess,
     handleInviteSubmit,
+    reload,
   } = useProjectMembers(projectId)
   const [roleFilter, setRoleFilter] = useState('all')
 
@@ -133,9 +135,11 @@ export function ProjectSettingsMembersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-4 text-right">
-                      <button type="button" className="text-devflow-text-secondary">
-                        <MoreHorizontal className="size-5" />
-                      </button>
+                      <MemberActionsMenu
+                        member={member}
+                        projectId={projectId}
+                        onUpdated={reload}
+                      />
                     </td>
                   </tr>
                 )

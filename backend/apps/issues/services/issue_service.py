@@ -392,5 +392,15 @@ class IssueService:
                     )
             return updated_count
 
+    def delete_issue(self, user, issue_id: UUID) -> bool:
+        issue = _get_issue_or_raise(issue_id)
+        _reject_archived_project(issue.project)
+
+        if not permission_service.can_edit_issue(user.id, issue.project_id):
+            raise IssueError("Permission denied: cannot delete this issue.")
+
+        issue.soft_delete(user)
+        return True
+
 
 issue_service = IssueService()

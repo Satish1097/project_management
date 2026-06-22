@@ -7,6 +7,25 @@ import type {
   DashboardActivityApi,
 } from '@/types/dashboard'
 
+export type ActivityFilterId =
+  | 'all'
+  | 'comments'
+  | 'status_changes'
+  | 'sprint_updates'
+  | 'member_actions'
+
+export type DashboardActivityPageApi = {
+  results: DashboardActivityApi[]
+  pagination: {
+    count: number
+    page: number
+    page_size: number
+    total_pages: number
+    next: string | null
+    previous: string | null
+  }
+}
+
 function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
 
@@ -51,6 +70,26 @@ export async function getDashboardActivity(limit = 5): Promise<DashboardActivity
       { params: { limit } },
     )
     return data.data.activities
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getDashboardActivityPage(
+  options: { page?: number; pageSize?: number; filter?: ActivityFilterId } = {},
+): Promise<DashboardActivityPageApi> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<DashboardActivityPageApi>>(
+      '/dashboard/activity',
+      {
+        params: {
+          page: options.page ?? 1,
+          page_size: options.pageSize ?? 10,
+          ...(options.filter && options.filter !== 'all' ? { filter: options.filter } : {}),
+        },
+      },
+    )
+    return data.data
   } catch (error) {
     throw toApiError(error)
   }

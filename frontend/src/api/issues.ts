@@ -488,3 +488,11 @@ export async function deleteComment(commentId: string): Promise<void> {
     throw toApiError(error)
   }
 }
+
+export async function deleteIssue(issueId: string): Promise<void> {
+  try {
+    await apiClient.delete(`/issues/${issueId}`)
+  } catch (error) {
+    throw toApiError(error)
+  }
+}

@@ -15,6 +15,7 @@ from apps.contracts.project_contract import (
 from apps.foundation.responses import success_response
 from apps.foundation.pagination import ActivityPagination
 from apps.issues.selectors import (
+    get_dashboard_activity_queryset,
     get_project_activity_queryset,
     select_dashboard_activity_feed,
     select_project_activity_feed,
@@ -158,6 +159,20 @@ class DashboardActivityView(APIView):
 
     @extend_schema(tags=["dashboard"])
     def get(self, request):
+        if (
+            request.query_params.get("page") is not None
+            or request.query_params.get("page_size") is not None
+        ):
+            event_filter = request.query_params.get("filter", "all")
+            queryset = get_dashboard_activity_queryset(
+                request.user.id,
+                event_filter=event_filter,
+            )
+            paginator = ActivityPagination()
+            page = paginator.paginate_queryset(queryset, request)
+            items = serialize_activity_feed_items(page)
+            return paginator.get_paginated_response(items)
+
         raw_limit = request.query_params.get("limit", "5")
         try:
             limit = max(1, min(int(raw_limit), 100))

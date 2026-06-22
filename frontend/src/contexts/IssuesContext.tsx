@@ -9,6 +9,7 @@ import {
 import {
   bulkAssignSprint as apiBulkAssignSprint,
   createIssue as apiCreateIssue,
+  deleteIssue as apiDeleteIssue,
   getBacklog as apiGetBacklog,
   listIssues as apiListIssues,
   updateIssue as apiUpdateIssue,
@@ -22,6 +23,7 @@ import {
   assignIssueToSprint,
   getIssues,
   moveIssuesToSprint,
+  removeIssueFromRegistry,
   setBacklogIssuesForProject,
   setSprintIssuesForProject,
   updateIssueInRegistry,
@@ -66,6 +68,11 @@ type IssuesContextValue = {
     projectId: string,
     payload: UpdateIssuePayload,
   ) => Promise<ProjectIssue>
+  deleteIssueViaApi: (
+    issueId: string,
+    projectId: string,
+    sprintId: string | null,
+  ) => Promise<void>
 }
 
 const IssuesContext = createContext<IssuesContextValue | null>(null)
@@ -157,6 +164,24 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const deleteIssueViaApi = useCallback(
+    async (
+      issueId: string,
+      projectId: string,
+      sprintId: string | null,
+    ): Promise<void> => {
+      await apiDeleteIssue(issueId)
+      removeIssueFromRegistry(issueId)
+      setIssues(getIssues())
+      await loadBacklog(projectId)
+      if (sprintId) {
+        await loadSprintIssues(projectId, sprintId)
+      }
+      void syncProjectOpenIssueCount(projectId)
+    },
+    [loadBacklog, loadSprintIssues],
+  )
+
   const addIssue = useCallback(
     (issue: ProjectIssue) => {
       addIssueToRegistry(issue)
@@ -233,6 +258,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       loadSprintIssues,
       createIssueViaApi,
       updateIssueViaApi,
+      deleteIssueViaApi,
     }),
     [
       issues,
@@ -251,6 +277,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       loadSprintIssues,
       createIssueViaApi,
       updateIssueViaApi,
+      deleteIssueViaApi,
     ],
   )
 

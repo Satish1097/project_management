@@ -16,6 +16,7 @@ export const ROUTES = {
   sprints: '/sprints',
   roadmaps: '/roadmaps',
   workspaceEmpty: '/workspace/empty',
+  workspaceActivity: '/workspace/activity',
   search: '/search',
   notifications: '/notifications',
   workspaceSettings: '/workspace/settings',

@@ -19,7 +19,7 @@ import {
   filterProjects,
   sortProjectsByName,
 } from '@/services/projectFilters'
-import { projectOverviewPath } from '@/constants/routes'
+import { projectOverviewPath, ROUTES } from '@/constants/routes'
 
 export function ProjectsListPage() {
   const { projects } = useProjects()
@@ -149,6 +149,7 @@ export function ProjectsListPage() {
           isLoading={activityLoading}
           error={activityError}
           onRetry={loadActivity}
+          viewAllTo={ROUTES.workspaceActivity}
         />
       </main>
 

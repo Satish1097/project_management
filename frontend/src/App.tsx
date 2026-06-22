@@ -3,6 +3,7 @@ import { router } from '@/app/routes'
 import { AuthProvider } from '@/features/auth/AuthProvider'
 import { AppContextProvider } from '@/features/context/AppContextProvider'
 import { NotificationProvider } from '@/features/notifications/NotificationProvider'
+import { ToastContainer } from '@/features/toast/toast'
 import { ThemeProvider } from '@/features/theme/ThemeProvider'
 import { ProjectsProvider } from '@/contexts/ProjectsContext'
 import { SprintsProvider } from '@/contexts/SprintsContext'
@@ -21,6 +22,7 @@ export default function App() {
               <SprintsProvider>
                 <IssuesProvider>
                   <RouterProvider router={router} />
+                  <ToastContainer />
                 </IssuesProvider>
               </SprintsProvider>
             </ProjectsProvider>

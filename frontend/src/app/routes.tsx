@@ -21,6 +21,7 @@ import { SignupPage } from '@/features/auth/SignupPage'
 import { ForbiddenPage } from '@/features/errors/ForbiddenPage'
 import { NotFoundPage } from '@/features/errors/NotFoundPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
+import { WorkspaceActivityPage } from '@/features/dashboard/WorkspaceActivityPage'
 import { AdvancedBoardPage } from '@/features/kanban/AdvancedBoardPage'
 import { EmptyWorkspacePage } from '@/features/workspace/EmptyWorkspacePage'
 import { WorkspaceModulePlaceholderPage } from '@/features/workspace/WorkspaceModulePlaceholderPage'
@@ -102,6 +103,7 @@ export const router = createBrowserRouter([
             ),
           },
           { path: 'workspace/empty', element: <EmptyWorkspacePage /> },
+          { path: 'workspace/activity', element: <WorkspaceActivityPage /> },
           { path: 'projects', element: <ProjectsListPage /> },
           {
             path: 'projects/:projectId',

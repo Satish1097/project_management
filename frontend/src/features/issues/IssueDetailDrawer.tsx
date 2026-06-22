@@ -55,6 +55,7 @@ import { ApiError } from '@/api/types'
 import { getWorkflow, type WorkflowStatusApi } from '@/api/workflow'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { refreshKanbanBoard } from '@/features/kanban/kanbanRefreshBridge'
+import { showToast } from '@/features/toast/toast'
 import { useIssues } from '@/contexts/IssuesContext'
 import {
   getIssueDetailExtras,
@@ -62,6 +63,7 @@ import {
 } from '@/services/issueDetailStore'
 import {
   getIssueById,
+  removeIssueFromRegistry,
   updateIssueInRegistry,
   upsertApiIssue,
 } from '@/services/issuesRegistry'
@@ -221,7 +223,7 @@ export function IssueDetailDrawer({
   onClose,
   onIssueUpdated,
 }: IssueDetailDrawerProps) {
-  const { updateIssue, refresh, updateIssueViaApi, loadBacklog, loadSprintIssues } = useIssues()
+  const { updateIssue, refresh, updateIssueViaApi, deleteIssueViaApi, loadBacklog, loadSprintIssues } = useIssues()
   const { user } = useAuth()
   const titleId = useId()
   const [tab, setTab] = useState<DetailTab>('details')
@@ -251,6 +253,7 @@ export function IssueDetailDrawer({
   const [workflowStatuses, setWorkflowStatuses] = useState<WorkflowStatusApi[]>([])
   const [workflowLoading, setWorkflowLoading] = useState(false)
   const [transitioningStatus, setTransitioningStatus] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const attachmentInputRef = useRef<HTMLInputElement | null>(null)
   const initialSnapshotRef = useRef('')
@@ -637,17 +640,38 @@ export function IssueDetailDrawer({
     [draft],
   )
 
-  const handleDelete = useCallback(() => {
-    if (!draft) return
+  const handleDelete = useCallback(async () => {
+    if (!draft || deleting) return
     if (
       !window.confirm(
-        `Delete ${draft.key}? This action cannot be undone in this demo.`,
+        `Delete ${draft.key}? This action cannot be undone.`,
       )
     ) {
       return
     }
-    onClose()
-  }, [draft, onClose])
+
+    if (!persisted) {
+      removeIssueFromRegistry(draft.id)
+      refresh()
+      onClose()
+      showToast(`${draft.key} deleted`, 'success')
+      return
+    }
+
+    setDeleting(true)
+    try {
+      await deleteIssueViaApi(draft.id, draft.projectId, draft.sprintId)
+      refreshKanbanBoard()
+      onClose()
+      showToast(`${draft.key} deleted`, 'success')
+    } catch (error) {
+      const message =
+        error instanceof ApiError ? error.message : 'Failed to delete issue.'
+      showToast(message, 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }, [deleting, deleteIssueViaApi, draft, onClose, persisted, refresh])
 
   const addComment = useCallback(async () => {
     if (!draft || !extras || !commentDraft.trim()) return
@@ -1457,10 +1481,11 @@ export function IssueDetailDrawer({
         <footer className="sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-3 border-t border-devflow-border bg-devflow-card px-5 py-3 shadow-[0_-4px_12px_-4px_rgba(15,23,42,0.08)]">
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={() => void handleDelete()}
+            disabled={deleting}
             className="text-btn text-devflow-error transition-colors hover:text-devflow-error/80"
           >
-            Delete
+            {deleting ? 'Deleting…' : 'Delete'}
           </button>
           <div className="flex items-center gap-2">
             {saveError && (

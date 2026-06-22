@@ -9,6 +9,7 @@ import {
   type LabelApi,
 } from '@/api/labels'
 import { ApiError } from '@/api/types'
+import { CreateLabelModal } from '@/features/settings/CreateLabelModal'
 
 type UiLabel = {
   id: string
@@ -48,6 +49,8 @@ export function ProjectSettingsLabelsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [labelModalOpen, setLabelModalOpen] = useState(false)
+  const [editingLabel, setEditingLabel] = useState<LabelApi | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -82,56 +85,56 @@ export function ProjectSettingsLabelsPage() {
 
   const uiLabels = useMemo(() => labels.map(mapApiLabelToUiLabel), [labels])
 
-  async function handleCreateLabel() {
-    if (!projectId || submitting) return
-
-    const name = window.prompt('Label name')
-    if (!name?.trim()) return
-
-    const colorInput = window.prompt('Label color (#RRGGBB)', '#6366F1')
-    if (!colorInput) return
-    const color = colorInput.trim()
-    if (!isValidHexColor(color)) {
-      setError('Color must be in #RRGGBB format.')
-      return
-    }
-
-    setSubmitting(true)
-    setError(null)
-    try {
-      const created = await createProjectLabel(projectId, { name: name.trim(), color })
-      setLabels((prev) => [...prev, created].filter((label) => !label.is_archived))
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create label.')
-    } finally {
-      setSubmitting(false)
-    }
+  function openCreateLabelModal() {
+    setEditingLabel(null)
+    setLabelModalOpen(true)
   }
 
-  async function handleEditLabel(label: LabelApi) {
-    if (!projectId || submitting) return
+  function openEditLabelModal(label: LabelApi) {
+    setEditingLabel(label)
+    setLabelModalOpen(true)
+  }
 
-    const name = window.prompt('Edit label name', label.name)
-    if (!name?.trim()) return
+  function closeLabelModal() {
+    if (submitting) return
+    setLabelModalOpen(false)
+    setEditingLabel(null)
+  }
 
-    const colorInput = window.prompt('Edit label color (#RRGGBB)', label.color)
-    if (!colorInput) return
-    const color = colorInput.trim()
-    if (!isValidHexColor(color)) {
-      setError('Color must be in #RRGGBB format.')
-      return
-    }
+  async function handleLabelModalSubmit({
+    name,
+    color,
+  }: {
+    name: string
+    color: string
+    description: string
+  }) {
+    if (!projectId) return
 
     setSubmitting(true)
     setError(null)
     try {
-      const updated = await updateProjectLabel(projectId, label.id, {
-        name: name.trim(),
-        color,
-      })
-      setLabels((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+      if (editingLabel) {
+        const updated = await updateProjectLabel(projectId, editingLabel.id, {
+          name,
+          color,
+        })
+        setLabels((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+      } else {
+        const created = await createProjectLabel(projectId, {
+          name,
+          color,
+        })
+        setLabels((prev) => [...prev, created].filter((label) => !label.is_archived))
+      }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to update label.')
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : editingLabel
+            ? 'Failed to update label.'
+            : 'Failed to create label.'
+      throw new Error(message)
     } finally {
       setSubmitting(false)
     }
@@ -177,7 +180,7 @@ export function ProjectSettingsLabelsPage() {
         </div>
         <button
           type="button"
-          onClick={handleCreateLabel}
+          onClick={openCreateLabelModal}
           disabled={submitting}
           className="inline-flex items-center gap-1 rounded-lg bg-devflow-brand-deep px-4 py-1.5 text-btn text-white"
         >
@@ -217,7 +220,7 @@ export function ProjectSettingsLabelsPage() {
               <button
                 type="button"
                 className="p-2 text-devflow-text-secondary"
-                onClick={() => void handleEditLabel(source)}
+                onClick={() => openEditLabelModal(source)}
                 disabled={submitting}
               >
                 <Pencil className="size-4" />
@@ -240,6 +243,20 @@ export function ProjectSettingsLabelsPage() {
           </Link>
         </p>
       </div>
+
+      <CreateLabelModal
+        open={labelModalOpen}
+        onClose={closeLabelModal}
+        onSubmit={handleLabelModalSubmit}
+        title={editingLabel ? 'Edit Label' : 'Create Label'}
+        submitLabel={editingLabel ? 'Save Label' : 'Create Label'}
+        initialName={editingLabel?.name ?? ''}
+        initialColor={
+          editingLabel && isValidHexColor(editingLabel.color)
+            ? editingLabel.color
+            : '#6366f1'
+        }
+      />
     </>
   )
 }
