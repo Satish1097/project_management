@@ -97,9 +97,11 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       currentProject && projects.some((project) => project.id === currentProject.id)
 
     if (!selectedValid) {
-      setCurrentProject(projects[0].id)
+      const fallbackId = projects[0].id
+      if (currentProject?.id === fallbackId) return
+      setCurrentProject(fallbackId)
     }
-  }, [isLoading, currentOrganization, currentProject, projects, setCurrentProject])
+  }, [isLoading, currentOrganization, currentProject?.id, projects, setCurrentProject])
 
   const projectKeys = useMemo(
     () => projects.map((p) => p.key).filter((key): key is string => Boolean(key)),

@@ -202,22 +202,24 @@ export function AppContextProvider({ children }: AppContextProviderProps) {
         projects,
       )
       const project = orgProjects.find((item) => item.id === projectId)
-      if (project) {
-        setCurrentProjectState(project)
-        setStoredProjectId(project.id)
-        return
-      }
 
-      // Bootstrap /me/context may be stale; still persist selection by id.
-      setCurrentProjectState({
-        id: projectId,
-        key: '',
-        slug: '',
-        name: '',
-        status: 'active',
-        open_issue_count: 0,
-        active_sprint_id: null,
+      setCurrentProjectState((prev) => {
+        if (prev?.id === projectId) return prev
+
+        if (project) return project
+
+        // Bootstrap /me/context may be stale; still persist selection by id.
+        return {
+          id: projectId,
+          key: '',
+          slug: '',
+          name: '',
+          status: 'active',
+          open_issue_count: 0,
+          active_sprint_id: null,
+        }
       })
+
       setStoredProjectId(projectId)
     },
     [currentOrganization, organizations, projects],

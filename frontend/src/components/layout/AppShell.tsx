@@ -198,13 +198,16 @@ function AppShellLayout() {
   const { collapsed } = useSidebar()
   const { pathname } = useLocation()
   const { currentProject, setCurrentProject } = useAppContext()
+  const { projects, isLoading: projectsLoading } = useProjects()
 
   useEffect(() => {
     const { projectId } = parseProjectRoute(pathname)
     if (!projectId || currentProject?.id === projectId) return
+    if (projectsLoading) return
+    if (!projects.some((p) => p.id === projectId)) return
 
     setCurrentProject(projectId)
-  }, [currentProject?.id, pathname, setCurrentProject])
+  }, [currentProject?.id, pathname, setCurrentProject, projects, projectsLoading])
 
 
 
