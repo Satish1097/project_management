@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/types'
-import { transitionIssue } from '@/api/issues'
 import { projectSprintsPath } from '@/constants/routes'
+import { useIssues } from '@/contexts/IssuesContext'
 import { BoardFilters } from '@/features/kanban/BoardFilters'
 import { BoardViewSwitcher } from '@/features/kanban/BoardViewSwitcher'
 import { KanbanBoardView } from '@/features/kanban/KanbanBoardView'
@@ -32,6 +32,7 @@ export function ProjectKanbanPage() {
   const isListView = viewMode === 'list'
   const [transitioningIssueId, setTransitioningIssueId] = useState<string | null>(null)
   const [transitionError, setTransitionError] = useState<string | null>(null)
+  const { transitionIssueViaApi } = useIssues()
   const {
     columns,
     loading: boardLoading,
@@ -69,8 +70,7 @@ export function ProjectKanbanPage() {
       setTransitioningIssueId(issueId)
 
       try {
-        await transitionIssue(issueId, targetStatusId)
-        await refreshBoard()
+        await transitionIssueViaApi(issueId, projectId, targetStatusId)
         void syncProjectOpenIssueCount(projectId)
       } catch (err) {
         const message =
@@ -80,7 +80,7 @@ export function ProjectKanbanPage() {
         setTransitioningIssueId(null)
       }
     },
-    [refreshBoard, projectId],
+    [transitionIssueViaApi, projectId],
   )
 
   if (!project) {

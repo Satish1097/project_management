@@ -12,6 +12,7 @@ import {
   deleteIssue as apiDeleteIssue,
   getBacklog as apiGetBacklog,
   listIssues as apiListIssues,
+  transitionIssue as apiTransitionIssue,
   updateIssue as apiUpdateIssue,
   type CreateIssuePayload,
   type UpdateIssuePayload,
@@ -21,6 +22,7 @@ import { useSprints } from '@/contexts/SprintsContext'
 import {
   addIssueToRegistry,
   assignIssueToSprint,
+  getIssueById,
   getIssues,
   moveIssuesToSprint,
   removeIssueFromRegistry,
@@ -33,6 +35,7 @@ import {
   mapIssueDetailToUi,
   mapIssueSummaryToUi,
 } from '@/services/mapIssueApi'
+import { refreshKanbanBoard } from '@/features/kanban/kanbanRefreshBridge'
 import { syncProjectOpenIssueCount } from '@/services/projectStats'
 import type { ProjectIssue } from '@/types/issues'
 
@@ -73,6 +76,11 @@ type IssuesContextValue = {
     projectId: string,
     sprintId: string | null,
   ) => Promise<void>
+  transitionIssueViaApi: (
+    issueId: string,
+    projectId: string,
+    toStatusId: string,
+  ) => Promise<ProjectIssue>
 }
 
 const IssuesContext = createContext<IssuesContextValue | null>(null)
@@ -132,20 +140,31 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const reloadProjectIssuesAndRefreshBoard = useCallback(
+    async (projectId: string, ...sprintIds: (string | null | undefined)[]) => {
+      await loadBacklog(projectId)
+      const uniqueSprintIds = [
+        ...new Set(sprintIds.filter((id): id is string => Boolean(id))),
+      ]
+      for (const sprintId of uniqueSprintIds) {
+        await loadSprintIssues(projectId, sprintId)
+      }
+      refreshKanbanBoard()
+    },
+    [loadBacklog, loadSprintIssues],
+  )
+
   const createIssueViaApi = useCallback(
     async (projectId: string, payload: CreateIssuePayload): Promise<ProjectIssue> => {
       const created = await apiCreateIssue(projectId, payload)
       const issue = mapIssueDetailToUi(created, projectId)
       upsertApiIssue(issue)
       setIssues(getIssues())
-      await loadBacklog(projectId)
-      if (issue.sprintId) {
-        await loadSprintIssues(projectId, issue.sprintId)
-      }
+      await reloadProjectIssuesAndRefreshBoard(projectId, issue.sprintId)
       void syncProjectOpenIssueCount(projectId)
       return issue
     },
-    [loadBacklog, loadSprintIssues],
+    [reloadProjectIssuesAndRefreshBoard],
   )
 
   const updateIssueViaApi = useCallback(
@@ -154,14 +173,20 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       projectId: string,
       payload: UpdateIssuePayload,
     ): Promise<ProjectIssue> => {
+      const previousSprintId = getIssueById(issueId)?.sprintId
       const updated = await apiUpdateIssue(issueId, payload)
       const issue = mapIssueDetailToUi(updated, projectId)
       upsertApiIssue(issue)
       setIssues(getIssues())
+      await reloadProjectIssuesAndRefreshBoard(
+        projectId,
+        previousSprintId,
+        issue.sprintId,
+      )
       void syncProjectOpenIssueCount(projectId)
       return issue
     },
-    [],
+    [reloadProjectIssuesAndRefreshBoard],
   )
 
   const deleteIssueViaApi = useCallback(
@@ -173,13 +198,32 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       await apiDeleteIssue(issueId)
       removeIssueFromRegistry(issueId)
       setIssues(getIssues())
-      await loadBacklog(projectId)
-      if (sprintId) {
-        await loadSprintIssues(projectId, sprintId)
-      }
+      await reloadProjectIssuesAndRefreshBoard(projectId, sprintId)
       void syncProjectOpenIssueCount(projectId)
     },
-    [loadBacklog, loadSprintIssues],
+    [reloadProjectIssuesAndRefreshBoard],
+  )
+
+  const transitionIssueViaApi = useCallback(
+    async (
+      issueId: string,
+      projectId: string,
+      toStatusId: string,
+    ): Promise<ProjectIssue> => {
+      const previousSprintId = getIssueById(issueId)?.sprintId
+      const updated = await apiTransitionIssue(issueId, toStatusId)
+      const issue = mapIssueDetailToUi(updated, projectId)
+      upsertApiIssue(issue)
+      setIssues(getIssues())
+      await reloadProjectIssuesAndRefreshBoard(
+        projectId,
+        previousSprintId,
+        issue.sprintId,
+      )
+      void syncProjectOpenIssueCount(projectId)
+      return issue
+    },
+    [reloadProjectIssuesAndRefreshBoard],
   )
 
   const addIssue = useCallback(
@@ -222,6 +266,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       await loadSprintIssues(projectId, sprintId)
       await loadProjectSprints(projectId)
       setIssues(getIssues())
+      refreshKanbanBoard()
       void syncProjectOpenIssueCount(projectId)
     },
     [loadBacklog, loadSprintIssues, loadProjectSprints],
@@ -235,6 +280,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       await loadSprintIssues(projectId, fromSprintId)
       await loadProjectSprints(projectId)
       setIssues(getIssues())
+      refreshKanbanBoard()
       void syncProjectOpenIssueCount(projectId)
     },
     [loadBacklog, loadSprintIssues, loadProjectSprints],
@@ -259,6 +305,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       createIssueViaApi,
       updateIssueViaApi,
       deleteIssueViaApi,
+      transitionIssueViaApi,
     }),
     [
       issues,
@@ -278,6 +325,7 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
       createIssueViaApi,
       updateIssueViaApi,
       deleteIssueViaApi,
+      transitionIssueViaApi,
     ],
   )
 

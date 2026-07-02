@@ -46,7 +46,6 @@ import {
   type IssueActivityApi,
   type IssueAttachmentApi,
   type IssueSubtaskApi,
-  transitionIssue as apiTransitionIssue,
   updateComment as apiUpdateComment,
   updateSubtask as apiUpdateSubtask,
   uploadIssueAttachment as apiUploadIssueAttachment,
@@ -58,7 +57,6 @@ import {
 import { ApiError } from '@/api/types'
 import { getWorkflow, type WorkflowStatusApi } from '@/api/workflow'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { refreshKanbanBoard } from '@/features/kanban/kanbanRefreshBridge'
 import { showToast } from '@/features/toast/toast'
 import { useIssues } from '@/contexts/IssuesContext'
 import {
@@ -69,7 +67,6 @@ import {
   getIssueById,
   removeIssueFromRegistry,
   updateIssueInRegistry,
-  upsertApiIssue,
 } from '@/services/issuesRegistry'
 import { isApiIssueId, mapIssueDetailToUi } from '@/services/mapIssueApi'
 import { getProjectById, getSprintById } from '@/services/projectData'
@@ -235,7 +232,7 @@ export function IssueDetailDrawer({
   onClose,
   onIssueUpdated,
 }: IssueDetailDrawerProps) {
-  const { updateIssue, refresh, updateIssueViaApi, deleteIssueViaApi, loadBacklog, loadSprintIssues } = useIssues()
+  const { updateIssue, refresh, updateIssueViaApi, deleteIssueViaApi, transitionIssueViaApi } = useIssues()
   const { user } = useAuth()
   const titleId = useId()
   const [tab, setTab] = useState<DetailTab>('details')
@@ -547,11 +544,6 @@ export function IssueDetailDrawer({
           estimate_hours: draft.estimateHours ?? null,
           labels: draft.labelIds ?? [],
         })
-        await loadBacklog(draft.projectId)
-        if (draft.sprintId) {
-          await loadSprintIssues(draft.projectId, draft.sprintId)
-        }
-        refreshKanbanBoard()
         await loadIssueActivity(updated.id)
         loadedWorkflowStatusRef.current = updated.workflowStatus
         onIssueUpdated(updated)
@@ -583,8 +575,6 @@ export function IssueDetailDrawer({
     updateIssue,
     refresh,
     updateIssueViaApi,
-    loadBacklog,
-    loadSprintIssues,
     onIssueUpdated,
     loadIssueActivity,
   ])
@@ -619,9 +609,11 @@ export function IssueDetailDrawer({
       setSaveError(null)
 
       try {
-        await apiTransitionIssue(draft.id, targetStatus.id)
-        const refreshedDetail = await apiGetIssue(draft.id)
-        const refreshed = mapIssueDetailToUi(refreshedDetail, draft.projectId)
+        const refreshed = await transitionIssueViaApi(
+          draft.id,
+          draft.projectId,
+          targetStatus.id,
+        )
         const nextDraft = dirty
           ? {
               ...draft,
@@ -631,15 +623,9 @@ export function IssueDetailDrawer({
             }
           : refreshed
 
-        upsertApiIssue(refreshed)
         loadedWorkflowStatusRef.current = refreshed.workflowStatus
         setDraft(nextDraft)
         onIssueUpdated(refreshed)
-        await loadBacklog(draft.projectId)
-        if (draft.sprintId) {
-          await loadSprintIssues(draft.projectId, draft.sprintId)
-        }
-        refreshKanbanBoard()
         await loadIssueActivity(draft.id)
 
         if (!dirty) {
@@ -657,13 +643,12 @@ export function IssueDetailDrawer({
     [
       dirty,
       draft,
-      loadBacklog,
-      loadSprintIssues,
       onIssueUpdated,
       patchDraft,
       persisted,
       workflowStatuses,
       loadIssueActivity,
+      transitionIssueViaApi,
     ],
   )
 
@@ -701,7 +686,6 @@ export function IssueDetailDrawer({
     setDeleting(true)
     try {
       await deleteIssueViaApi(draft.id, draft.projectId, draft.sprintId)
-      refreshKanbanBoard()
       onClose()
       showToast(`${draft.key} deleted`, 'success')
     } catch (error) {
