@@ -1,5 +1,5 @@
 import type { IssueListQuery } from '@/api/issues'
-import type { KanbanBoardFilters } from '@/types/kanban'
+import type { KanbanBoardFilterMetadata, KanbanBoardFilters } from '@/types/kanban'
 
 export const DEFAULT_LIST_PAGE_SIZE = 10
 
@@ -16,8 +16,9 @@ export function parseListPageSize(searchParams: URLSearchParams): number {
 
 export function kanbanFiltersToIssueListQuery(
   filters: KanbanBoardFilters,
-): Pick<IssueListQuery, 'assignee' | 'priority' | 'label'> {
-  const query: Pick<IssueListQuery, 'assignee' | 'priority' | 'label'> = {}
+  metadata: KanbanBoardFilterMetadata | null = null,
+): Pick<IssueListQuery, 'assignee' | 'priority' | 'status' | 'label'> {
+  const query: Pick<IssueListQuery, 'assignee' | 'priority' | 'status' | 'label'> = {}
 
   if (filters.assigneeId === 'unassigned') {
     query.assignee = 'unassigned'
@@ -29,8 +30,17 @@ export function kanbanFiltersToIssueListQuery(
     query.priority = filters.priority
   }
 
+  if (filters.statusId !== 'all') {
+    query.status = filters.statusId
+  }
+
   if (filters.labels.length > 0) {
-    query.label = filters.labels
+    const labelNames = filters.labels
+      .map((labelId) => metadata?.labels.find((label) => label.id === labelId)?.name)
+      .filter((name): name is string => Boolean(name))
+    if (labelNames.length > 0) {
+      query.label = labelNames
+    }
   }
 
   return query
@@ -40,11 +50,12 @@ export function boardListQueryFromSearchParams(
   searchParams: URLSearchParams,
   filters: KanbanBoardFilters,
   sprintId?: string,
+  metadata: KanbanBoardFilterMetadata | null = null,
 ): IssueListQuery {
   const query: IssueListQuery = {
     page: parseListPage(searchParams),
     page_size: parseListPageSize(searchParams),
-    ...kanbanFiltersToIssueListQuery(filters),
+    ...kanbanFiltersToIssueListQuery(filters, metadata),
   }
 
   if (sprintId) {
@@ -53,9 +64,6 @@ export function boardListQueryFromSearchParams(
 
   const search = searchParams.get('search')
   if (search) query.search = search
-
-  const status = searchParams.get('status')
-  if (status) query.status = status
 
   const sort = searchParams.get('sort')
   if (sort) query.sort = sort

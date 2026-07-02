@@ -29,6 +29,7 @@ from apps.issues.selectors import (
     get_issue_by_id,
     get_issue_comments,
     get_issue_subtasks,
+    get_kanban_board_filters,
     get_project_issues,
     get_project_kanban,
     get_sprint_kanban,
@@ -136,6 +137,7 @@ def _kanban_board_data(project_id: UUID, board: dict) -> dict:
             column["status_slug"]: column["issues"]
             for column in columns
         },
+        "filters": get_kanban_board_filters(project_id),
     }
 
 
@@ -226,6 +228,19 @@ class ProjectKanbanView(APIView):
 
         board = get_project_kanban(project_id)
         return success_response(data={"board": _kanban_board_data(project_id, board)})
+
+
+class ProjectKanbanFiltersView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["issues"])
+    def get(self, request, project_id: UUID):
+        _require_project(project_id)
+        _require_issue_view(request.user.id, project_id)
+
+        return success_response(
+            data={"filters": get_kanban_board_filters(project_id)},
+        )
 
 
 class SprintKanbanView(APIView):

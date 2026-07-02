@@ -1,35 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
-import type { ProjectMemberRecord } from '@/api/members'
 import { Avatar } from '@/components/ui/Avatar'
 import {
   DEFAULT_KANBAN_FILTERS,
   hasActiveKanbanFilters,
-  KANBAN_LABEL_FILTER_OPTIONS,
-  KANBAN_PRIORITY_FILTER_OPTIONS,
 } from '@/features/kanban/kanbanFilters'
-import type { KanbanBoardFilters } from '@/types/kanban'
+import type { KanbanBoardFilterMetadata, KanbanBoardFilters, KanbanPriorityFilter } from '@/types/kanban'
 import { cn } from '@/utils/cn'
 
 type BoardFiltersProps = {
   advancedBoardPath?: string
   filters?: KanbanBoardFilters
+  filterMetadata?: KanbanBoardFilterMetadata | null
   onFiltersChange?: (filters: KanbanBoardFilters) => void
   onClearFilters?: () => void
-  assigneeOptions?: ProjectMemberRecord[]
 }
 
-type OpenMenu = 'assignee' | 'priority' | 'label' | null
+type OpenMenu = 'assignee' | 'status' | 'priority' | 'label' | null
 
 const avatarColors = ['#6366f1', '#ec4899', '#f59e0b', '#94a3b8']
 
 export function BoardFilters({
   advancedBoardPath,
   filters: filtersProp,
+  filterMetadata = null,
   onFiltersChange,
   onClearFilters,
-  assigneeOptions = [],
 }: BoardFiltersProps) {
   const [localFilters, setLocalFilters] = useState<KanbanBoardFilters>(
     DEFAULT_KANBAN_FILTERS,
@@ -37,6 +34,11 @@ export function BoardFilters({
   const filters = filtersProp ?? localFilters
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null)
   const barRef = useRef<HTMLDivElement>(null)
+
+  const assigneeOptions = filterMetadata?.assignees ?? []
+  const statusOptions = filterMetadata?.statuses ?? []
+  const priorityOptions = filterMetadata?.priorities ?? []
+  const labelOptions = filterMetadata?.labels ?? []
 
   const updateFilters = (next: KanbanBoardFilters) => {
     if (onFiltersChange) {
@@ -65,27 +67,33 @@ export function BoardFilters({
     return () => document.removeEventListener('mousedown', handlePointerDown)
   }, [])
 
-  const previewAssignees = assigneeOptions.slice(0, 3)
-  const extraAssigneeCount = Math.max(assigneeOptions.length - 3, 0)
+  const memberAssignees = assigneeOptions.filter(
+    (assignee) => assignee.id !== 'unassigned' && assignee.id !== 'all',
+  )
+  const previewAssignees = memberAssignees.slice(0, 3)
+  const extraAssigneeCount = Math.max(memberAssignees.length - 3, 0)
   const filtersActive = hasActiveKanbanFilters(filters)
 
   const assigneeLabel =
     filters.assigneeId === 'all'
       ? 'Assignee'
-      : filters.assigneeId === 'unassigned'
-        ? 'Unassigned'
-        : assigneeOptions.find((member) => member.user_id === filters.assigneeId)
-            ?.display_name ?? 'Assignee'
+      : assigneeOptions.find((assignee) => assignee.id === filters.assigneeId)
+          ?.display_name ?? 'Assignee'
+
+  const statusLabel =
+    filters.statusId === 'all'
+      ? 'Status'
+      : statusOptions.find((status) => status.id === filters.statusId)?.name ?? 'Status'
 
   const priorityLabel =
-    KANBAN_PRIORITY_FILTER_OPTIONS.find((option) => option.id === filters.priority)
-      ?.label ?? 'Priority'
+    priorityOptions.find((option) => option.id === filters.priority)?.label ?? 'Priority'
 
   const labelSummary =
     filters.labels.length === 0
       ? 'Label'
       : filters.labels.length === 1
-        ? filters.labels[0]
+        ? labelOptions.find((label) => label.id === filters.labels[0])?.name ??
+          'Label'
         : `${filters.labels.length} labels`
 
   return (
@@ -95,10 +103,10 @@ export function BoardFilters({
     >
       <div className="flex min-w-0 flex-wrap items-center gap-2.5">
         <div className="flex items-center">
-          {previewAssignees.map((member, index) => (
+          {previewAssignees.map((assignee, index) => (
             <Avatar
-              key={member.user_id}
-              name={member.display_name ?? member.email ?? 'Member'}
+              key={assignee.id}
+              name={assignee.display_name}
               color={avatarColors[index] ?? '#94a3b8'}
               size={28}
               className={cnAvatarOverlap(index)}
@@ -120,34 +128,46 @@ export function BoardFilters({
               setOpenMenu((current) => (current === 'assignee' ? null : 'assignee'))
             }
           >
-            <FilterOption
-              selected={filters.assigneeId === 'all'}
-              onSelect={() => {
-                updateFilters({ ...filters, assigneeId: 'all' })
-                setOpenMenu(null)
-              }}
-            >
-              All
-            </FilterOption>
-            <FilterOption
-              selected={filters.assigneeId === 'unassigned'}
-              onSelect={() => {
-                updateFilters({ ...filters, assigneeId: 'unassigned' })
-                setOpenMenu(null)
-              }}
-            >
-              Unassigned
-            </FilterOption>
-            {assigneeOptions.map((member) => (
+            {assigneeOptions.map((assignee) => (
               <FilterOption
-                key={member.user_id}
-                selected={filters.assigneeId === member.user_id}
+                key={assignee.id}
+                selected={filters.assigneeId === assignee.id}
                 onSelect={() => {
-                  updateFilters({ ...filters, assigneeId: member.user_id })
+                  updateFilters({ ...filters, assigneeId: assignee.id })
                   setOpenMenu(null)
                 }}
               >
-                {member.display_name ?? member.email ?? 'Member'}
+                {assignee.display_name}
+              </FilterOption>
+            ))}
+          </FilterMenu>
+
+          <FilterMenu
+            label={statusLabel}
+            isOpen={openMenu === 'status'}
+            isActive={filters.statusId !== 'all'}
+            onToggle={() =>
+              setOpenMenu((current) => (current === 'status' ? null : 'status'))
+            }
+          >
+            {statusOptions.map((status) => (
+              <FilterOption
+                key={status.id}
+                selected={filters.statusId === status.id}
+                onSelect={() => {
+                  updateFilters({ ...filters, statusId: status.id })
+                  setOpenMenu(null)
+                }}
+              >
+                <span className="inline-flex items-center gap-2">
+                  {status.color ? (
+                    <span
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: status.color }}
+                    />
+                  ) : null}
+                  {status.name}
+                </span>
               </FilterOption>
             ))}
           </FilterMenu>
@@ -160,12 +180,15 @@ export function BoardFilters({
               setOpenMenu((current) => (current === 'priority' ? null : 'priority'))
             }
           >
-            {KANBAN_PRIORITY_FILTER_OPTIONS.map((option) => (
+            {priorityOptions.map((option) => (
               <FilterOption
                 key={option.id}
                 selected={filters.priority === option.id}
                 onSelect={() => {
-                  updateFilters({ ...filters, priority: option.id })
+                  updateFilters({
+                    ...filters,
+                    priority: option.id as KanbanPriorityFilter,
+                  })
                   setOpenMenu(null)
                 }}
               >
@@ -182,11 +205,11 @@ export function BoardFilters({
               setOpenMenu((current) => (current === 'label' ? null : 'label'))
             }
           >
-            {KANBAN_LABEL_FILTER_OPTIONS.map((label) => {
-              const selected = filters.labels.includes(label)
+            {labelOptions.map((label) => {
+              const selected = filters.labels.includes(label.id)
               return (
                 <label
-                  key={label}
+                  key={label.id}
                   className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-caption text-devflow-text hover:bg-devflow-muted"
                 >
                   <input
@@ -194,13 +217,19 @@ export function BoardFilters({
                     checked={selected}
                     onChange={() => {
                       const nextLabels = selected
-                        ? filters.labels.filter((item) => item !== label)
-                        : [...filters.labels, label]
+                        ? filters.labels.filter((item) => item !== label.id)
+                        : [...filters.labels, label.id]
                       updateFilters({ ...filters, labels: nextLabels })
                     }}
                     className="size-3.5 rounded border-devflow-border text-devflow-primary"
                   />
-                  <span className="capitalize">{label}</span>
+                  <span className="inline-flex items-center gap-2">
+                    <span
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: label.color }}
+                    />
+                    {label.name}
+                  </span>
                 </label>
               )
             })}

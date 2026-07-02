@@ -8,7 +8,10 @@ from uuid import UUID
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, QuerySet
 
-from apps.issues.models import Issue, IssueActivity, IssueAttachment, IssueComment, IssueType
+from apps.contracts.identity_contract import get_users_by_ids
+from apps.contracts.membership_contract import list_project_members
+from apps.issues.models import Issue, IssueActivity, IssueAttachment, IssueComment, IssueType, Priority
+from apps.label.selectors import get_active_labels
 from apps.issues.models.activity import IssueActivityEventType
 from apps.permissions.services import permission_service
 from apps.sprints.selectors import get_sprint_by_id
@@ -310,6 +313,89 @@ def get_backlog_issues(project_id: UUID) -> QuerySet[Issue]:
         project_id=project_id,
         sprint__isnull=True,
     )
+
+
+def get_kanban_board_filters(project_id: UUID) -> dict:
+    members = list_project_members(project_id)
+    user_ids = [member.user_id for member in members]
+    users_by_id = {user.id: user for user in get_users_by_ids(user_ids)}
+
+    assignees = [
+        {
+            "id": "all",
+            "display_name": "All",
+            "avatar": None,
+        },
+        {
+            "id": "unassigned",
+            "display_name": "Unassigned",
+            "avatar": None,
+        },
+    ]
+    for member in members:
+        user = users_by_id.get(member.user_id)
+        assignees.append(
+            {
+                "id": str(member.user_id),
+                "display_name": user.display_name if user is not None else "Unknown",
+                "avatar": user.avatar if user is not None else None,
+            }
+        )
+
+    statuses = []
+    for status in get_project_statuses(project_id):
+        statuses.append(
+            {
+                "id": str(status.id),
+                "slug": status_slug(name=status.name, category=status.category),
+                "name": status.name,
+                "category": status.category,
+                "color": status.color,
+                "order": status.order,
+                "is_default": status.is_default,
+            }
+        )
+
+    labels = [
+        {
+            "id": str(label.id),
+            "name": label.name,
+            "color": label.color,
+        }
+        for label in get_active_labels(project_id)
+    ]
+
+    priorities = [
+        {
+            "id": "all",
+            "label": "All",
+        },
+        *[
+            {
+                "id": value,
+                "label": label,
+            }
+            for value, label in Priority.choices
+        ],
+    ]
+
+    return {
+        "assignees": assignees,
+        "statuses": [
+            {
+                "id": "all",
+                "slug": "all",
+                "name": "All",
+                "category": None,
+                "color": None,
+                "order": -1,
+                "is_default": False,
+            },
+            *statuses,
+        ],
+        "labels": labels,
+        "priorities": priorities,
+    }
 
 
 def _build_kanban_board(project_id: UUID, issues: QuerySet[Issue], *, sprint=None) -> dict:

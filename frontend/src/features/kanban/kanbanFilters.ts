@@ -1,32 +1,15 @@
 import type {
+  KanbanBoardFilterMetadata,
   KanbanBoardFilters,
   KanbanColumn,
   KanbanIssue,
   KanbanPriorityFilter,
 } from '@/types/kanban'
 
-export const KANBAN_LABEL_FILTER_OPTIONS = [
-  'frontend',
-  'backend',
-  'bug',
-  'feature',
-  'urgent',
-] as const
-
-export const KANBAN_PRIORITY_FILTER_OPTIONS: {
-  id: KanbanPriorityFilter
-  label: string
-}[] = [
-  { id: 'all', label: 'All' },
-  { id: 'low', label: 'Low' },
-  { id: 'medium', label: 'Medium' },
-  { id: 'high', label: 'High' },
-  { id: 'critical', label: 'Critical' },
-]
-
 export const DEFAULT_KANBAN_FILTERS: KanbanBoardFilters = {
   assigneeId: 'all',
   priority: 'all',
+  statusId: 'all',
   labels: [],
 }
 
@@ -41,9 +24,24 @@ export function normalizePriorityForFilter(
   return null
 }
 
+function selectedLabelNames(
+  filters: KanbanBoardFilters,
+  metadata: KanbanBoardFilterMetadata | null,
+): Set<string> {
+  if (!metadata || filters.labels.length === 0) return new Set()
+
+  const names = filters.labels
+    .map((labelId) => metadata.labels.find((label) => label.id === labelId)?.name)
+    .filter((name): name is string => Boolean(name))
+    .map((name) => name.toLowerCase())
+
+  return new Set(names)
+}
+
 export function issueMatchesKanbanFilters(
   issue: KanbanIssue,
   filters: KanbanBoardFilters,
+  metadata: KanbanBoardFilterMetadata | null = null,
 ): boolean {
   if (filters.assigneeId !== 'all') {
     if (filters.assigneeId === 'unassigned') {
@@ -58,13 +56,16 @@ export function issueMatchesKanbanFilters(
     if (normalized !== filters.priority) return false
   }
 
+  if (filters.statusId !== 'all') {
+    if (issue.statusId !== filters.statusId) return false
+  }
+
   if (filters.labels.length > 0) {
+    const selectedNames = selectedLabelNames(filters, metadata)
     const issueLabels = new Set(
       [...issue.labels, issue.label].map((label) => label.toLowerCase()),
     )
-    const hasMatch = filters.labels.some((label) =>
-      issueLabels.has(label.toLowerCase()),
-    )
+    const hasMatch = [...selectedNames].some((label) => issueLabels.has(label))
     if (!hasMatch) return false
   }
 
@@ -74,10 +75,11 @@ export function issueMatchesKanbanFilters(
 export function filterKanbanColumns(
   columns: KanbanColumn[],
   filters: KanbanBoardFilters,
+  metadata: KanbanBoardFilterMetadata | null = null,
 ): KanbanColumn[] {
   return columns.map((column) => {
     const issues = column.issues.filter((issue) =>
-      issueMatchesKanbanFilters(issue, filters),
+      issueMatchesKanbanFilters(issue, filters, metadata),
     )
     return {
       ...column,
@@ -91,6 +93,7 @@ export function hasActiveKanbanFilters(filters: KanbanBoardFilters): boolean {
   return (
     filters.assigneeId !== 'all' ||
     filters.priority !== 'all' ||
+    filters.statusId !== 'all' ||
     filters.labels.length > 0
   )
 }

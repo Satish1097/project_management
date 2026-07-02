@@ -11,10 +11,36 @@ export type KanbanAssigneeFilter = 'all' | 'unassigned' | string
 
 export type KanbanPriorityFilter = 'all' | 'low' | 'medium' | 'high' | 'critical'
 
+export type KanbanStatusFilter = 'all' | string
+
 export type KanbanBoardFilters = {
   assigneeId: KanbanAssigneeFilter
   priority: KanbanPriorityFilter
+  statusId: KanbanStatusFilter
   labels: string[]
+}
+
+export type KanbanBoardFilterMetadata = {
+  assignees: {
+    id: string
+    display_name: string
+    avatar: string | null
+  }[]
+  statuses: {
+    id: string
+    slug: string
+    name: string
+    color?: string | null
+  }[]
+  labels: {
+    id: string
+    name: string
+    color: string
+  }[]
+  priorities: {
+    id: string
+    label: string
+  }[]
 }
 
 export type KanbanIssue = {
@@ -25,6 +51,7 @@ export type KanbanIssue = {
   priorityLevel?: IssuePriorityLevel | string
   label: string
   labels: string[]
+  statusId?: string
   assigneeId: string | null
   assignee: { name: string; color: string }
   progress?: number

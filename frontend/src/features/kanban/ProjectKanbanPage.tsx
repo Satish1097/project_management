@@ -1,11 +1,20 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '@/api/types'
 import { projectSprintsPath } from '@/constants/routes'
 import { useIssues } from '@/contexts/IssuesContext'
 import { BoardFilters } from '@/features/kanban/BoardFilters'
 import { BoardViewSwitcher } from '@/features/kanban/BoardViewSwitcher'
+import {
+  parseKanbanFiltersFromSearchParams,
+  syncKanbanFiltersToSearchParams,
+} from '@/features/kanban/boardFilterParams'
 import { KanbanBoardView } from '@/features/kanban/KanbanBoardView'
+import {
+  DEFAULT_KANBAN_FILTERS,
+  filterKanbanColumns,
+} from '@/features/kanban/kanbanFilters'
+import { useBoardFilterMetadata } from '@/features/kanban/useBoardFilterMetadata'
 import { useBoardViewMode } from '@/features/kanban/useBoardViewMode'
 import { useProjectIssueList } from '@/features/kanban/useProjectIssueList'
 import { useProjectKanban } from '@/features/kanban/useProjectKanban'
@@ -13,6 +22,7 @@ import { IssueListView } from '@/features/tasks/IssueListView'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
 import { getProjectById, getSprintById } from '@/services/projectData'
 import { syncProjectOpenIssueCount } from '@/services/projectStats'
+import type { KanbanBoardFilters } from '@/types/kanban'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -33,21 +43,53 @@ export function ProjectKanbanPage() {
   const [transitioningIssueId, setTransitioningIssueId] = useState<string | null>(null)
   const [transitionError, setTransitionError] = useState<string | null>(null)
   const { transitionIssueViaApi } = useIssues()
+
   const {
-    columns,
+    columns: rawColumns,
+    boardFilters,
     loading: boardLoading,
     error: boardError,
     totalIssues,
-    filteredIssueCount,
-    filters,
-    setFilters,
-    clearFilters,
-    assigneeOptions,
     refreshBoard,
   } = useProjectKanban(projectId, {
     sprintId,
     enabled: boardReady && !isListView,
   })
+
+  const { metadata: filterMetadata } = useBoardFilterMetadata(projectId, {
+    enabled: boardReady,
+    embeddedFilters: !isListView ? boardFilters : null,
+  })
+
+  const filters = useMemo(
+    () => parseKanbanFiltersFromSearchParams(searchParams, filterMetadata),
+    [searchParams, filterMetadata],
+  )
+
+  const columns = useMemo(
+    () => filterKanbanColumns(rawColumns, filters, filterMetadata),
+    [rawColumns, filters, filterMetadata],
+  )
+
+  const filteredIssueCount = useMemo(
+    () => columns.reduce((sum, column) => sum + column.issues.length, 0),
+    [columns],
+  )
+
+  const setFilters = useCallback(
+    (next: KanbanBoardFilters) => {
+      setSearchParams(
+        (prev) => syncKanbanFiltersToSearchParams(next, prev),
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
+
+  const clearFilters = useCallback(() => {
+    setFilters(DEFAULT_KANBAN_FILTERS)
+  }, [setFilters])
+
   const {
     tasks: listTasks,
     loading: listLoading,
@@ -60,6 +102,7 @@ export function ProjectKanbanPage() {
     sprintId,
     enabled: boardReady && isListView && !!project,
     filters,
+    filterMetadata,
     searchParams,
     setSearchParams,
   })
@@ -109,15 +152,15 @@ export function ProjectKanbanPage() {
     isListView && !listLoading && (listPagination?.totalCount ?? 0) === 0
   const emptyHint = sprintId
     ? 'Add issues to this sprint or adjust filters to see them here.'
-    : 'Adjust assignee, priority, or label filters to see issues.'
+    : 'Adjust assignee, status, priority, or label filters to see issues.'
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-devflow-surface">
       <BoardFilters
         filters={filters}
+        filterMetadata={filterMetadata}
         onFiltersChange={setFilters}
         onClearFilters={clearFilters}
-        assigneeOptions={assigneeOptions}
       />
       <main className="relative min-h-0 flex-1 overflow-auto px-4 pb-4 pt-3">
         {error && (

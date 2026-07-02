@@ -1,16 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getProjectKanban } from '@/api/issues'
-import type { ProjectMemberRecord } from '@/api/members'
 import { getSprintBoard } from '@/api/sprints'
 import { ApiError } from '@/api/types'
-import {
-  DEFAULT_KANBAN_FILTERS,
-  filterKanbanColumns,
-} from '@/features/kanban/kanbanFilters'
 import { registerKanbanRefresh } from '@/features/kanban/kanbanRefreshBridge'
-import { useProjectMembersData } from '@/hooks/useProjectMembersData'
 import { mapKanbanBoardToColumns } from '@/services/mapKanbanApi'
-import type { KanbanBoardFilters, KanbanColumn } from '@/types/kanban'
+import type { KanbanColumn } from '@/types/kanban'
+import type { KanbanBoardFiltersApi } from '@/api/issues'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -26,10 +21,9 @@ export function useProjectKanban(
 ) {
   const { sprintId, enabled = true } = options
   const [columns, setColumns] = useState<KanbanColumn[]>([])
+  const [boardFilters, setBoardFilters] = useState<KanbanBoardFiltersApi | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filters, setFilters] = useState<KanbanBoardFilters>(DEFAULT_KANBAN_FILTERS)
-  const { members } = useProjectMembersData(projectId)
 
   const loadBoard = useCallback(async () => {
     if (!projectId || !enabled) {
@@ -46,11 +40,13 @@ export function useProjectKanban(
         ? await getSprintBoard(projectId, sprintId)
         : await getProjectKanban(projectId)
       setColumns(mapKanbanBoardToColumns(board, projectId))
+      setBoardFilters(board.filters ?? null)
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : 'Failed to load kanban board.'
       setError(message)
       setColumns([])
+      setBoardFilters(null)
     } finally {
       setLoading(false)
     }
@@ -66,59 +62,17 @@ export function useProjectKanban(
     })
   }, [loadBoard])
 
-  const filteredColumns = useMemo(
-    () => filterKanbanColumns(columns, filters),
-    [columns, filters],
-  )
-
   const totalIssues = useMemo(
     () => columns.reduce((sum, column) => sum + column.issues.length, 0),
     [columns],
   )
 
-  const filteredIssueCount = useMemo(
-    () => filteredColumns.reduce((sum, column) => sum + column.issues.length, 0),
-    [filteredColumns],
-  )
-
-  const assigneeOptions = useMemo(() => {
-    const seen = new Set<string>()
-    const fromBoard: ProjectMemberRecord[] = []
-
-    for (const column of columns) {
-      for (const issue of column.issues) {
-        if (!issue.assigneeId || seen.has(issue.assigneeId)) continue
-        seen.add(issue.assigneeId)
-        const member = members.find((item) => item.user_id === issue.assigneeId)
-        fromBoard.push({
-          user_id: issue.assigneeId,
-          project_id: projectId,
-          role: member?.role ?? 'member',
-          display_name: member?.display_name ?? issue.assignee.name,
-          email: member?.email,
-        })
-      }
-    }
-
-    const memberOptions = members.filter((member) => !seen.has(member.user_id))
-    return [...fromBoard, ...memberOptions]
-  }, [columns, members, projectId])
-
-  const clearFilters = useCallback(() => {
-    setFilters(DEFAULT_KANBAN_FILTERS)
-  }, [])
-
   return {
-    columns: filteredColumns,
-    rawColumns: columns,
+    columns,
+    boardFilters,
     loading,
     error,
     totalIssues,
-    filteredIssueCount,
-    filters,
-    setFilters,
-    clearFilters,
-    assigneeOptions,
     refreshBoard: loadBoard,
   }
 }

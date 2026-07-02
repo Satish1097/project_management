@@ -172,6 +172,50 @@ def test_kanban_api_includes_issues_without_active_sprint(
 
 
 @pytest.mark.django_db
+def test_kanban_api_includes_filter_metadata(
+    superuser_client,
+    project,
+    superuser,
+    create_test_issue,
+):
+    create_test_issue(title="Filtered card")
+
+    response = superuser_client.get(f"/api/projects/{project.id}/kanban")
+
+    assert response.status_code == 200
+    filters = response.json()["data"]["board"]["filters"]
+    assert "assignees" in filters
+    assert "statuses" in filters
+    assert "labels" in filters
+    assert "priorities" in filters
+
+    assignee_ids = {item["id"] for item in filters["assignees"]}
+    assert {"all", "unassigned", str(superuser.id)} <= assignee_ids
+
+    status_names = {item["name"] for item in filters["statuses"]}
+    assert "All" in status_names
+    assert "To Do" in status_names or "Todo" in status_names
+
+    priority_ids = {item["id"] for item in filters["priorities"]}
+    assert priority_ids == {"all", "low", "medium", "high", "critical"}
+
+
+@pytest.mark.django_db
+def test_kanban_filters_endpoint_returns_metadata(
+    superuser_client,
+    project,
+    superuser,
+):
+    response = superuser_client.get(f"/api/projects/{project.id}/kanban/filters")
+
+    assert response.status_code == 200
+    filters = response.json()["data"]["filters"]
+    assert any(item["id"] == str(superuser.id) for item in filters["assignees"])
+    assert filters["statuses"][0]["id"] == "all"
+    assert len(filters["statuses"]) > 1
+
+
+@pytest.mark.django_db
 def test_assign_issue_success(developer_client, project_with_roles, user, create_test_issue):
     issue = create_test_issue()
 

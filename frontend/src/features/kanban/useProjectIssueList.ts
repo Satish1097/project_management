@@ -9,7 +9,7 @@ import {
   parseListPage,
 } from '@/features/kanban/boardListQuery'
 import { issueApiToTask } from '@/features/kanban/kanbanIssueToTask'
-import type { KanbanBoardFilters } from '@/types/kanban'
+import type { KanbanBoardFilterMetadata, KanbanBoardFilters } from '@/types/kanban'
 import type { Project } from '@/types/projects'
 import type { Task } from '@/types/tasks'
 
@@ -18,6 +18,7 @@ type UseProjectIssueListOptions = {
   sprintId?: string
   enabled: boolean
   filters: KanbanBoardFilters
+  filterMetadata?: KanbanBoardFilterMetadata | null
   searchParams: URLSearchParams
   setSearchParams: SetURLSearchParams
 }
@@ -27,6 +28,7 @@ export function useProjectIssueList({
   sprintId,
   enabled,
   filters,
+  filterMetadata = null,
   searchParams,
   setSearchParams,
 }: UseProjectIssueListOptions) {
@@ -37,8 +39,8 @@ export function useProjectIssueList({
   const previousFiltersKey = useRef(filtersKey)
 
   const query = useMemo(
-    () => boardListQueryFromSearchParams(searchParams, filters, sprintId),
-    [filters, searchParams, sprintId],
+    () => boardListQueryFromSearchParams(searchParams, filters, sprintId, filterMetadata),
+    [filters, filterMetadata, searchParams, sprintId],
   )
 
   useEffect(() => {

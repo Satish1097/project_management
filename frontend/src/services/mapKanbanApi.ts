@@ -67,6 +67,7 @@ export function mapKanbanBoardToColumns(
           priorityLevel: issue.priority as IssuePriorityLevel,
           label: uiIssue.label,
           labels: issue.labels.map((label) => label.name),
+          statusId: column?.status_id ?? status.id,
           assigneeId: issue.assignee,
           assignee: uiIssue.assignee,
           done: isDoneStatus,

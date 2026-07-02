@@ -117,6 +117,40 @@ export type KanbanBoardColumnApi = {
   issues: IssueApi[]
 }
 
+export type KanbanBoardAssigneeFilterApi = {
+  id: string
+  display_name: string
+  avatar: string | null
+}
+
+export type KanbanBoardStatusFilterApi = {
+  id: string
+  slug: string
+  name: string
+  category?: string | null
+  color?: string | null
+  order?: number
+  is_default?: boolean
+}
+
+export type KanbanBoardLabelFilterApi = {
+  id: string
+  name: string
+  color: string
+}
+
+export type KanbanBoardPriorityFilterApi = {
+  id: string
+  label: string
+}
+
+export type KanbanBoardFiltersApi = {
+  assignees: KanbanBoardAssigneeFilterApi[]
+  statuses: KanbanBoardStatusFilterApi[]
+  labels: KanbanBoardLabelFilterApi[]
+  priorities: KanbanBoardPriorityFilterApi[]
+}
+
 export type KanbanBoardApi = {
   project_id: string
   selected_sprint?: KanbanSprintApi | null
@@ -124,6 +158,7 @@ export type KanbanBoardApi = {
   workflow_columns?: KanbanWorkflowStatusApi[]
   grouped_issues?: Record<string, IssueApi[]>
   columns: KanbanBoardColumnApi[]
+  filters?: KanbanBoardFiltersApi
 }
 
 export type IssueCommentApi = {
@@ -378,6 +413,19 @@ export async function getProjectKanban(projectId: string): Promise<KanbanBoardAp
       `/projects/${projectId}/kanban`,
     )
     return data.data.board
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getKanbanBoardFilters(
+  projectId: string,
+): Promise<KanbanBoardFiltersApi> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ filters: KanbanBoardFiltersApi }>>(
+      `/projects/${projectId}/kanban/filters`,
+    )
+    return data.data.filters
   } catch (error) {
     throw toApiError(error)
   }
