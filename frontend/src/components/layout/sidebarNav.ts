@@ -114,12 +114,7 @@ export function isProjectNavActive(
     return pathname.startsWith(projectBacklogPath(projectId))
   }
   if (navId === 'sprints') {
-    return (
-      pathname === projectSprintsPath(projectId) ||
-      (/\/projects\/[^/]+\/sprints\/[^/]+/.test(pathname) &&
-        pathname.startsWith(projectSprintsPath(projectId)) &&
-        !/\/sprints\/[^/]+\/(board|list|activity|planning)(?:\/|$)/.test(pathname))
-    )
+    return /\/projects\/[^/]+\/sprints/.test(pathname)
   }
   if (navId === 'members') {
     return pathname.startsWith(projectSettingsMembersPath(projectId))

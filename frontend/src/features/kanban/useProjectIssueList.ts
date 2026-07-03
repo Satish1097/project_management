@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SetURLSearchParams } from 'react-router-dom'
-import { listIssuesPaginated, type IssueListPaginationApi } from '@/api/issues'
+import { listIssuesPaginated, type IssueApi, type IssueListPaginationApi } from '@/api/issues'
 import { ApiError } from '@/api/types'
 import { registerKanbanRefresh } from '@/features/kanban/kanbanRefreshBridge'
 import {
@@ -9,7 +9,8 @@ import {
   parseListPage,
 } from '@/features/kanban/boardListQuery'
 import { issueApiToTask } from '@/features/kanban/kanbanIssueToTask'
-import type { KanbanBoardFilterMetadata, KanbanBoardFilters } from '@/types/kanban'
+import { issueMatchesKanbanFilters } from '@/features/kanban/kanbanFilters'
+import type { KanbanBoardFilterMetadata, KanbanBoardFilters, KanbanIssue } from '@/types/kanban'
 import type { Project } from '@/types/projects'
 import type { Task } from '@/types/tasks'
 
@@ -101,10 +102,26 @@ export function useProjectIssueList({
     })
   }, [loadList])
 
-  const tasks = useMemo<Task[]>(
-    () => listPage?.results.map((issue) => issueApiToTask(issue, project)) ?? [],
-    [listPage, project],
-  )
+  const tasks = useMemo<Task[]>(() => {
+    if (!listPage) return []
+
+    const results = listPage.results.filter((issue: IssueApi) => {
+      const kanbanIssue: KanbanIssue = {
+        id: issue.id,
+        key: issue.key,
+        title: issue.title,
+        priorityLevel: issue.priority,
+        label: issue.labels[0]?.name ?? issue.type,
+        labels: issue.labels.map((l) => l.name),
+        statusId: issue.status.id,
+        assigneeId: issue.assignee,
+        assignee: { name: '', color: '' },
+      }
+      return issueMatchesKanbanFilters(kanbanIssue, filters, filterMetadata)
+    })
+
+    return results.map((issue) => issueApiToTask(issue, project))
+  }, [listPage, project, filters, filterMetadata])
 
   const pagination = useMemo(() => {
     if (!listPage) return null

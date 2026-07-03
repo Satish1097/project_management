@@ -3,16 +3,11 @@ import { useEffect } from 'react'
 import { LayoutGrid, Plus, Users } from 'lucide-react'
 import {
   isProjectBoardPath,
-  resolveSprintViewTab,
   ROUTES,
-  sprintActivityPath,
-  sprintBoardPath,
-  sprintListPath,
 } from '@/constants/routes'
 import { AvatarGroup } from '@/components/ui/AvatarGroup'
 import { ProjectStatusBadge } from '@/components/ui/ProjectStatusBadge'
 import { ProjectNav } from '@/components/layout/ProjectNav'
-import { SprintViewTabs } from '@/components/layout/SprintViewTabs'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { Avatar } from '@/components/ui/Avatar'
@@ -108,10 +103,6 @@ function ProjectShellContent({
   const { members, loading: membersLoading } = useProjectMembersContext()
   const { members: avatarMembers, extra } = projectMembersToAvatarGroup(members)
 
-  const sprintMatch = pathname.match(/\/sprints\/([^/]+)/)
-  const sprintId = sprintMatch?.[1]
-  const sprintViewTab = resolveSprintViewTab(pathname)
-
   const { openCreateIssue } = useCreateIssue()
 
   const headerSubtitle = resolveHeaderSubtitle(pathname, projectId, activeSprint)
@@ -179,14 +170,6 @@ function ProjectShellContent({
 
         <ProjectNav />
       </header>
-      {sprintId && sprintViewTab ? (
-        <SprintViewTabs
-          activeTab={sprintViewTab}
-          boardPath={sprintBoardPath(projectId, sprintId)}
-          listPath={sprintListPath(projectId, sprintId)}
-          activityPath={sprintActivityPath(projectId, sprintId)}
-        />
-      ) : null}
       <div className="flex min-h-0 flex-1 flex-col">
         <Outlet />
       </div>

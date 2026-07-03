@@ -61,13 +61,7 @@ export function ProjectNav() {
       return pathname === projectActivityPath(projectId)
     }
     if (segment === 'sprints') {
-      return (
-        /\/projects\/[^/]+\/sprints\/?$/.test(pathname) ||
-        (/\/projects\/[^/]+\/sprints\/[^/]+/.test(pathname) &&
-          !/\/sprints\/[^/]+\/(board|list|activity|planning)(?:\/|$)/.test(
-            pathname,
-          ))
-      )
+      return /\/projects\/[^/]+\/sprints/.test(pathname)
     }
     if (segment === 'settings') {
       return pathname.startsWith(projectSettingsPath(projectId))
