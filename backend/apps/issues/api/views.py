@@ -23,8 +23,10 @@ from apps.issues.api.serializers import (
     SubtaskUpdateSerializer,
 )
 from apps.issues.kanban_constants import DEFAULT_KANBAN_PAGE_SIZE, MAX_KANBAN_PAGE_SIZE
+from apps.issues.exceptions import IssueNotFoundError
 from apps.issues.selectors import (
     BoardFilterParams,
+    get_backlog_section_issues,
     get_board_column_issues,
     get_issue_activity,
     get_issue_attachments,
@@ -32,6 +34,7 @@ from apps.issues.selectors import (
     get_issue_comments,
     get_issue_subtasks,
     get_kanban_board_filters,
+    get_project_backlog_metadata,
     get_project_board_metadata,
     get_project_issues,
     get_project_kanban,
@@ -206,6 +209,38 @@ def _kanban_column_issues_data(column_page: dict) -> dict:
     }
 
 
+def _backlog_section_issues_data(section_page: dict) -> dict:
+    issues = [dict(IssueSerializer(issue).data) for issue in section_page["issues"]]
+    return {
+        "page": section_page["page"],
+        "page_size": section_page["page_size"],
+        "total": section_page["total"],
+        "has_next": section_page["has_next"],
+        "issues": issues,
+    }
+
+
+def _backlog_metadata_data(project_id: UUID, metadata: dict) -> dict:
+    sprints = []
+    for sprint in metadata["sprints"]:
+        sprints.append(
+            {
+                "id": str(sprint["id"]),
+                "name": sprint["name"],
+                "status": sprint["status"],
+                "issue_count": sprint["issue_count"],
+                "start_date": sprint["start_date"].isoformat() if sprint["start_date"] else None,
+                "end_date": sprint["end_date"].isoformat() if sprint["end_date"] else None,
+            }
+        )
+
+    return {
+        "project_id": str(project_id),
+        "backlog_issue_count": metadata["backlog_issue_count"],
+        "sprints": sprints,
+    }
+
+
 class IssueListCreateView(APIView):
     permission_classes = [Authenticated]
 
@@ -330,6 +365,63 @@ class ProjectKanbanFiltersView(APIView):
         return success_response(
             data={"filters": get_kanban_board_filters(project_id)},
         )
+
+
+class ProjectBacklogMetadataView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["issues"])
+    def get(self, request, project_id: UUID):
+        _require_project(project_id)
+        _require_issue_view(request.user.id, project_id)
+
+        search = request.query_params.get("search") or None
+        metadata = get_project_backlog_metadata(project_id, search=search)
+        return success_response(data={"backlog": _backlog_metadata_data(project_id, metadata)})
+
+
+class ProjectBacklogIssuesView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["issues"])
+    def get(self, request, project_id: UUID):
+        _require_project(project_id)
+        _require_issue_view(request.user.id, project_id)
+
+        page, page_size = _parse_board_pagination(request)
+        search = request.query_params.get("search") or None
+        section_page = get_backlog_section_issues(
+            project_id,
+            sprint_is_null=True,
+            search=search,
+            page=page,
+            page_size=page_size,
+        )
+        return success_response(data=_backlog_section_issues_data(section_page))
+
+
+class ProjectBacklogSprintIssuesView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["issues"])
+    def get(self, request, project_id: UUID, sprint_id: UUID):
+        _require_project(project_id)
+        if get_project_sprint_by_id(project_id, sprint_id) is None:
+            raise SprintNotFoundError(
+                f"Sprint '{sprint_id}' not found in project '{project_id}'."
+            )
+        _require_issue_view(request.user.id, project_id)
+
+        page, page_size = _parse_board_pagination(request)
+        search = request.query_params.get("search") or None
+        section_page = get_backlog_section_issues(
+            project_id,
+            sprint_id=sprint_id,
+            search=search,
+            page=page,
+            page_size=page_size,
+        )
+        return success_response(data=_backlog_section_issues_data(section_page))
 
 
 class SprintKanbanView(APIView):

@@ -14,7 +14,7 @@ def test_issue_list_pagination_default_page_size(superuser_client, project, crea
     payload = response.json()["data"]
 
     assert response.status_code == 200
-    assert len(payload["results"]) == 10
+    assert len(payload["results"]) == 15
     assert payload["count"] == 30
     assert payload["next"] is not None
     assert payload["previous"] is None
@@ -57,7 +57,7 @@ def test_issue_list_pagination_returns_only_current_page(
     )
     payload = response.json()["data"]
 
-    assert len(payload["results"]) == 10
+    assert len(payload["results"]) == 15
     assert payload["count"] == total_issues
 
 
@@ -112,7 +112,7 @@ def test_issue_list_pagination_max_page_size(superuser_client, project, create_t
     response = _list_issues(superuser_client, project.id, page=1, page_size=200)
     payload = response.json()["data"]
 
-    assert len(payload["results"]) == 100
+    assert len(payload["results"]) == 150
     assert payload["count"] == 150
 
 

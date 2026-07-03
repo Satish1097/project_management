@@ -18,7 +18,7 @@ from apps.label.selectors import get_active_labels
 from apps.issues.models.activity import IssueActivityEventType
 from apps.permissions.services import permission_service
 from apps.issues.kanban_constants import DEFAULT_KANBAN_PAGE_SIZE, MAX_KANBAN_PAGE_SIZE
-from apps.sprints.selectors import get_sprint_by_id
+from apps.sprints.selectors import get_project_sprints, get_sprint_by_id
 from apps.workflow.models import WorkflowStatusCategory
 from apps.workflow.selectors import get_project_statuses
 from apps.workflow.slug_utils import status_slug
@@ -644,3 +644,83 @@ def select_project_kanban_board(project_id: UUID) -> dict:
             for column in board["columns"]
         ],
     }
+
+
+def _backlog_base_queryset(project_id: UUID, search: str | None = None) -> QuerySet[Issue]:
+    qs = _optimized_issue_queryset().filter(
+        project_id=project_id,
+        parent_issue__isnull=True,
+    )
+    if search:
+        qs = qs.filter(Q(title__icontains=search) | Q(key__icontains=search))
+    return qs
+
+
+def get_project_backlog_metadata(
+    project_id: UUID,
+    *,
+    search: str | None = None,
+) -> dict:
+    base_qs = _backlog_base_queryset(project_id, search=search)
+    backlog_issue_count = base_qs.filter(sprint__isnull=True).count()
+
+    sprint_counts = {
+        row["sprint_id"]: row["count"]
+        for row in base_qs.filter(sprint_id__isnull=False)
+        .values("sprint_id")
+        .annotate(count=Count("id"))
+    }
+
+    sprints = []
+    for sprint in get_project_sprints(project_id):
+        sprints.append(
+            {
+                "id": sprint.id,
+                "name": sprint.name,
+                "status": sprint.status,
+                "issue_count": sprint_counts.get(sprint.id, 0),
+                "start_date": sprint.start_date,
+                "end_date": sprint.end_date,
+            }
+        )
+
+    return {
+        "backlog_issue_count": backlog_issue_count,
+        "sprints": sprints,
+    }
+
+
+def get_backlog_section_issues(
+    project_id: UUID,
+    *,
+    sprint_id: UUID | None = None,
+    sprint_is_null: bool = False,
+    search: str | None = None,
+    page: int = 1,
+    page_size: int = DEFAULT_KANBAN_PAGE_SIZE,
+) -> dict:
+    qs = get_project_issues(
+        project_id,
+        sprint_id=sprint_id,
+        sprint_is_null=sprint_is_null,
+        search=search,
+    )
+
+    total = qs.count()
+    page = max(1, page)
+    page_size = min(max(1, page_size), MAX_KANBAN_PAGE_SIZE)
+    offset = (page - 1) * page_size
+    issues = list(qs[offset : offset + page_size])
+    has_next = offset + len(issues) < total
+
+    return {
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "has_next": has_next,
+        "issues": issues,
+    }
+
+
+def select_backlog_issues(project_id: UUID) -> list[Issue]:
+    return list(get_backlog_issues(project_id).order_by("-created_at"))

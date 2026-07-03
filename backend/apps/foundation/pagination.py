@@ -3,6 +3,7 @@ Frontend-friendly pagination base.
 """
 from rest_framework.pagination import PageNumberPagination
 
+from apps.foundation.pagination_constants import DEFAULT_PAGE_SIZE
 from apps.foundation.responses import success_response
 
 
@@ -29,7 +30,7 @@ class StandardPagination(PageNumberPagination):
 
 
 class IssueListPagination(StandardPagination):
-    page_size = 10
+    page_size = DEFAULT_PAGE_SIZE
 
     def get_paginated_response(self, data):
         return success_response(

@@ -1,105 +1,110 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
-import { BacklogBulkBar } from '@/components/issues/BacklogBulkBar'
-import { BacklogIssueRow, BacklogIssueRowHeader } from '@/components/issues/BacklogIssueRow'
-import { BacklogMobileCard } from '@/components/issues/BacklogMobileCard'
+import { BacklogQuickCreate } from '@/components/issues/BacklogQuickCreate'
+import { BacklogIssueCard } from '@/features/backlog/BacklogIssueCard'
+import { BacklogIssueList } from '@/features/backlog/BacklogIssueList'
+import { BACKLOG_SECTION_ID } from '@/features/backlog/backlogSections'
+import { defaultSprintCollapsed } from '@/features/backlog/backlogSprintUtils'
+import { useProjectBacklog } from '@/features/backlog/useProjectBacklog'
 import {
-  BacklogCreateButton,
-  BacklogQuickCreate,
-} from '@/components/issues/BacklogQuickCreate'
-import { BacklogSprintSidebar } from '@/components/issues/BacklogSprintSidebar'
-import {
-  BACKLOG_TABLE_MIN_WIDTH,
-  BACKLOG_TABLE_SCROLL,
-  BACKLOG_TABLE_SHELL,
-  BACKLOG_TOOLBAR,
-} from '@/components/issues/backlogTableLayout'
-import { useIssues } from '@/contexts/IssuesContext'
-import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
+  PlanningBulkBar,
+  resolvePlanningSelectionContext,
+} from '@/features/sprints/planning/PlanningBulkBar'
+import { PlanningSection } from '@/features/sprints/planning/PlanningSection'
+import { useSprints } from '@/contexts/SprintsContext'
 import { useOptimisticIssueActions } from '@/hooks/useOptimisticIssueActions'
-import { getProjectById, getSprintsForProject } from '@/services/projectData'
+import { getProjectById } from '@/services/projectData'
+import { getIssueById } from '@/services/issuesRegistry'
 import { ApiError } from '@/api/types'
 import type { ProjectIssue } from '@/types/issues'
-import { cn } from '@/utils/cn'
 
 const ENTER_ANIMATION_MS = 220
 const EXIT_ANIMATION_MS = 200
+const SEARCH_DEBOUNCE_MS = 300
+
+function resolveSectionIdForSprint(sprintId: string | null): string {
+  return sprintId ? `sprint-${sprintId}` : BACKLOG_SECTION_ID
+}
 
 export function ProjectBacklogPage() {
   const { projectId = '' } = useParams()
   const project = getProjectById(projectId)
-  const { issues, loadBacklog, backlogLoading, backlogError } = useIssues()
-  const { bulkAssignSprintOptimistic } = useOptimisticIssueActions(projectId)
-  useLoadProjectSprints(projectId)
+  const { recentlyCreatedSprintId } = useSprints()
 
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverSection, setDragOverSection] = useState<string | null>(null)
   const [moveError, setMoveError] = useState<string | null>(null)
-  const [newIssueOrder, setNewIssueOrder] = useState<string[]>([])
   const [enteringIds, setEnteringIds] = useState<Set<string>>(new Set())
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
-  const [quickCreateOpen, setQuickCreateOpen] = useState(false)
-  const tableScrollRef = useRef<HTMLDivElement>(null)
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set())
   const searchRef = useRef<HTMLInputElement>(null)
 
+  const {
+    sections,
+    loading,
+    error,
+    initializeSection,
+    loadMoreSection,
+    moveIssueBetweenSections,
+    rollbackIssueMove,
+    prependIssueToSection,
+  } = useProjectBacklog(projectId, { search: debouncedQuery, enabled: !!project })
+
+  const { bulkAssignSprintOptimistic } = useOptimisticIssueActions(projectId)
+
   useEffect(() => {
-    if (projectId) {
-      void loadBacklog(projectId)
-    }
-  }, [projectId, loadBacklog])
+    const timer = window.setTimeout(() => {
+      setDebouncedQuery(query)
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [query])
 
-  const plannedSprints = getSprintsForProject(projectId).filter(
-    (s) => s.status === 'planned' || s.status === 'active',
-  )
-
-  const projectBacklogIssues = useMemo(
-    () =>
-      issues.filter((i) => i.projectId === projectId && i.sprintId === null),
-    [issues, projectId],
-  )
-
-  const backlog = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const filtered = projectBacklogIssues.filter((i) => {
-      if (!q) return true
-      return (
-        i.title.toLowerCase().includes(q) || i.key.toLowerCase().includes(q)
-      )
+  useEffect(() => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev)
+      for (const section of sections) {
+        if (section.kind !== 'sprint' || !section.sprint) continue
+        const key = section.sectionId
+        if (!prev.has(key) && defaultSprintCollapsed(section.sprint)) {
+          next.add(key)
+        }
+      }
+      return next
     })
+  }, [sections])
 
-    const orderIndex = (id: string) => {
-      const idx = newIssueOrder.indexOf(id)
-      return idx === -1 ? Number.POSITIVE_INFINITY : idx
-    }
-
-    return [...filtered].sort((a, b) => orderIndex(a.id) - orderIndex(b.id))
-  }, [projectBacklogIssues, query, newIssueOrder])
+  useEffect(() => {
+    if (!recentlyCreatedSprintId) return
+    const el = document.querySelector(
+      `[data-planning-section="sprint-${recentlyCreatedSprintId}"]`,
+    )
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [recentlyCreatedSprintId])
 
   const selectedIds = useMemo(() => [...selected], [selected])
-  const allSelected = backlog.length > 0 && selected.size === backlog.length
-  const isBacklogEmpty = projectBacklogIssues.length === 0 && !backlogLoading
-  const hasSearchQuery = query.trim().length > 0
-  const noSearchResults = hasSearchQuery && backlog.length === 0 && !backlogLoading
+  const selectionContext = useMemo(
+    () => resolvePlanningSelectionContext(selectedIds),
+    [selectedIds],
+  )
 
-  useEffect(() => {
-    if (isBacklogEmpty && !backlogLoading) {
-      setQuickCreateOpen(true)
-    }
-  }, [isBacklogEmpty, backlogLoading])
-
-  const handleIssueCreated = useCallback((issue: ProjectIssue) => {
-    setNewIssueOrder((prev) => [issue.id, ...prev.filter((id) => id !== issue.id)])
-    setEnteringIds((prev) => new Set(prev).add(issue.id))
-    window.setTimeout(() => {
-      setEnteringIds((prev) => {
-        const next = new Set(prev)
-        next.delete(issue.id)
-        return next
-      })
-    }, ENTER_ANIMATION_MS)
-  }, [])
+  const handleIssueCreated = useCallback(
+    (issue: ProjectIssue) => {
+      prependIssueToSection(BACKLOG_SECTION_ID, issue)
+      setEnteringIds((prev) => new Set(prev).add(issue.id))
+      window.setTimeout(() => {
+        setEnteringIds((prev) => {
+          const next = new Set(prev)
+          next.delete(issue.id)
+          return next
+        })
+      }, ENTER_ANIMATION_MS)
+    },
+    [prependIssueToSection],
+  )
 
   const handleBeforeDelete = useCallback((ids: string[]) => {
     setExitingIds((prev) => {
@@ -118,17 +123,6 @@ export function ProjectBacklogPage() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key === 'c' &&
-        (event.metaKey || event.ctrlKey) &&
-        !event.shiftKey &&
-        !event.altKey
-      ) {
-        const target = event.target as HTMLElement
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-        event.preventDefault()
-        setQuickCreateOpen(true)
-      }
       if (event.key === '/' && !event.metaKey && !event.ctrlKey) {
         const target = event.target as HTMLElement
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
@@ -139,6 +133,22 @@ export function ProjectBacklogPage() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  useEffect(() => {
+    for (const section of sections) {
+      if (!collapsedSections.has(section.sectionId)) {
+        initializeSection(section.sectionId)
+      }
+    }
+  }, [debouncedQuery, sections, collapsedSections, initializeSection])
+
+  const handleSectionVisible = useCallback(
+    (sectionKey: string) => {
+      if (collapsedSections.has(sectionKey)) return
+      initializeSection(sectionKey)
+    },
+    [collapsedSections, initializeSection],
+  )
 
   if (!project) {
     return <Navigate to="/projects" replace />
@@ -154,35 +164,90 @@ export function ProjectBacklogPage() {
     })
   }
 
-  const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelected(new Set())
-      return
-    }
-    setSelected(new Set(backlog.map((issue) => issue.id)))
+  const toggleSectionCollapse = (sectionKey: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev)
+      const willExpand = next.has(sectionKey)
+      if (willExpand) next.delete(sectionKey)
+      else next.add(sectionKey)
+      if (willExpand) {
+        initializeSection(sectionKey)
+      }
+      return next
+    })
   }
 
-  const dropToSprint = (sprintId: string) => {
+  const handleDragOver = (sectionKey: string) => (event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    setDragOverSection(sectionKey)
+  }
+
+  const handleDragLeave = (sectionKey: string) => (event: React.DragEvent) => {
+    const related = event.relatedTarget as Node | null
+    if (event.currentTarget.contains(related)) return
+    setDragOverSection((prev) => (prev === sectionKey ? null : prev))
+  }
+
+  const handleDrop = (targetSprintId: string | null) => (event: React.DragEvent) => {
+    event.preventDefault()
+    setDragOverSection(null)
+
     if (!draggingId) return
+    const issue = getIssueById(draggingId)
+    if (!issue) {
+      setDraggingId(null)
+      return
+    }
+
+    const sourceSectionId = resolveSectionIdForSprint(issue.sprintId)
+    const targetSectionId = resolveSectionIdForSprint(targetSprintId)
+
+    if (sourceSectionId === targetSectionId) {
+      setDraggingId(null)
+      return
+    }
+
+    const snapshot = { ...issue }
     setMoveError(null)
-    void bulkAssignSprintOptimistic([draggingId], sprintId)
+    moveIssueBetweenSections(draggingId, sourceSectionId, targetSectionId, issue)
+
+    void bulkAssignSprintOptimistic([draggingId], targetSprintId)
       .then(() => setDraggingId(null))
-      .catch((error) => {
+      .catch((dropError) => {
+        rollbackIssueMove(draggingId, sourceSectionId, targetSectionId, snapshot)
         setMoveError(
-          error instanceof ApiError ? error.message : 'Failed to move issue to sprint.',
+          dropError instanceof ApiError ? dropError.message : 'Failed to move issue.',
         )
       })
   }
 
-  const openQuickCreate = () => setQuickCreateOpen(true)
+  const renderIssueCard = (issue: ProjectIssue) => (
+    <BacklogIssueCard
+      issue={issue}
+      projectId={projectId}
+      selected={selected.has(issue.id)}
+      onSelectChange={(next) => toggleSelect(issue.id, next)}
+      onDragStart={setDraggingId}
+      onDragEnd={() => {
+        setDraggingId(null)
+        setDragOverSection(null)
+      }}
+      isEntering={enteringIds.has(issue.id)}
+      isExiting={exitingIds.has(issue.id)}
+    />
+  )
+
+  const hasSearchQuery = query.trim().length > 0
+  const sprintSections = sections.filter((section) => section.kind === 'sprint')
 
   return (
     <main className="page-main">
       <div className="page-stack min-w-0 flex-1">
-        <div className={BACKLOG_TOOLBAR}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-base font-semibold text-devflow-text">Backlog</h2>
 
-          <div className="relative">
+          <div className="relative max-w-md flex-1">
             <Search
               className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-devflow-text-muted"
               aria-hidden
@@ -192,38 +257,16 @@ export function ProjectBacklogPage() {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search backlog…"
-              aria-label="Search backlog"
-              className={cn(
-                'w-full rounded-md border border-devflow-border/80 bg-devflow-surface py-1.5 pl-8 pr-3',
-                'text-[13px] outline-none placeholder:text-devflow-text-muted',
-                'focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/15',
-              )}
+              placeholder="Search backlog and sprints…"
+              aria-label="Search backlog and sprints"
+              className="w-full rounded-md border border-devflow-border/80 bg-devflow-surface py-1.5 pl-8 pr-3 text-[13px] outline-none placeholder:text-devflow-text-muted focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/15"
             />
           </div>
-
-          {!quickCreateOpen ? (
-            <BacklogCreateButton
-              onClick={openQuickCreate}
-              label={
-                isBacklogEmpty
-                  ? 'Create your first backlog issue'
-                  : 'Create issue'
-              }
-            />
-          ) : null}
-
-          <BacklogBulkBar
-            projectId={projectId}
-            selectedIds={selectedIds}
-            onClearSelection={() => setSelected(new Set())}
-            onBeforeDelete={handleBeforeDelete}
-          />
         </div>
 
-        {backlogError ? (
+        {error ? (
           <p className="rounded-md border border-devflow-error/30 bg-devflow-error/5 px-2.5 py-1.5 text-[13px] text-devflow-error">
-            {backlogError}
+            {error}
           </p>
         ) : null}
 
@@ -233,128 +276,110 @@ export function ProjectBacklogPage() {
           </p>
         ) : null}
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
-          <div className={cn(BACKLOG_TABLE_SHELL, 'min-w-0 flex-1')}>
-            <div ref={tableScrollRef} className={cn(BACKLOG_TABLE_SCROLL, 'hidden md:block')}>
-              <div style={{ minWidth: BACKLOG_TABLE_MIN_WIDTH }}>
-                {backlogLoading && isBacklogEmpty ? (
-                  <div className="px-2 py-6 text-center text-[13px] text-devflow-text-muted">
-                    Loading backlog…
-                  </div>
-                ) : (
-                  <>
-                    <BacklogIssueRowHeader
-                      allSelected={allSelected}
-                      onToggleSelectAll={toggleSelectAll}
-                      hasIssues={backlog.length > 0}
-                    />
+        <PlanningBulkBar
+          projectId={projectId}
+          selectedIds={selectedIds}
+          selectionContext={selectionContext}
+          onClearSelection={() => setSelected(new Set())}
+          onBeforeDelete={handleBeforeDelete}
+        />
 
+        <div className="flex min-w-0 flex-col gap-4">
+          {sections.map((section) => {
+            const collapsed = collapsedSections.has(section.sectionId)
+            const isBacklog = section.kind === 'backlog'
+            const isEmpty =
+              section.issueCount === 0 &&
+              (section.pagination.initialized || !section.pagination.loading)
+            const showInitialLoading =
+              !collapsed &&
+              section.pagination.loading &&
+              section.issues.length === 0 &&
+              section.issueCount > 0
+
+            return (
+              <PlanningSection
+                key={section.sectionId}
+                kind={section.kind}
+                sectionId={section.sectionId}
+                title={section.title}
+                issueCount={section.issueCount}
+                collapsed={collapsed}
+                onToggleCollapse={() => toggleSectionCollapse(section.sectionId)}
+                onSectionVisible={() => handleSectionVisible(section.sectionId)}
+                isDropTarget
+                isDragOver={dragOverSection === section.sectionId}
+                highlighted={
+                  section.sprint != null && recentlyCreatedSprintId === section.sprint.id
+                }
+                sprint={section.sprint}
+                projectId={projectId}
+                onDragOver={handleDragOver(section.sectionId)}
+                onDragLeave={handleDragLeave(section.sectionId)}
+                onDrop={handleDrop(section.sprint?.id ?? null)}
+                isEmpty={isEmpty}
+                emptyState={
+                  isBacklog ? (
+                    <>
+                      <p className="text-[13px] font-medium text-devflow-text">
+                        {hasSearchQuery
+                          ? 'No matching backlog issues'
+                          : loading
+                            ? 'Loading backlog…'
+                            : 'No backlog issues yet'}
+                      </p>
+                      {!hasSearchQuery && !loading ? (
+                        <p className="mt-1 text-[12px] text-devflow-text-muted">
+                          Create an issue below or drop issues here from a sprint.
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="text-[13px] text-devflow-text-muted">
+                      {hasSearchQuery
+                        ? 'No matching issues in this sprint'
+                        : 'Drop issues here to add them to this sprint'}
+                    </p>
+                  )
+                }
+                footer={
+                  isBacklog ? (
                     <BacklogQuickCreate
                       projectId={projectId}
-                      expanded={quickCreateOpen}
-                      onExpandedChange={setQuickCreateOpen}
+                      expanded
+                      onExpandedChange={() => {}}
                       onCreated={handleIssueCreated}
-                      scrollContainerRef={tableScrollRef}
+                      variant="inline"
                     />
-
-                    {isBacklogEmpty && !quickCreateOpen ? (
-                      <div className="px-3 py-8 text-center">
-                        <p className="text-[13px] font-medium text-devflow-text">
-                          You&apos;re all caught up.
-                        </p>
-                        <div className="mt-2 flex justify-center">
-                          <BacklogCreateButton
-                            onClick={openQuickCreate}
-                            label="Create your first backlog issue"
-                          />
-                        </div>
-                      </div>
-                    ) : noSearchResults ? (
-                      <div className="px-3 py-5 text-center text-[13px] text-devflow-text-muted">
-                        No issues match your search.
-                      </div>
-                    ) : (
-                      backlog.map((issue, index) => (
-                        <BacklogIssueRow
-                          key={issue.id}
-                          issue={issue}
-                          projectId={projectId}
-                          selected={selected.has(issue.id)}
-                          onSelectChange={(next) => toggleSelect(issue.id, next)}
-                          onDragStart={setDraggingId}
-                          onDragEnd={() => setDraggingId(null)}
-                          isLast={index === backlog.length - 1 && !quickCreateOpen}
-                          isEntering={enteringIds.has(issue.id)}
-                          isExiting={exitingIds.has(issue.id)}
-                        />
-                      ))
-                    )}
-                  </>
+                  ) : undefined
+                }
+              >
+                {showInitialLoading ? (
+                  <p className="py-4 text-center text-[13px] text-devflow-text-muted">
+                    Loading issues…
+                  </p>
+                ) : collapsed || section.issues.length === 0 ? null : (
+                  <BacklogIssueList
+                    items={section.issues.map((issue) => issue.id)}
+                    hasNext={section.pagination.hasNext}
+                    loadingMore={section.pagination.loading}
+                    onLoadMore={() => loadMoreSection(section.sectionId)}
+                    renderItem={(id) => {
+                      const issue = getIssueById(id)
+                      return issue ? renderIssueCard(issue) : null
+                    }}
+                  />
                 )}
-              </div>
-            </div>
+              </PlanningSection>
+            )
+          })}
 
-            <div className="space-y-2 p-2 md:hidden">
-              {backlogLoading && isBacklogEmpty ? (
-                <div className="py-6 text-center text-[13px] text-devflow-text-muted">
-                  Loading backlog…
-                </div>
-              ) : (
-                <>
-                  {quickCreateOpen ? (
-                    <div className="rounded-md border border-devflow-primary/20 bg-devflow-muted/20 p-2.5">
-                      <BacklogQuickCreate
-                        projectId={projectId}
-                        expanded={quickCreateOpen}
-                        onExpandedChange={setQuickCreateOpen}
-                        onCreated={handleIssueCreated}
-                        variant="stacked"
-                      />
-                    </div>
-                  ) : null}
-
-                  {isBacklogEmpty && !quickCreateOpen ? (
-                    <div className="py-6 text-center">
-                      <p className="text-[13px] font-medium text-devflow-text">
-                        You&apos;re all caught up.
-                      </p>
-                      <div className="mt-2 flex justify-center">
-                        <BacklogCreateButton
-                          onClick={openQuickCreate}
-                          label="Create your first backlog issue"
-                        />
-                      </div>
-                    </div>
-                  ) : noSearchResults ? (
-                    <div className="py-5 text-center text-[13px] text-devflow-text-muted">
-                      No issues match your search.
-                    </div>
-                  ) : (
-                    backlog.map((issue) => (
-                      <BacklogMobileCard
-                        key={issue.id}
-                        issue={issue}
-                        projectId={projectId}
-                        selected={selected.has(issue.id)}
-                        onSelectChange={(next) => toggleSelect(issue.id, next)}
-                        onDragStart={setDraggingId}
-                        onDragEnd={() => setDraggingId(null)}
-                        isEntering={enteringIds.has(issue.id)}
-                        isExiting={exitingIds.has(issue.id)}
-                      />
-                    ))
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          <BacklogSprintSidebar
-            projectId={projectId}
-            sprints={plannedSprints}
-            draggingId={draggingId}
-            onDropToSprint={dropToSprint}
-          />
+          {!loading && sprintSections.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-devflow-border px-4 py-6 text-center text-[13px] text-devflow-text-muted">
+              No sprints yet. Create a sprint from the Sprints page to organize your
+              backlog.
+            </p>
+          ) : null}
         </div>
       </div>
     </main>

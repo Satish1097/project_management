@@ -26,9 +26,27 @@ def test_backlog_api(superuser_client, project, create_test_issue):
     response = superuser_client.get(f"/api/projects/{project.id}/backlog")
 
     assert response.status_code == 200
-    issues = response.json()["data"]["issues"]
-    assert len(issues) == 1
-    assert issues[0]["title"] == "Backlog via API"
+    backlog = response.json()["data"]["backlog"]
+    assert backlog["backlog_issue_count"] == 1
+    assert backlog["sprints"] == []
+
+
+@pytest.mark.django_db
+def test_backlog_issues_pagination(superuser_client, project, create_test_issue):
+    for index in range(20):
+        create_test_issue(title=f"Backlog {index}")
+
+    response = superuser_client.get(
+        f"/api/projects/{project.id}/backlog/issues",
+        {"page": 1, "page_size": 15},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert len(payload["issues"]) == 15
+    assert payload["total"] == 20
+    assert payload["has_next"] is True
+    assert payload["page_size"] == 15
 
 
 @pytest.mark.django_db

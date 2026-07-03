@@ -60,3 +60,20 @@
   background: color-mix(in srgb, var(--df-primary, #3b82f6) 6%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--df-primary, #3b82f6) 20%, transparent);
 }
+
+@keyframes sprint-card-highlight-pulse {
+  0% {
+    border-color: color-mix(in srgb, var(--df-primary, #3b82f6) 70%, transparent);
+    background-color: color-mix(in srgb, var(--df-nav-tint, #3b82f6) 35%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--df-primary, #3b82f6) 25%, transparent);
+  }
+  100% {
+    border-color: inherit;
+    background-color: inherit;
+    box-shadow: none;
+  }
+}
+
+.sprint-card-highlight {
+  animation: sprint-card-highlight-pulse 1.5s ease-out;
+}

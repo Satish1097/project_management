@@ -21,7 +21,7 @@ type BacklogQuickCreateProps = {
   onExpandedChange: (expanded: boolean) => void
   onCreated?: (issue: ProjectIssue) => void
   scrollContainerRef?: React.RefObject<HTMLElement | null>
-  variant?: 'row' | 'stacked'
+  variant?: 'row' | 'stacked' | 'inline'
   className?: string
 }
 
@@ -165,13 +165,21 @@ export function BacklogQuickCreate({
           setTitle(event.target.value)
           if (error) setError(null)
         }}
-        placeholder="What needs to be done?"
+        placeholder={variant === 'inline' ? 'Create issue' : 'What needs to be done?'}
         className={cn(
-          variant === 'stacked' ? 'h-8 px-2' : 'h-6 px-1.5',
-          'w-full min-w-0 rounded border border-devflow-border bg-devflow-surface',
-          'text-[13px] text-devflow-text outline-none placeholder:text-devflow-text-muted',
-          'focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/15',
-          submitting && 'pr-7',
+          variant === 'stacked'
+            ? 'h-8 px-2'
+            : variant === 'inline'
+              ? 'h-7 bg-transparent px-1'
+              : 'h-6 px-1.5',
+          variant === 'inline'
+            ? 'w-full min-w-0 text-[13px] text-devflow-text outline-none placeholder:text-devflow-primary placeholder:font-medium'
+            : cn(
+                'w-full min-w-0 rounded border border-devflow-border bg-devflow-surface',
+                'text-[13px] text-devflow-text outline-none placeholder:text-devflow-text-muted',
+                'focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/15',
+              ),
+          submitting && (variant === 'inline' ? 'pr-6' : 'pr-7'),
         )}
         onKeyDown={handleTitleKeyDown}
       />
@@ -244,6 +252,24 @@ export function BacklogQuickCreate({
       </div>
     </div>
   )
+
+  if (variant === 'inline') {
+    return (
+      <div
+        ref={rowRef}
+        role="form"
+        aria-label="Quick create issue"
+        className={cn(
+          'flex items-center gap-2 rounded-md border border-transparent px-1 py-1.5',
+          'transition-colors hover:border-devflow-border/60 hover:bg-devflow-muted/30',
+          className,
+        )}
+      >
+        <span className="font-mono text-[10px] text-devflow-text-muted">NEW</span>
+        <div className="relative min-w-0 flex-1">{summaryInput}</div>
+      </div>
+    )
+  }
 
   if (variant === 'stacked') {
     return (

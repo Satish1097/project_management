@@ -7,9 +7,9 @@ import {
   InlineAssigneePicker,
   InlineLabelPicker,
   InlinePriorityPicker,
-  InlineSprintPicker,
 } from '@/components/issues/inline'
 import { useOptimisticIssueActions } from '@/hooks/useOptimisticIssueActions'
+import { getIssueDetailExtras } from '@/services/issueDetailStore'
 import type { ProjectIssue } from '@/types/issues'
 import { cn } from '@/utils/cn'
 
@@ -20,6 +20,9 @@ type PlanningIssueCardProps = {
   onDragEnd?: () => void
   compact?: boolean
   inlineEdit?: boolean
+  selectable?: boolean
+  selected?: boolean
+  onSelectChange?: (selected: boolean) => void
 }
 
 export function PlanningIssueCard({
@@ -27,15 +30,22 @@ export function PlanningIssueCard({
   draggable = true,
   onDragStart,
   onDragEnd,
-  compact,
+  compact = true,
   inlineEdit = false,
+  selectable = false,
+  selected = false,
+  onSelectChange,
 }: PlanningIssueCardProps) {
   const { openIssueDetail } = useIssueDetail()
   const { onClick, onKeyDown, onDragStart: onCardDragStart, onDragEnd: onCardDragEnd } =
     useIssueCardClick(() => openIssueDetail({ issueId: issue.id }))
-  const { assignUser, setPriority, setLabels, assignSprint, pendingIds } =
+  const { assignUser, setPriority, setLabels, pendingIds } =
     useOptimisticIssueActions(issue.projectId)
   const isPending = pendingIds.has(issue.id)
+  const epic =
+    issue.issueType !== 'epic'
+      ? getIssueDetailExtras(issue).epic
+      : undefined
 
   return (
     <div
@@ -53,15 +63,26 @@ export function PlanningIssueCard({
         onDragEnd?.()
       }}
       className={cn(
-        'flex cursor-grab items-start gap-2 rounded-lg border border-devflow-border bg-devflow-card p-2.5 shadow-devflow-sm transition-shadow hover:shadow-devflow-md active:cursor-grabbing active:shadow-devflow-md',
-        compact && 'p-2',
+        'flex cursor-grab items-start gap-1.5 rounded-md border border-devflow-border bg-devflow-card shadow-devflow-sm transition-shadow hover:shadow-devflow-md active:cursor-grabbing',
+        compact ? 'p-2' : 'p-2.5',
         isPending && 'opacity-70',
+        selected && 'border-devflow-primary/50 bg-[var(--df-nav-tint)]/10',
       )}
     >
-      <GripVertical className="mt-0.5 size-4 shrink-0 text-devflow-text-muted" />
+      {selectable ? (
+        <input
+          type="checkbox"
+          checked={selected}
+          aria-label={`Select ${issue.key}`}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => onSelectChange?.(event.target.checked)}
+          className="mt-1 size-3.5 shrink-0 rounded border-devflow-border text-devflow-primary focus:ring-devflow-primary/30"
+        />
+      ) : null}
+      <GripVertical className="mt-0.5 size-3.5 shrink-0 text-devflow-text-muted" />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-caption text-devflow-text-muted">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="font-mono text-[11px] text-devflow-text-muted">
             {issue.key}
           </span>
           {inlineEdit ? (
@@ -76,17 +97,27 @@ export function PlanningIssueCard({
           ) : issue.priority ? (
             <PriorityIndicator priority={issue.priority} />
           ) : null}
-          {issue.storyPoints != null && (
-            <span className="rounded bg-devflow-pill px-1.5 py-0.5 text-caption text-devflow-text-secondary">
+          {issue.storyPoints != null ? (
+            <span className="rounded bg-devflow-pill px-1 py-0 text-[10px] text-devflow-text-secondary">
               {issue.storyPoints} pts
             </span>
-          )}
+          ) : null}
+          {epic ? (
+            <span className="truncate text-[10px] text-devflow-text-muted">
+              {epic}
+            </span>
+          ) : null}
         </div>
-        <p className="mt-0.5 line-clamp-2 text-body text-devflow-text">
+        <p
+          className={cn(
+            'line-clamp-1 text-devflow-text',
+            compact ? 'text-[13px]' : 'text-body',
+          )}
+        >
           {issue.title}
         </p>
         <div
-          className="mt-1.5 flex flex-wrap items-center gap-2"
+          className="mt-1 flex flex-wrap items-center gap-1.5"
           onClick={(event) => event.stopPropagation()}
         >
           {inlineEdit ? (
@@ -98,13 +129,6 @@ export function PlanningIssueCard({
                 compact
                 disabled={isPending}
                 onChange={(userId, member) => void assignUser(issue.id, userId, member)}
-              />
-              <InlineSprintPicker
-                projectId={issue.projectId}
-                value={issue.sprintId}
-                compact
-                disabled={isPending}
-                onChange={(sprintId) => void assignSprint(issue.id, sprintId)}
               />
               <InlineLabelPicker
                 projectId={issue.projectId}
@@ -118,13 +142,18 @@ export function PlanningIssueCard({
             </>
           ) : (
             <>
-              <Avatar name={issue.assignee.name} color={issue.assignee.color} size={20} />
-              <span className="truncate text-caption text-devflow-text-muted">
+              <Avatar name={issue.assignee.name} color={issue.assignee.color} size={18} />
+              <span className="truncate text-[11px] text-devflow-text-muted">
                 {issue.assignee.name}
               </span>
-              <span className="rounded px-1.5 py-0.5 text-caption text-devflow-text-secondary bg-devflow-muted">
-                {issue.label}
-              </span>
+              {(issue.labels ?? [issue.label]).slice(0, 2).map((label) => (
+                <span
+                  key={label}
+                  className="rounded bg-devflow-muted px-1 py-0 text-[10px] text-devflow-text-secondary"
+                >
+                  {label}
+                </span>
+              ))}
             </>
           )}
         </div>

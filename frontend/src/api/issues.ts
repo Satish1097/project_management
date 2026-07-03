@@ -2,6 +2,7 @@ import type { ApiResponse } from './types'
 import { ApiError } from './types'
 import { apiClient } from './client'
 import { DEFAULT_KANBAN_PAGE_SIZE } from '@/constants/kanban'
+import { DEFAULT_PAGE_SIZE } from '@/constants/pagination'
 import { getWorkflow, statusIdForSlug } from './workflow'
 
 export type IssueLabelApi = {
@@ -192,6 +193,35 @@ export type KanbanBoardApi = {
   filters?: KanbanBoardFiltersApi
 }
 
+export type BacklogSprintMetadataApi = {
+  id: string
+  name: string
+  status: string
+  issue_count: number
+  start_date: string | null
+  end_date: string | null
+}
+
+export type BacklogMetadataApi = {
+  project_id: string
+  backlog_issue_count: number
+  sprints: BacklogSprintMetadataApi[]
+}
+
+export type BacklogSectionIssuesApi = {
+  page: number
+  page_size: number
+  total: number
+  has_next: boolean
+  issues: IssueApi[]
+}
+
+export type BacklogSectionQuery = {
+  page?: number
+  page_size?: number
+  search?: string
+}
+
 export type IssueCommentApi = {
   id: string
   issue: string
@@ -326,7 +356,7 @@ export async function listIssuesPaginated(
     const { data } = await apiClient.get<ApiResponse<IssueListPaginationApi>>('/issues', {
       params: buildIssueQueryParams(projectId, {
         page: 1,
-        page_size: 10,
+        page_size: DEFAULT_PAGE_SIZE,
         ...query,
       }),
     })
@@ -336,6 +366,66 @@ export async function listIssuesPaginated(
   }
 }
 
+function buildBacklogSectionQueryParams(
+  query?: BacklogSectionQuery,
+): Record<string, string | number> | undefined {
+  if (!query) return undefined
+
+  const params: Record<string, string | number> = {
+    page: query.page ?? 1,
+    page_size: query.page_size ?? DEFAULT_PAGE_SIZE,
+  }
+  if (query.search) params.search = query.search
+  return params
+}
+
+export async function getBacklogMetadata(
+  projectId: string,
+  query?: Pick<BacklogSectionQuery, 'search'>,
+): Promise<BacklogMetadataApi> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ backlog: BacklogMetadataApi }>>(
+      `/projects/${projectId}/backlog`,
+      { params: query?.search ? { search: query.search } : undefined },
+    )
+    return data.data.backlog
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getBacklogSectionIssues(
+  projectId: string,
+  query?: BacklogSectionQuery,
+): Promise<BacklogSectionIssuesApi> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<BacklogSectionIssuesApi>>(
+      `/projects/${projectId}/backlog/issues`,
+      { params: buildBacklogSectionQueryParams(query) },
+    )
+    return data.data
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getBacklogSprintSectionIssues(
+  projectId: string,
+  sprintId: string,
+  query?: BacklogSectionQuery,
+): Promise<BacklogSectionIssuesApi> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<BacklogSectionIssuesApi>>(
+      `/projects/${projectId}/backlog/sprints/${sprintId}/issues`,
+      { params: buildBacklogSectionQueryParams(query) },
+    )
+    return data.data
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+/** @deprecated Use getBacklogSectionIssues for paginated backlog loading */
 export async function getBacklog(projectId: string): Promise<IssueApi[]> {
   return listIssues(projectId, { sprint: null })
 }

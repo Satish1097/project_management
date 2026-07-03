@@ -28,10 +28,13 @@ import {
 } from '@/services/sprintsRegistry'
 import type { Sprint } from '@/types/sprints'
 
+const RECENTLY_CREATED_HIGHLIGHT_MS = 3000
+
 type SprintsContextValue = {
   sprints: Sprint[]
   loading: boolean
   error: string | null
+  recentlyCreatedSprintId: string | null
   loadProjectSprints: (projectId: string) => Promise<void>
   loadSprintDetail: (sprintId: string, projectId: string) => Promise<Sprint>
   createSprintViaApi: (
@@ -52,7 +55,11 @@ export function SprintsProvider({ children }: { children: ReactNode }) {
   const [sprints, setSprints] = useState<Sprint[]>(() => getSprints())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [recentlyCreatedSprintId, setRecentlyCreatedSprintId] = useState<
+    string | null
+  >(null)
   const fetchIdRef = useRef(0)
+  const highlightTimerRef = useRef<number | null>(null)
 
   const refresh = useCallback(() => {
     setSprints(getSprints())
@@ -93,15 +100,27 @@ export function SprintsProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const markRecentlyCreated = useCallback((sprintId: string) => {
+    if (highlightTimerRef.current !== null) {
+      window.clearTimeout(highlightTimerRef.current)
+    }
+    setRecentlyCreatedSprintId(sprintId)
+    highlightTimerRef.current = window.setTimeout(() => {
+      setRecentlyCreatedSprintId(null)
+      highlightTimerRef.current = null
+    }, RECENTLY_CREATED_HIGHLIGHT_MS)
+  }, [])
+
   const createSprintViaApi = useCallback(
     async (projectId: string, payload: CreateSprintPayload): Promise<Sprint> => {
       const created = await apiCreateSprint(projectId, payload)
       const sprint = mapSprintDetailToUi(created, projectId)
       upsertSprintInRegistry(sprint)
       setSprints(getSprints())
+      markRecentlyCreated(sprint.id)
       return sprint
     },
-    [],
+    [markRecentlyCreated],
   )
 
   const updateSprintViaApi = useCallback(
@@ -124,6 +143,7 @@ export function SprintsProvider({ children }: { children: ReactNode }) {
       sprints,
       loading,
       error,
+      recentlyCreatedSprintId,
       loadProjectSprints,
       loadSprintDetail,
       createSprintViaApi,
@@ -134,6 +154,7 @@ export function SprintsProvider({ children }: { children: ReactNode }) {
       sprints,
       loading,
       error,
+      recentlyCreatedSprintId,
       loadProjectSprints,
       loadSprintDetail,
       createSprintViaApi,

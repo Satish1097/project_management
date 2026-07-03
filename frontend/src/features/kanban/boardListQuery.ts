@@ -1,7 +1,9 @@
 import type { IssueListQuery } from '@/api/issues'
 import type { KanbanBoardFilterMetadata, KanbanBoardFilters } from '@/types/kanban'
 
-export const DEFAULT_LIST_PAGE_SIZE = 10
+import { DEFAULT_PAGE_SIZE } from '@/constants/pagination'
+
+export const DEFAULT_LIST_PAGE_SIZE = DEFAULT_PAGE_SIZE
 
 export function parseListPage(searchParams: URLSearchParams): number {
   const parsed = Number(searchParams.get('page') ?? '1')

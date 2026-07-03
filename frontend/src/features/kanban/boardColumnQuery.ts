@@ -3,7 +3,7 @@ import { DEFAULT_KANBAN_PAGE_SIZE } from '@/constants/kanban'
 import type { KanbanBoardFilterMetadata, KanbanBoardFilters } from '@/types/kanban'
 import { kanbanFiltersToIssueListQuery } from '@/features/kanban/boardListQuery'
 
-export { DEFAULT_KANBAN_PAGE_SIZE }
+export { DEFAULT_KANBAN_PAGE_SIZE, DEFAULT_PAGE_SIZE } from '@/constants/pagination'
 
 export function boardColumnQueryFromFilters(
   filters: KanbanBoardFilters,

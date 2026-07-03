@@ -16,6 +16,7 @@ import {
   isEndAfterStart,
   toIsoDate,
 } from '@/utils/sprintDates'
+import { showToast } from '@/features/toast/toast'
 import { cn } from '@/utils/cn'
 
 const SPRINT_NAME_MAX = 80
@@ -40,7 +41,7 @@ type CreateSprintDrawerProps = {
   open: boolean
   onClose: () => void
   projectId: string
-  onCreated?: (sprintId: string) => void
+  onCreated?: (sprint: Sprint) => void
   /** Pre-fill name suggestion e.g. Sprint 44 */
   suggestedName?: string
   /** When set, drawer edits an existing sprint via PATCH. */
@@ -192,8 +193,9 @@ export function CreateSprintDrawer({
       }
 
       const sprint = await createSprintViaApi(projectId, payload)
+      showToast('Sprint created successfully.', 'success')
       onClose()
-      onCreated?.(sprint.id)
+      onCreated?.(sprint)
     } catch (error) {
       setSubmitError(
         error instanceof ApiError ? error.message : 'Failed to save sprint.',

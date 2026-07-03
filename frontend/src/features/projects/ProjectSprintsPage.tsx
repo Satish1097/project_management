@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { SprintStatusBadge } from '@/components/ui/SprintStatusBadge'
@@ -28,7 +28,8 @@ import { cn } from '@/utils/cn'
 export function ProjectSprintsPage() {
   const { projectId = '' } = useParams()
   const navigate = useNavigate()
-  const { sprints: allSprints, loading, error } = useSprints()
+  const { sprints: allSprints, loading, error, recentlyCreatedSprintId } =
+    useSprints()
   const { startSprint, pauseSprint, resumeSprint, completeSprint } =
     useSprintActions(projectId)
   useLoadProjectSprints(projectId)
@@ -114,6 +115,14 @@ export function ProjectSprintsPage() {
     navigate(sprintBoardPath(projectId, sprint.id))
   }
 
+  useEffect(() => {
+    if (!recentlyCreatedSprintId) return
+    const el = document.querySelector(
+      `[data-sprint-id="${recentlyCreatedSprintId}"]`,
+    )
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [recentlyCreatedSprintId])
+
   return (
     <>
       <main className="page-main">
@@ -166,6 +175,7 @@ export function ProjectSprintsPage() {
               <ActiveSprintCard
                 sprint={active}
                 projectId={projectId}
+                highlighted={recentlyCreatedSprintId === active.id}
                 onPause={() => void handlePause(active)}
                 onComplete={() => setCompleteTarget(active)}
               />
@@ -183,6 +193,7 @@ export function ProjectSprintsPage() {
                     <PlannedSprintCard
                       sprint={sprint}
                       projectId={projectId}
+                      highlighted={recentlyCreatedSprintId === sprint.id}
                       primaryActionLabel="Start sprint"
                       onPrimaryAction={() => void handleStart(sprint)}
                       onEdit={() => setEditTarget(sprint)}
@@ -201,7 +212,11 @@ export function ProjectSprintsPage() {
               <ul className="flex flex-col gap-2">
                 {completed.map((sprint) => (
                   <li key={sprint.id}>
-                    <CompletedSprintCard sprint={sprint} projectId={projectId} />
+                    <CompletedSprintCard
+                      sprint={sprint}
+                      projectId={projectId}
+                      highlighted={recentlyCreatedSprintId === sprint.id}
+                    />
                   </li>
                 ))}
               </ul>
@@ -217,6 +232,7 @@ export function ProjectSprintsPage() {
                     <PlannedSprintCard
                       sprint={sprint}
                       projectId={projectId}
+                      highlighted={recentlyCreatedSprintId === sprint.id}
                       primaryActionLabel={
                         sprint.status === 'paused' ? 'Resume sprint' : undefined
                       }
@@ -251,7 +267,6 @@ export function ProjectSprintsPage() {
         onClose={() => setCreateOpen(false)}
         projectId={projectId}
         suggestedName={`Sprint ${nextSprintNumber}`}
-        onCreated={(id) => navigate(sprintPlanningPath(projectId, id))}
       />
 
       <CreateSprintDrawer
@@ -277,18 +292,26 @@ export function ProjectSprintsPage() {
 function ActiveSprintCard({
   sprint,
   projectId,
+  highlighted,
   onPause,
   onComplete,
 }: {
   sprint: Sprint
   projectId: string
+  highlighted?: boolean
   onPause: () => void
   onComplete: () => void
 }) {
   const pct = getSprintCompletionPercent(sprint)
 
   return (
-    <article className="rounded-lg border border-devflow-primary/30 bg-[var(--df-nav-tint)]/40 p-4 shadow-devflow-sm">
+    <article
+      data-sprint-id={sprint.id}
+      className={cn(
+        'rounded-lg border border-devflow-primary/30 bg-[var(--df-nav-tint)]/40 p-4 shadow-devflow-sm',
+        highlighted && 'sprint-card-highlight',
+      )}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -354,18 +377,26 @@ function ActiveSprintCard({
 function PlannedSprintCard({
   sprint,
   projectId,
+  highlighted,
   primaryActionLabel,
   onPrimaryAction,
   onEdit,
 }: {
   sprint: Sprint
   projectId: string
+  highlighted?: boolean
   primaryActionLabel?: 'Start sprint' | 'Resume sprint'
   onPrimaryAction?: () => void
   onEdit: () => void
 }) {
   return (
-    <article className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-devflow-border bg-devflow-card p-4">
+    <article
+      data-sprint-id={sprint.id}
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-devflow-border bg-devflow-card p-4',
+        highlighted && 'sprint-card-highlight',
+      )}
+    >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <h4 className="text-section-title text-devflow-text">{sprint.name}</h4>
@@ -411,14 +442,22 @@ function PlannedSprintCard({
 function CompletedSprintCard({
   sprint,
   projectId,
+  highlighted,
 }: {
   sprint: Sprint
   projectId: string
+  highlighted?: boolean
 }) {
   const rate = getSprintSuccessRate(sprint)
 
   return (
-    <article className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-devflow-border bg-devflow-card p-4 opacity-95">
+    <article
+      data-sprint-id={sprint.id}
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-devflow-border bg-devflow-card p-4 opacity-95',
+        highlighted && 'sprint-card-highlight',
+      )}
+    >
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <h4 className="text-section-title text-devflow-text">{sprint.name}</h4>

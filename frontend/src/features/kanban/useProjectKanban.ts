@@ -12,6 +12,7 @@ import {
   mapKanbanBoardToColumns,
 } from '@/services/mapKanbanApi'
 import type { KanbanBoardFiltersApi } from '@/api/issues'
+import { mergeItemsById } from '@/lib/sectionPagination'
 import type {
   KanbanBoardFilterMetadata,
   KanbanBoardFilters,
@@ -116,7 +117,7 @@ export function useProjectKanban(
         setColumnStates((prev) => {
           const current = prev[statusId] ?? EMPTY_COLUMN_STATE
           const mergedIssues = append
-            ? mergeIssuesById(current.issues, issues)
+            ? mergeItemsById(current.issues, issues)
             : issues
 
           return {
@@ -378,7 +379,7 @@ export function useProjectKanban(
           },
           [targetStatusId]: {
             ...target,
-            issues: mergeIssuesById([nextIssue], target.issues),
+            issues: mergeItemsById([nextIssue], target.issues),
             total: target.total + 1,
           },
         }
@@ -448,19 +449,6 @@ export function useProjectKanban(
     moveIssueBetweenColumns,
     rollbackIssueMove,
   }
-}
-
-function mergeIssuesById(primary: KanbanIssue[], secondary: KanbanIssue[]): KanbanIssue[] {
-  const seen = new Set<string>()
-  const merged: KanbanIssue[] = []
-
-  for (const issue of [...primary, ...secondary]) {
-    if (seen.has(issue.id)) continue
-    seen.add(issue.id)
-    merged.push(issue)
-  }
-
-  return merged
 }
 
 export type KanbanColumnWithPagination = KanbanColumn & {
