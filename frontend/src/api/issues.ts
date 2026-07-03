@@ -17,6 +17,11 @@ export type IssueStatusApi = {
   name: string
 }
 
+export type IssueSprintRefApi = {
+  id: string
+  name: string
+}
+
 export type IssueApi = {
   id: string
   project: string
@@ -26,7 +31,7 @@ export type IssueApi = {
   type: string
   priority: string
   status: IssueStatusApi
-  sprint: string | null
+  sprint: string | IssueSprintRefApi | null
   labels: IssueLabelApi[]
   assignee: string | null
   reporter: string

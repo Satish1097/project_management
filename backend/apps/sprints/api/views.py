@@ -8,7 +8,11 @@ from apps.issues.selectors import select_sprint_activity_feed
 from apps.permissions.drf_permissions import Authenticated, CanManageSprint, CanPlanSprint, CanViewProject
 from apps.projects.exceptions import ProjectNotFoundError
 from apps.projects.selectors import select_project_by_id
-from apps.sprints.api.serializers import SprintCreateSerializer, SprintUpdateSerializer
+from apps.sprints.api.serializers import (
+    SprintCompleteSerializer,
+    SprintCreateSerializer,
+    SprintUpdateSerializer,
+)
 from apps.sprints.exceptions import SprintNotFoundError
 from apps.sprints.selectors import (
     _sprint_health_queryset,
@@ -179,11 +183,20 @@ class SprintResumeView(APIView):
 class SprintCompleteView(APIView):
     permission_classes = [Authenticated, CanManageSprint]
 
-    @extend_schema(tags=["sprints"])
+    @extend_schema(request=SprintCompleteSerializer, tags=["sprints"])
     def post(self, request, project_id: UUID, sprint_id: UUID):
         _require_project(project_id)
         _require_project_sprint(project_id=project_id, sprint_id=sprint_id)
-        sprint = sprint_service.complete_sprint(user=request.user, sprint_id=sprint_id)
+        serializer = SprintCompleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        sprint = sprint_service.complete_sprint(
+            user=request.user,
+            sprint_id=sprint_id,
+            move_incomplete_to=serializer.validated_data.get(
+                "move_incomplete_to", "backlog"
+            ),
+            target_sprint_id=serializer.validated_data.get("target_sprint_id"),
+        )
         sprint = _sprint_with_health(project_id, sprint.id) or sprint
         return success_response(data={"sprint": _sprint_to_data(sprint, include_health=True)})
 

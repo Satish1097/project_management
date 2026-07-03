@@ -34,6 +34,12 @@ function resolveAssigneeId(assignee: IssueApi['assignee']): string | null {
   return assignee
 }
 
+function resolveSprintId(sprint: IssueApi['sprint']): string | null {
+  if (!sprint) return null
+  if (typeof sprint === 'object') return sprint.id
+  return sprint
+}
+
 function resolveAssignee(
   assigneeId: string | null,
   displayName?: string,
@@ -57,7 +63,7 @@ export function mapIssueToUi(issue: IssueApi, projectId?: string): ProjectIssue 
   return {
     id: issue.id,
     projectId: pid,
-    sprintId: issue.sprint,
+    sprintId: resolveSprintId(issue.sprint),
     key: issue.key,
     title: issue.title,
     status: mapWorkflowToBoardStatus(workflowStatus),

@@ -287,9 +287,7 @@ export function SprintDetailPage() {
         onClose={() => setCompleteOpen(false)}
         projectId={projectId}
         sprint={sprint}
-        onComplete={(opts) => {
-          void completeSprint(sprintId, opts).finally(() => setCompleteOpen(false))
-        }}
+        onComplete={(opts) => completeSprint(sprintId, opts)}
       />
 
       <CreateSprintDrawer

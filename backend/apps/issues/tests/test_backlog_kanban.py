@@ -111,6 +111,38 @@ def test_project_sprint_board_api(superuser_client, project, superuser, create_t
 
 
 @pytest.mark.django_db
+def test_project_board_column_includes_issue_sprint(
+    superuser_client,
+    project,
+    superuser,
+    create_test_issue,
+    status_ids,
+):
+    sprint = create_sprint(project_id=project.id, name="Sprint 6", actor_id=superuser.id)
+    sprint_issue = create_test_issue(title="Sprint card", sprint_id=sprint.id)
+    backlog_issue = create_test_issue(title="Backlog card")
+
+    board_response = superuser_client.get(f"/api/projects/{project.id}/board")
+    todo_column = next(
+        column
+        for column in board_response.json()["data"]["board"]["columns"]
+        if column["status_slug"] == "todo"
+    )
+
+    response = superuser_client.get(
+        f"/api/projects/{project.id}/board/columns/{todo_column['status_id']}",
+    )
+
+    assert response.status_code == 200
+    issues_by_key = {issue["key"]: issue for issue in response.json()["data"]["issues"]}
+    assert issues_by_key[sprint_issue.key]["sprint"] == {
+        "id": str(sprint.id),
+        "name": "Sprint 6",
+    }
+    assert issues_by_key[backlog_issue.key]["sprint"] is None
+
+
+@pytest.mark.django_db
 def test_project_board_column_pagination(
     superuser_client,
     project,

@@ -3,6 +3,7 @@ import { useIssueDetail } from '@/contexts/IssueDetailContext'
 import { Avatar } from '@/components/ui/Avatar'
 import { LabelBadge } from '@/components/ui/LabelBadge'
 import { PriorityIndicator } from '@/components/ui/PriorityIndicator'
+import { SprintBadge } from '@/components/ui/SprintBadge'
 import type { KanbanIssue } from '@/types/kanban'
 import type { TaskPriority } from '@/types/tasks'
 import { cn } from '@/utils/cn'
@@ -15,6 +16,7 @@ type TaskCardProps = {
   isDragOverlay?: boolean
   isTransitioning?: boolean
   draggable?: boolean
+  showSprintBadge?: boolean
 }
 
 function toTaskPriority(priority: KanbanIssue['priority']): TaskPriority {
@@ -29,6 +31,7 @@ export function TaskCard({
   isDragOverlay = false,
   isTransitioning = false,
   draggable = true,
+  showSprintBadge = false,
 }: TaskCardProps) {
   const { openIssueDetail } = useIssueDetail()
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
@@ -93,6 +96,9 @@ export function TaskCard({
       </h3>
 
       <div className="issue-card__meta">
+        {showSprintBadge ? (
+          <SprintBadge name={issue.sprint?.name ?? null} />
+        ) : null}
         <LabelBadge label={issue.label} variant={labelVariant} />
       </div>
 

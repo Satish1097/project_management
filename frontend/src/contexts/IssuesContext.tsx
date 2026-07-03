@@ -65,6 +65,7 @@ type IssuesContextValue = {
   createIssueViaApi: (
     projectId: string,
     payload: CreateIssuePayload,
+    options?: { light?: boolean },
   ) => Promise<ProjectIssue>
   updateIssueViaApi: (
     issueId: string,
@@ -155,11 +156,20 @@ export function IssuesProvider({ children }: { children: ReactNode }) {
   )
 
   const createIssueViaApi = useCallback(
-    async (projectId: string, payload: CreateIssuePayload): Promise<ProjectIssue> => {
+    async (
+      projectId: string,
+      payload: CreateIssuePayload,
+      options?: { light?: boolean },
+    ): Promise<ProjectIssue> => {
       const created = await apiCreateIssue(projectId, payload)
       const issue = mapIssueDetailToUi(created, projectId)
       upsertApiIssue(issue)
       setIssues(getIssues())
+      if (options?.light) {
+        refreshKanbanBoard()
+        void syncProjectOpenIssueCount(projectId)
+        return issue
+      }
       await reloadProjectIssuesAndRefreshBoard(projectId, issue.sprintId)
       void syncProjectOpenIssueCount(projectId)
       return issue

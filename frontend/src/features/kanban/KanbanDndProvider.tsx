@@ -19,6 +19,7 @@ type KanbanDndProviderProps = {
     sourceStatusId: string,
   ) => void | Promise<void>
   transitioningIssueId: string | null
+  showSprintBadge?: boolean
   children: (state: {
     draggingIssueId: string | null
     isDragActive: boolean
@@ -42,6 +43,7 @@ export function KanbanDndProvider({
   columns,
   onTransitionIssue,
   transitioningIssueId,
+  showSprintBadge = false,
   children,
 }: KanbanDndProviderProps) {
   const [draggingIssueId, setDraggingIssueId] = useState<string | null>(null)
@@ -113,6 +115,7 @@ export function KanbanDndProvider({
             columnId={activeIssue.columnId}
             statusId={activeIssue.statusId}
             isDragOverlay
+            showSprintBadge={showSprintBadge}
           />
         ) : null}
       </DragOverlay>

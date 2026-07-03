@@ -14,6 +14,7 @@ type KanbanBoardViewProps = {
   enableDragDrop?: boolean
   emptyTitle?: string
   emptyHint?: string
+  showSprintBadge?: boolean
   onLoadMoreColumn?: (statusId: string) => void
 }
 
@@ -24,6 +25,7 @@ export function KanbanBoardView({
   enableDragDrop = true,
   emptyTitle = 'No issues on the board',
   emptyHint = 'Create issues in the backlog to see them here.',
+  showSprintBadge = false,
   onLoadMoreColumn,
 }: KanbanBoardViewProps) {
   const totalIssues = columns.reduce((sum, column) => sum + column.count, 0)
@@ -51,6 +53,7 @@ export function KanbanBoardView({
               <KanbanColumn
                 column={column}
                 draggable={false}
+                showSprintBadge={showSprintBadge}
                 onLoadMore={onLoadMoreColumn}
               />
             </div>
@@ -65,6 +68,7 @@ export function KanbanBoardView({
       columns={columns}
       onTransitionIssue={onTransitionIssue}
       transitioningIssueId={transitioningIssueId}
+      showSprintBadge={showSprintBadge}
     >
       {({ draggingIssueId, isDragActive }) => (
         <div
@@ -81,6 +85,7 @@ export function KanbanBoardView({
                   draggingIssueId={draggingIssueId}
                   isDragActive={isDragActive}
                   transitioningIssueId={transitioningIssueId}
+                  showSprintBadge={showSprintBadge}
                   onLoadMore={onLoadMoreColumn}
                 />
               </div>

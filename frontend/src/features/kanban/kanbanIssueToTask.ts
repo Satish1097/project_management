@@ -2,6 +2,7 @@ import { FileText, Globe, Network, Smartphone } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { IssueApi } from '@/api/issues'
 import { mapIssueToUi } from '@/services/mapIssueApi'
+import { getSprintById } from '@/services/projectData'
 import { projectIssueToBoardTask } from '@/utils/projectIssueBoard'
 import type { KanbanColumn, KanbanIssue } from '@/types/kanban'
 import type { Project } from '@/types/projects'
@@ -69,5 +70,14 @@ export function kanbanColumnsToTasks(
 }
 
 export function issueApiToTask(issue: IssueApi, project: Project): Task {
-  return projectIssueToBoardTask(mapIssueToUi(issue, project.id), project)
+  const task = projectIssueToBoardTask(mapIssueToUi(issue, project.id), project)
+  const sprint = issue.sprint
+  let sprintName: string | null = null
+  if (sprint) {
+    sprintName =
+      typeof sprint === 'object'
+        ? sprint.name
+        : getSprintById(project.id, sprint)?.name ?? null
+  }
+  return { ...task, sprintName }
 }

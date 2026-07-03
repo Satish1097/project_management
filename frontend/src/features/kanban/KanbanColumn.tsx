@@ -11,6 +11,7 @@ type KanbanColumnProps = {
   isDragActive?: boolean
   transitioningIssueId?: string | null
   draggable?: boolean
+  showSprintBadge?: boolean
   onLoadMore?: (statusId: string) => void
 }
 
@@ -20,6 +21,7 @@ export function KanbanColumn({
   isDragActive = false,
   transitioningIssueId = null,
   draggable = true,
+  showSprintBadge = false,
   onLoadMore,
 }: KanbanColumnProps) {
   const statusId = column.statusId ?? column.id
@@ -123,6 +125,7 @@ export function KanbanColumn({
                 isDragging={draggingIssueId === issue.id}
                 isTransitioning={transitioningIssueId === issue.id}
                 draggable={draggable}
+                showSprintBadge={showSprintBadge}
               />
             ))}
             {showDropIndicator ? (

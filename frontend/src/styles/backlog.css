@@ -1,0 +1,62 @@
+@keyframes backlog-row-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes backlog-row-exit {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+    max-height: 2.5rem;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(8px);
+    max-height: 0;
+  }
+}
+
+@keyframes backlog-selection-pulse {
+  0% {
+    background-color: color-mix(in srgb, var(--df-nav-tint, #3b82f6) 30%, transparent);
+  }
+  100% {
+    background-color: color-mix(in srgb, var(--df-nav-tint, #3b82f6) 15%, transparent);
+  }
+}
+
+.backlog-row-enter {
+  animation: backlog-row-enter 0.22s ease-out;
+}
+
+.backlog-row-exit {
+  animation: backlog-row-exit 0.2s ease-in forwards;
+  overflow: hidden;
+}
+
+.backlog-row-selected {
+  animation: backlog-selection-pulse 0.25s ease-out;
+}
+
+.backlog-quick-create-row {
+  background: color-mix(in srgb, var(--df-primary, #3b82f6) 4%, var(--df-surface, #fff));
+}
+
+.backlog-sprint-drop-target {
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.backlog-sprint-drop-target--active {
+  border-color: color-mix(in srgb, var(--df-primary, #3b82f6) 50%, transparent);
+  background: color-mix(in srgb, var(--df-primary, #3b82f6) 6%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--df-primary, #3b82f6) 20%, transparent);
+}

@@ -267,11 +267,7 @@ export function ProjectSprintsPage() {
           projectId={projectId}
           sprint={completeTarget}
           onClose={() => setCompleteTarget(null)}
-          onComplete={(opts) => {
-            void completeSprint(completeTarget.id, opts).finally(() => {
-              setCompleteTarget(null)
-            })
-          }}
+          onComplete={(opts) => completeSprint(completeTarget.id, opts)}
         />
       )}
     </>

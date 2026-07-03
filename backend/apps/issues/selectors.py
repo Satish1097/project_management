@@ -19,6 +19,7 @@ from apps.issues.models.activity import IssueActivityEventType
 from apps.permissions.services import permission_service
 from apps.issues.kanban_constants import DEFAULT_KANBAN_PAGE_SIZE, MAX_KANBAN_PAGE_SIZE
 from apps.sprints.selectors import get_sprint_by_id
+from apps.workflow.models import WorkflowStatusCategory
 from apps.workflow.selectors import get_project_statuses
 from apps.workflow.slug_utils import status_slug
 
@@ -310,6 +311,15 @@ def get_project_issues(
 
 def get_sprint_issues(sprint_id: UUID) -> QuerySet[Issue]:
     return _optimized_issue_queryset().filter(sprint_id=sprint_id).order_by("-created_at")
+
+
+def get_incomplete_sprint_issue_ids(sprint_id: UUID) -> list[UUID]:
+    return list(
+        _optimized_issue_queryset()
+        .filter(sprint_id=sprint_id)
+        .exclude(status__category=WorkflowStatusCategory.DONE)
+        .values_list("id", flat=True)
+    )
 
 
 def get_backlog_issues(project_id: UUID) -> QuerySet[Issue]:

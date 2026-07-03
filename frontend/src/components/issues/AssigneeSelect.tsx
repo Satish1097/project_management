@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
-import { useProjectMembersData } from '@/hooks/useProjectMembersData'
-import { mockMembers } from '@/services/mockMembers'
+import {
+  InlineAssigneePicker,
+  useAssigneeMembers,
+} from '@/components/issues/inline/InlineAssigneePicker'
 import { cn } from '@/utils/cn'
 
 type AssigneeSelectProps = {
@@ -12,43 +13,14 @@ type AssigneeSelectProps = {
   projectId?: string
 }
 
-const MEMBER_COLORS = [
-  '#3b82f6',
-  '#8b5cf6',
-  '#10b981',
-  '#f59e0b',
-  '#ec4899',
-  '#6366f1',
-]
-
-function colorForName(name: string): string {
-  let hash = 0
-  for (let i = 0; i < name.length; i += 1) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  return MEMBER_COLORS[Math.abs(hash) % MEMBER_COLORS.length]
-}
-
 export function AssigneeSelect({
   value,
   onChange,
   className,
   projectId,
 }: AssigneeSelectProps) {
-  const { members } = useProjectMembersData(projectId ?? '')
-
-  const options = useMemo(() => {
-    if (projectId && members.length > 0) {
-      return members.map((member) => ({
-        id: member.user_id,
-        name: member.display_name || member.email || 'Member',
-        color: colorForName(member.display_name || member.email || member.user_id),
-      }))
-    }
-    return mockMembers
-  }, [projectId, members])
-
-  const selected = options.find((member) => member.id === value)
+  const memberOptions = useAssigneeMembers(projectId ?? '')
+  const selected = memberOptions.find((member) => member.id === value)
 
   return (
     <div className={cn('flex flex-col gap-1', className)}>
@@ -71,7 +43,7 @@ export function AssigneeSelect({
           )}
         >
           <option value="">Unassigned</option>
-          {options.map((user) => (
+          {memberOptions.map((user) => (
             <option key={user.id} value={user.id}>
               {user.name}
             </option>
@@ -83,5 +55,33 @@ export function AssigneeSelect({
         />
       </div>
     </div>
+  )
+}
+
+/** Inline assignee field for drawers and compact surfaces. */
+export function AssigneeField({
+  projectId,
+  value,
+  onChange,
+  className,
+}: {
+  projectId: string
+  value: string | null
+  onChange: (userId: string | null) => void
+  className?: string
+}) {
+  const members = useAssigneeMembers(projectId)
+  const member = members.find((item) => item.id === value)
+
+  return (
+    <InlineAssigneePicker
+      projectId={projectId}
+      value={value}
+      assignee={
+        member ? { name: member.name, color: member.color } : undefined
+      }
+      className={className}
+      onChange={(userId) => onChange(userId)}
+    />
   )
 }

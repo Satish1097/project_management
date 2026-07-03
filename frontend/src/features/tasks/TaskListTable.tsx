@@ -2,23 +2,32 @@ import { useOpenIssueFromTask } from '@/contexts/IssueDetailContext'
 import { IssueStatusBadge } from '@/components/ui/IssueStatusBadge'
 import { LabelBadge } from '@/components/ui/LabelBadge'
 import { PriorityIndicator } from '@/components/ui/PriorityIndicator'
+import { SprintBadge } from '@/components/ui/SprintBadge'
 import type { Task } from '@/types/tasks'
 import { cn } from '@/utils/cn'
 
-const GRID =
+const GRID_BASE =
   'grid grid-cols-[48px_120px_minmax(0,1fr)_120px_140px_120px_100px] items-center gap-x-4'
+
+const GRID_WITH_SPRINT =
+  'grid grid-cols-[48px_120px_minmax(0,1fr)_120px_120px_140px_120px_100px] items-center gap-x-4'
 
 type TaskListTableProps = {
   tasks: Task[]
   embedded?: boolean
+  showSprintColumn?: boolean
 }
 
-export function TaskListTable({ tasks, embedded = false }: TaskListTableProps) {
+export function TaskListTable({
+  tasks,
+  embedded = false,
+  showSprintColumn = false,
+}: TaskListTableProps) {
   const openIssue = useOpenIssueFromTask()
-
+  const gridClass = showSprintColumn ? GRID_WITH_SPRINT : GRID_BASE
   const table = (
     <>
-      <div className={cn(GRID, 'border-b border-devflow-border bg-devflow-table-header px-4 py-2')}>
+      <div className={cn(gridClass, 'border-b border-devflow-border bg-devflow-table-header px-4 py-2')}>
         <span className="text-center text-table-header uppercase tracking-wide text-devflow-text-secondary">
           !
         </span>
@@ -31,6 +40,11 @@ export function TaskListTable({ tasks, embedded = false }: TaskListTableProps) {
         <span className="text-table-header uppercase tracking-wide text-devflow-text-secondary">
           Status
         </span>
+        {showSprintColumn ? (
+          <span className="text-table-header uppercase tracking-wide text-devflow-text-secondary">
+            Sprint
+          </span>
+        ) : null}
         <span className="text-table-header uppercase tracking-wide text-devflow-text-secondary">
           Project
         </span>
@@ -41,7 +55,6 @@ export function TaskListTable({ tasks, embedded = false }: TaskListTableProps) {
           Due Date
         </span>
       </div>
-
       {tasks.map((task, index) => {
         const ProjectIcon = task.projectIcon
         return (
@@ -57,7 +70,7 @@ export function TaskListTable({ tasks, embedded = false }: TaskListTableProps) {
               }
             }}
             className={cn(
-              GRID,
+              gridClass,
               'cursor-pointer px-4 py-3 transition-colors hover:bg-devflow-surface/80',
               index < tasks.length - 1 && 'border-b border-devflow-border',
             )}
@@ -70,7 +83,9 @@ export function TaskListTable({ tasks, embedded = false }: TaskListTableProps) {
               {task.title}
             </p>
             <IssueStatusBadge status={task.status} />
-            <div className="flex items-center gap-1 text-body text-devflow-text-secondary">
+            {showSprintColumn ? (
+              <SprintBadge name={task.sprintName ?? null} />
+            ) : null}            <div className="flex items-center gap-1 text-body text-devflow-text-secondary">
               <ProjectIcon className="size-3.5 shrink-0" strokeWidth={1.75} />
               <span className="truncate">{task.project}</span>
             </div>

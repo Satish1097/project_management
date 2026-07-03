@@ -7,6 +7,9 @@ Scope:
 """
 from uuid import UUID
 
+from django.db import transaction
+
+from apps.issues.selectors import get_incomplete_sprint_issue_ids
 from apps.permissions.services import permission_service
 from apps.sprints.exceptions import (
     SprintAlreadyActiveError,
@@ -136,7 +139,14 @@ class SprintService:
         sprint.save(update_fields=["status", "updated_at"])
         return sprint
 
-    def complete_sprint(self, user, sprint_id: UUID) -> Sprint:
+    def complete_sprint(
+        self,
+        user,
+        sprint_id: UUID,
+        *,
+        move_incomplete_to: str = "backlog",
+        target_sprint_id: UUID | None = None,
+    ) -> Sprint:
         sprint = _get_sprint_or_raise(sprint_id)
         if not permission_service.can_complete_sprint(user.id, sprint.project_id):
             raise SprintError("Permission denied: cannot complete sprint.")
@@ -145,8 +155,45 @@ class SprintService:
                 "Only active or paused sprints can be completed."
             )
 
-        sprint.status = SprintStatus.COMPLETED
-        sprint.save(update_fields=["status", "updated_at"])
+        incomplete_issue_ids = get_incomplete_sprint_issue_ids(sprint_id)
+        destination_sprint_id: UUID | None = None
+
+        if incomplete_issue_ids:
+            if move_incomplete_to == "sprint":
+                if target_sprint_id is None:
+                    raise SprintCompletionError(
+                        "Target sprint is required when moving incomplete issues to another sprint."
+                    )
+                if target_sprint_id == sprint_id:
+                    raise SprintCompletionError(
+                        "Cannot move incomplete issues to the sprint being completed."
+                    )
+
+                target_sprint = _get_sprint_or_raise(target_sprint_id)
+                if target_sprint.project_id != sprint.project_id:
+                    raise SprintCompletionError(
+                        "Target sprint must belong to the same project."
+                    )
+                if target_sprint.status != SprintStatus.PLANNED:
+                    raise SprintCompletionError(
+                        "Target sprint must be a planned sprint."
+                    )
+                destination_sprint_id = target_sprint_id
+
+            from apps.issues.services.issue_service import issue_service
+
+            with transaction.atomic():
+                issue_service.bulk_assign_sprint(
+                    user,
+                    incomplete_issue_ids,
+                    destination_sprint_id,
+                )
+                sprint.status = SprintStatus.COMPLETED
+                sprint.save(update_fields=["status", "updated_at"])
+        else:
+            sprint.status = SprintStatus.COMPLETED
+            sprint.save(update_fields=["status", "updated_at"])
+
         return sprint
 
 

@@ -66,3 +66,26 @@ class SprintUpdateSerializer(_SprintMutationValidationMixin, serializers.Seriali
     start_date = serializers.DateField(required=False, allow_null=True)
     end_date = serializers.DateField(required=False, allow_null=True)
     capacity_points = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+
+
+class SprintCompleteSerializer(serializers.Serializer):
+    move_incomplete_to = serializers.ChoiceField(
+        choices=["backlog", "sprint"],
+        default="backlog",
+        required=False,
+    )
+    target_sprint_id = serializers.UUIDField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        destination = attrs.get("move_incomplete_to", "backlog")
+        target_sprint_id = attrs.get("target_sprint_id")
+
+        if destination == "sprint" and target_sprint_id is None:
+            raise serializers.ValidationError(
+                {"target_sprint_id": "Target sprint is required when moving to another sprint."}
+            )
+        if destination == "backlog":
+            attrs["target_sprint_id"] = None
+
+        return attrs

@@ -151,6 +151,7 @@ export function SprintPlanningPage() {
               <PlanningIssueCard
                 key={issue.id}
                 issue={issue}
+                inlineEdit
                 onDragStart={setDraggingId}
                 onDragEnd={() => setDraggingId(null)}
               />
@@ -172,6 +173,7 @@ export function SprintPlanningPage() {
               <PlanningIssueCard
                 key={issue.id}
                 issue={issue}
+                inlineEdit
                 onDragStart={setDraggingId}
                 onDragEnd={() => setDraggingId(null)}
               />

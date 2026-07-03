@@ -28,6 +28,16 @@ function mapPriority(priority: string): KanbanIssue['priority'] {
   return 'medium'
 }
 
+function mapIssueSprintRef(
+  sprint: IssueApi['sprint'],
+): KanbanIssue['sprint'] {
+  if (!sprint) return null
+  if (typeof sprint === 'object') {
+    return { id: sprint.id, name: sprint.name }
+  }
+  return null
+}
+
 export function mapApiIssuesToKanbanIssues(
   issues: IssueApi[],
   projectId: string,
@@ -48,6 +58,7 @@ export function mapApiIssuesToKanbanIssues(
       statusId,
       assigneeId: issue.assignee,
       assignee: uiIssue.assignee,
+      sprint: mapIssueSprintRef(issue.sprint),
       done: isDoneStatus,
     }
   })

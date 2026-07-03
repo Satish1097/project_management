@@ -55,7 +55,7 @@ def test_start_sprint_success(manager_client, project_with_manager):
     sprint_id = create.json()["data"]["sprint"]["id"]
 
     response = manager_client.post(
-        f"/api/sprints/{sprint_id}/start",
+        f"/api/projects/{project_with_manager.id}/sprints/{sprint_id}/start",
         format="json",
     )
 
@@ -78,8 +78,14 @@ def test_one_active_sprint_guard(manager_client, project_with_manager):
     first_id = first.json()["data"]["sprint"]["id"]
     second_id = second.json()["data"]["sprint"]["id"]
 
-    manager_client.post(f"/api/sprints/{first_id}/start", format="json")
-    response = manager_client.post(f"/api/sprints/{second_id}/start", format="json")
+    manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints/{first_id}/start",
+        format="json",
+    )
+    response = manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints/{second_id}/start",
+        format="json",
+    )
 
     assert response.status_code == 409
 
@@ -91,7 +97,7 @@ def test_complete_sprint_carry_forward_to_backlog(
     superuser,
     create_test_issue,
 ):
-    from apps.issues.services.issue_service import move_issue_to_sprint
+    from apps.issues.services.issue_service import issue_service
 
     create = manager_client.post(
         f"/api/projects/{project_with_manager.id}/sprints",
@@ -99,17 +105,16 @@ def test_complete_sprint_carry_forward_to_backlog(
         format="json",
     )
     sprint_id = create.json()["data"]["sprint"]["id"]
-    manager_client.post(f"/api/sprints/{sprint_id}/start", format="json")
-
-    incomplete = create_test_issue(title="Incomplete")
-    move_issue_to_sprint(
-        issue_id=incomplete.id,
-        sprint_id=sprint_id,
-        actor_id=superuser.id,
+    manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints/{sprint_id}/start",
+        format="json",
     )
 
+    incomplete = create_test_issue(title="Incomplete")
+    issue_service.assign_sprint(superuser, incomplete.id, sprint_id)
+
     response = manager_client.post(
-        f"/api/sprints/{sprint_id}/complete",
+        f"/api/projects/{project_with_manager.id}/sprints/{sprint_id}/complete",
         {"move_incomplete_to": "backlog", "target_sprint_id": None},
         format="json",
     )
@@ -130,7 +135,7 @@ def test_complete_sprint_carry_forward_to_planned_sprint(
     superuser,
     create_test_issue,
 ):
-    from apps.issues.services.issue_service import move_issue_to_sprint
+    from apps.issues.services.issue_service import issue_service
 
     active = manager_client.post(
         f"/api/projects/{project_with_manager.id}/sprints",
@@ -145,17 +150,16 @@ def test_complete_sprint_carry_forward_to_planned_sprint(
     active_id = active.json()["data"]["sprint"]["id"]
     planned_id = planned.json()["data"]["sprint"]["id"]
 
-    manager_client.post(f"/api/sprints/{active_id}/start", format="json")
-
-    incomplete = create_test_issue(title="Carry forward")
-    move_issue_to_sprint(
-        issue_id=incomplete.id,
-        sprint_id=active_id,
-        actor_id=superuser.id,
+    manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints/{active_id}/start",
+        format="json",
     )
 
+    incomplete = create_test_issue(title="Carry forward")
+    issue_service.assign_sprint(superuser, incomplete.id, active_id)
+
     response = manager_client.post(
-        f"/api/sprints/{active_id}/complete",
+        f"/api/projects/{project_with_manager.id}/sprints/{active_id}/complete",
         {
             "move_incomplete_to": "sprint",
             "target_sprint_id": planned_id,
@@ -179,9 +183,12 @@ def test_completed_sprint_immutable(manager_client, project_with_manager):
         format="json",
     )
     sprint_id = create.json()["data"]["sprint"]["id"]
-    manager_client.post(f"/api/sprints/{sprint_id}/start", format="json")
     manager_client.post(
-        f"/api/sprints/{sprint_id}/complete",
+        f"/api/projects/{project_with_manager.id}/sprints/{sprint_id}/start",
+        format="json",
+    )
+    manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints/{sprint_id}/complete",
         {"move_incomplete_to": "backlog"},
         format="json",
     )

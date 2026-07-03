@@ -15,10 +15,15 @@ type IssueListPaginationState = {
 type IssueListViewProps = {
   tasks: Task[]
   pagination?: IssueListPaginationState | null
+  showSprintColumn?: boolean
 }
 
 /** List/table presentation — wraps the existing table without altering it. */
-export function IssueListView({ tasks, pagination }: IssueListViewProps) {
+export function IssueListView({
+  tasks,
+  pagination,
+  showSprintColumn = false,
+}: IssueListViewProps) {
   if (tasks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-devflow-border bg-devflow-card px-6 py-16 text-center shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
@@ -32,7 +37,7 @@ export function IssueListView({ tasks, pagination }: IssueListViewProps) {
 
   return (
     <div className="overflow-hidden rounded-lg border border-devflow-border bg-devflow-card shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-      <TaskListTable tasks={tasks} embedded />
+      <TaskListTable tasks={tasks} embedded showSprintColumn={showSprintColumn} />
       {pagination ? (
         <IssueListPagination
           page={pagination.page}

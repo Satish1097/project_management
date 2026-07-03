@@ -107,11 +107,18 @@ def _kanban_status_data(status) -> dict:
     return data
 
 
+def _kanban_issue_sprint_data(issue) -> dict | None:
+    if issue.sprint_id is None:
+        return None
+    return {"id": str(issue.sprint_id), "name": issue.sprint.name}
+
+
 def _kanban_issue_data(issue, status_data: dict) -> dict:
     data = dict(IssueSerializer(issue).data)
     status = dict(data.get("status") or {})
     status["slug"] = status_data["slug"]
     data["status"] = status
+    data["sprint"] = _kanban_issue_sprint_data(issue)
     return data
 
 

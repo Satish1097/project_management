@@ -26,6 +26,7 @@ export type Task = {
   projectIcon: LucideIcon
   label: string
   labelVariant?: 'default' | 'critical'
+  sprintName?: string | null
   dueDate: string
   dueOverdue?: boolean
   assignee: TaskAssignee

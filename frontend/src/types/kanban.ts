@@ -54,6 +54,7 @@ export type KanbanIssue = {
   statusId?: string
   assigneeId: string | null
   assignee: { name: string; color: string }
+  sprint?: { id: string; name: string } | null
   progress?: number
   done?: boolean
 }

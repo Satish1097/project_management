@@ -203,6 +203,7 @@ export function ProjectKanbanPage() {
           ) : (
             <IssueListView
               tasks={listTasks}
+              showSprintColumn={!sprintId}
               pagination={
                 listPagination
                   ? {
@@ -230,6 +231,7 @@ export function ProjectKanbanPage() {
             columns={columns}
             onTransitionIssue={handleTransitionIssue}
             transitioningIssueId={transitioningIssueId}
+            showSprintBadge={!sprintId}
             onLoadMoreColumn={loadMoreColumn}
           />
         )}

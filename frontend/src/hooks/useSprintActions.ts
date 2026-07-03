@@ -8,6 +8,7 @@ import {
 import { ApiError } from '@/api/types'
 import { useIssues } from '@/contexts/IssuesContext'
 import { useSprints } from '@/contexts/SprintsContext'
+import { refreshKanbanBoard } from '@/features/kanban/kanbanRefreshBridge'
 
 export function useSprintActions(projectId: string) {
   const { loadProjectSprints } = useSprints()
@@ -18,6 +19,7 @@ export function useSprintActions(projectId: string) {
       loadProjectSprints(projectId),
       loadBacklog(projectId),
     ])
+    refreshKanbanBoard()
   }, [loadProjectSprints, loadBacklog, projectId])
 
   const startSprint = useCallback(
