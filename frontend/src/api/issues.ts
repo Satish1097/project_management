@@ -1,6 +1,7 @@
 import type { ApiResponse } from './types'
 import { ApiError } from './types'
 import { apiClient } from './client'
+import { DEFAULT_KANBAN_PAGE_SIZE } from '@/constants/kanban'
 import { getWorkflow, statusIdForSlug } from './workflow'
 
 export type IssueLabelApi = {
@@ -110,11 +111,35 @@ export type UpdateIssuePayload = {
 }
 
 export type KanbanBoardColumnApi = {
+  id?: string
   status_id?: string
   status_slug: string
-  status_name: string
+  status_name?: string
+  name?: string
+  count: number
   status?: KanbanWorkflowStatusApi
+  /** @deprecated Issues are loaded per-column via board column endpoint */
+  issues?: IssueApi[]
+}
+
+export type KanbanColumnIssuesApi = {
+  page: number
+  page_size: number
+  total: number
+  has_next: boolean
   issues: IssueApi[]
+}
+
+export type BoardColumnQuery = {
+  page?: number
+  page_size?: number
+  assignee?: string
+  status?: string
+  priority?: string
+  label?: string[]
+  labels?: string
+  search?: string
+  dueDate?: string
 }
 
 export type KanbanBoardAssigneeFilterApi = {
@@ -156,6 +181,7 @@ export type KanbanBoardApi = {
   selected_sprint?: KanbanSprintApi | null
   sprint?: KanbanSprintApi | null
   workflow_columns?: KanbanWorkflowStatusApi[]
+  /** @deprecated Issues are loaded per-column */
   grouped_issues?: Record<string, IssueApi[]>
   columns: KanbanBoardColumnApi[]
   filters?: KanbanBoardFiltersApi
@@ -407,15 +433,53 @@ export async function moveIssueToSprint(
   return assignIssueSprint(issueId, sprintId)
 }
 
-export async function getProjectKanban(projectId: string): Promise<KanbanBoardApi> {
+export async function getProjectKanban(
+  projectId: string,
+  query?: BoardColumnQuery,
+): Promise<KanbanBoardApi> {
   try {
     const { data } = await apiClient.get<ApiResponse<{ board: KanbanBoardApi }>>(
-      `/projects/${projectId}/kanban`,
+      `/projects/${projectId}/board`,
+      { params: buildBoardColumnQueryParams(query) },
     )
     return data.data.board
   } catch (error) {
     throw toApiError(error)
   }
+}
+
+export async function getBoardColumnIssues(
+  projectId: string,
+  columnId: string,
+  query?: BoardColumnQuery,
+): Promise<KanbanColumnIssuesApi> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<KanbanColumnIssuesApi>>(
+      `/projects/${projectId}/board/columns/${columnId}`,
+      { params: buildBoardColumnQueryParams(query) },
+    )
+    return data.data
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export function buildBoardColumnQueryParams(
+  query?: BoardColumnQuery,
+): Record<string, string | number | string[]> | undefined {
+  if (!query) return undefined
+
+  const params: Record<string, string | number | string[]> = {}
+  if (query.page) params.page = query.page
+  params.page_size = query.page_size ?? DEFAULT_KANBAN_PAGE_SIZE
+  if (query.assignee) params.assignee = query.assignee
+  if (query.status) params.status = query.status
+  if (query.priority) params.priority = query.priority
+  if (query.search) params.search = query.search
+  if (query.dueDate) params.dueDate = query.dueDate
+  if (query.label?.length) params.label = query.label
+  if (query.labels) params.labels = query.labels
+  return params
 }
 
 export async function getKanbanBoardFilters(

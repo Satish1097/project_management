@@ -12,6 +12,7 @@ from apps.issues.api.views import (
     IssueListCreateView,
     IssueSubtaskListCreateView,
     IssueTransitionView,
+    ProjectBoardColumnView,
     ProjectKanbanFiltersView,
     ProjectKanbanView,
     SprintKanbanView,
@@ -24,6 +25,21 @@ urlpatterns = [
         "projects/<uuid:project_id>/kanban",
         ProjectKanbanView.as_view(),
         name="project-kanban",
+    ),
+    path(
+        "projects/<uuid:project_id>/board",
+        ProjectKanbanView.as_view(),
+        name="project-board",
+    ),
+    path(
+        "projects/<uuid:project_id>/board/columns/<str:column_id>",
+        ProjectBoardColumnView.as_view(),
+        name="project-board-column",
+    ),
+    path(
+        "projects/<uuid:project_id>/kanban/columns/<str:column_id>",
+        ProjectBoardColumnView.as_view(),
+        name="project-kanban-column",
     ),
     path(
         "projects/<uuid:project_id>/kanban/filters",

@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { transitionIssue as apiTransitionIssue } from '@/api/issues'
 import { ApiError } from '@/api/types'
 import { projectSprintsPath } from '@/constants/routes'
-import { useIssues } from '@/contexts/IssuesContext'
 import { BoardFilters } from '@/features/kanban/BoardFilters'
 import { BoardViewSwitcher } from '@/features/kanban/BoardViewSwitcher'
 import {
@@ -10,10 +10,7 @@ import {
   syncKanbanFiltersToSearchParams,
 } from '@/features/kanban/boardFilterParams'
 import { KanbanBoardView } from '@/features/kanban/KanbanBoardView'
-import {
-  DEFAULT_KANBAN_FILTERS,
-  filterKanbanColumns,
-} from '@/features/kanban/kanbanFilters'
+import { DEFAULT_KANBAN_FILTERS } from '@/features/kanban/kanbanFilters'
 import { useBoardFilterMetadata } from '@/features/kanban/useBoardFilterMetadata'
 import { useBoardViewMode } from '@/features/kanban/useBoardViewMode'
 import { useProjectIssueList } from '@/features/kanban/useProjectIssueList'
@@ -21,6 +18,8 @@ import { useProjectKanban } from '@/features/kanban/useProjectKanban'
 import { IssueListView } from '@/features/tasks/IssueListView'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
 import { getProjectById, getSprintById } from '@/services/projectData'
+import { mapIssueDetailToUi } from '@/services/mapIssueApi'
+import { upsertApiIssue } from '@/services/issuesRegistry'
 import { syncProjectOpenIssueCount } from '@/services/projectStats'
 import type { KanbanBoardFilters } from '@/types/kanban'
 
@@ -38,23 +37,9 @@ export function ProjectKanbanPage() {
   const isListView = viewMode === 'list'
   const [transitioningIssueId, setTransitioningIssueId] = useState<string | null>(null)
   const [transitionError, setTransitionError] = useState<string | null>(null)
-  const { transitionIssueViaApi } = useIssues()
-
-  const {
-    columns: rawColumns,
-    boardFilters,
-    loading: boardLoading,
-    error: boardError,
-    totalIssues,
-    refreshBoard,
-  } = useProjectKanban(projectId, {
-    sprintId,
-    enabled: boardReady && !isListView,
-  })
 
   const { metadata: filterMetadata } = useBoardFilterMetadata(projectId, {
     enabled: boardReady,
-    embeddedFilters: !isListView ? boardFilters : null,
   })
 
   const filters = useMemo(
@@ -62,15 +47,22 @@ export function ProjectKanbanPage() {
     [searchParams, filterMetadata],
   )
 
-  const columns = useMemo(
-    () => filterKanbanColumns(rawColumns, filters, filterMetadata),
-    [rawColumns, filters, filterMetadata],
-  )
-
-  const filteredIssueCount = useMemo(
-    () => columns.reduce((sum, column) => sum + column.issues.length, 0),
-    [columns],
-  )
+  const {
+    columns,
+    loading: boardLoading,
+    error: boardError,
+    totalIssues,
+    refreshBoard,
+    loadMoreColumn,
+    moveIssueBetweenColumns,
+    rollbackIssueMove,
+  } = useProjectKanban(projectId, {
+    sprintId,
+    enabled: boardReady && !isListView,
+    filters,
+    filterMetadata,
+    searchParams,
+  })
 
   const setFilters = useCallback(
     (next: KanbanBoardFilters) => {
@@ -104,14 +96,25 @@ export function ProjectKanbanPage() {
   })
 
   const handleTransitionIssue = useCallback(
-    async (issueId: string, targetStatusId: string) => {
+    async (issueId: string, targetStatusId: string, sourceStatusId: string) => {
       setTransitionError(null)
       setTransitioningIssueId(issueId)
 
+      const sourceColumn = columns.find(
+        (column) => (column.statusId ?? column.id) === sourceStatusId,
+      )
+      const movedIssue = sourceColumn?.issues.find((issue) => issue.id === issueId)
+      if (!movedIssue) return
+
+      moveIssueBetweenColumns(issueId, sourceStatusId, targetStatusId, movedIssue)
+
       try {
-        await transitionIssueViaApi(issueId, projectId, targetStatusId)
+        const updated = await apiTransitionIssue(issueId, targetStatusId)
+        const issue = mapIssueDetailToUi(updated, projectId)
+        upsertApiIssue(issue)
         void syncProjectOpenIssueCount(projectId)
       } catch (err) {
+        rollbackIssueMove(issueId, sourceStatusId, targetStatusId, movedIssue)
         const message =
           err instanceof ApiError ? err.message : 'Failed to transition issue.'
         setTransitionError(message)
@@ -119,7 +122,12 @@ export function ProjectKanbanPage() {
         setTransitioningIssueId(null)
       }
     },
-    [transitionIssueViaApi, projectId],
+    [
+      columns,
+      moveIssueBetweenColumns,
+      projectId,
+      rollbackIssueMove,
+    ],
   )
 
   if (!project) {
@@ -142,8 +150,6 @@ export function ProjectKanbanPage() {
 
   const loading = isListView ? listLoading : boardLoading
   const error = isListView ? listError : boardError
-  const showFilteredEmpty =
-    !isListView && !boardLoading && totalIssues > 0 && filteredIssueCount === 0
   const showListEmpty =
     isListView && !listLoading && (listPagination?.totalCount ?? 0) === 0
   const emptyHint = sprintId
@@ -195,19 +201,17 @@ export function ProjectKanbanPage() {
               <p className="issue-board-empty__hint">{emptyHint}</p>
             </div>
           ) : (
-            <>
-              <IssueListView
-                tasks={listTasks}
-                pagination={
-                  listPagination
-                    ? {
-                        ...listPagination,
-                        onPageChange: handlePageChange,
-                      }
-                    : null
-                }
-              />
-            </>
+            <IssueListView
+              tasks={listTasks}
+              pagination={
+                listPagination
+                  ? {
+                      ...listPagination,
+                      onPageChange: handlePageChange,
+                    }
+                  : null
+              }
+            />
           )
         ) : boardLoading && columns.length === 0 && totalIssues === 0 ? (
           <div className="issue-board-empty">
@@ -215,22 +219,18 @@ export function ProjectKanbanPage() {
               {sprintId ? 'Loading sprint board…' : 'Loading board…'}
             </p>
           </div>
-        ) : showFilteredEmpty ? (
+        ) : !boardLoading && totalIssues === 0 ? (
           <div className="issue-board-empty">
             <p className="issue-board-empty__title">No issues match filters</p>
             <p className="issue-board-empty__hint">{emptyHint}</p>
           </div>
-        ) : !boardLoading && totalIssues === 0 ? (
-          <div className="issue-board-empty">
-            <p className="issue-board-empty__title">No issues on the board</p>
-            <p className="issue-board-empty__hint">{emptyHint}</p>
-          </div>
         ) : (
           <KanbanBoardView
-            key={`${projectId}:${sprintId ?? ''}`}
+            key={`${projectId}:${sprintId ?? ''}:${JSON.stringify(filters)}`}
             columns={columns}
             onTransitionIssue={handleTransitionIssue}
             transitioningIssueId={transitioningIssueId}
+            onLoadMoreColumn={loadMoreColumn}
           />
         )}
       </main>

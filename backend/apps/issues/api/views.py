@@ -22,16 +22,20 @@ from apps.issues.api.serializers import (
     SubtaskSerializer,
     SubtaskUpdateSerializer,
 )
-from apps.issues.exceptions import IssueNotFoundError
+from apps.issues.kanban_constants import DEFAULT_KANBAN_PAGE_SIZE, MAX_KANBAN_PAGE_SIZE
 from apps.issues.selectors import (
+    BoardFilterParams,
+    get_board_column_issues,
     get_issue_activity,
     get_issue_attachments,
     get_issue_by_id,
     get_issue_comments,
     get_issue_subtasks,
     get_kanban_board_filters,
+    get_project_board_metadata,
     get_project_issues,
     get_project_kanban,
+    get_sprint_board_metadata,
     get_sprint_kanban,
 )
 from apps.sprints.exceptions import SprintNotFoundError
@@ -113,13 +117,13 @@ def _kanban_issue_data(issue, status_data: dict) -> dict:
 
 def _kanban_column_data(column: dict) -> dict:
     status = _kanban_status_data(column["status"])
-    issues = [_kanban_issue_data(issue, status) for issue in column["issues"]]
     return {
+        "id": str(status["id"]),
         "status_id": str(status["id"]),
         "status_slug": status["slug"],
-        "status_name": status["name"],
+        "name": status["name"],
         "status": status,
-        "issues": issues,
+        "count": column.get("count", len(column.get("issues", []))),
     }
 
 
@@ -133,11 +137,65 @@ def _kanban_board_data(project_id: UUID, board: dict) -> dict:
         "sprint": selected_sprint,
         "workflow_columns": [column["status"] for column in columns],
         "columns": columns,
-        "grouped_issues": {
-            column["status_slug"]: column["issues"]
-            for column in columns
-        },
         "filters": get_kanban_board_filters(project_id),
+    }
+
+
+def _parse_board_filter_params(request, user_id: UUID) -> BoardFilterParams:
+    assignee_param = request.query_params.get("assignee")
+    assignee_is_null = assignee_param is not None and assignee_param.lower() == "unassigned"
+    assignee_id = None
+    if assignee_param and assignee_param.lower() == "me":
+        assignee_id = user_id
+    elif not assignee_is_null and assignee_param:
+        assignee_id = _parse_uuid(assignee_param)
+
+    label_params = [
+        value.strip() for value in request.query_params.getlist("label") if value.strip()
+    ]
+    labels_csv = request.query_params.get("labels")
+    if labels_csv:
+        label_params.extend(
+            value.strip() for value in labels_csv.split(",") if value.strip()
+        )
+    labels = label_params or None
+
+    due_date = request.query_params.get("dueDate") or request.query_params.get("due_date")
+
+    return BoardFilterParams(
+        assignee_id=assignee_id,
+        assignee_is_null=assignee_is_null,
+        status_id=_parse_uuid(request.query_params.get("status")),
+        priority=request.query_params.get("priority") or None,
+        labels=labels,
+        search=request.query_params.get("search") or None,
+        due_date=due_date or None,
+    )
+
+
+def _parse_board_pagination(request) -> tuple[int, int]:
+    page_raw = request.query_params.get("page", "1")
+    page_size_raw = request.query_params.get("page_size", str(DEFAULT_KANBAN_PAGE_SIZE))
+    try:
+        page = max(1, int(page_raw))
+    except (TypeError, ValueError):
+        page = 1
+    try:
+        page_size = min(max(1, int(page_size_raw)), MAX_KANBAN_PAGE_SIZE)
+    except (TypeError, ValueError):
+        page_size = DEFAULT_KANBAN_PAGE_SIZE
+    return page, page_size
+
+
+def _kanban_column_issues_data(column_page: dict) -> dict:
+    status = _kanban_status_data(column_page["status"])
+    issues = [_kanban_issue_data(issue, status) for issue in column_page["issues"]]
+    return {
+        "page": column_page["page"],
+        "page_size": column_page["page_size"],
+        "total": column_page["total"],
+        "has_next": column_page["has_next"],
+        "issues": issues,
     }
 
 
@@ -226,8 +284,32 @@ class ProjectKanbanView(APIView):
         _require_project(project_id)
         _require_issue_view(request.user.id, project_id)
 
-        board = get_project_kanban(project_id)
+        filters = _parse_board_filter_params(request, request.user.id)
+        board = get_project_board_metadata(project_id, filters=filters)
         return success_response(data={"board": _kanban_board_data(project_id, board)})
+
+
+class ProjectBoardColumnView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["issues"])
+    def get(self, request, project_id: UUID, column_id: str):
+        _require_project(project_id)
+        _require_issue_view(request.user.id, project_id)
+
+        filters = _parse_board_filter_params(request, request.user.id)
+        page, page_size = _parse_board_pagination(request)
+        column_page = get_board_column_issues(
+            project_id,
+            column_id,
+            filters=filters,
+            page=page,
+            page_size=page_size,
+        )
+        if column_page is None:
+            raise ValidationError({"column_id": f"Column '{column_id}' not found."})
+
+        return success_response(data=_kanban_column_issues_data(column_page))
 
 
 class ProjectKanbanFiltersView(APIView):
@@ -248,7 +330,8 @@ class SprintKanbanView(APIView):
 
     @extend_schema(tags=["issues"])
     def get(self, request, sprint_id: UUID):
-        board = get_sprint_kanban(sprint_id)
+        filters = _parse_board_filter_params(request, request.user.id)
+        board = get_sprint_board_metadata(sprint_id, filters=filters)
         if board is None:
             raise SprintNotFoundError(f"Sprint '{sprint_id}' not found.")
 
@@ -268,12 +351,42 @@ class ProjectSprintKanbanView(APIView):
                 f"Sprint '{sprint_id}' not found in project '{project_id}'."
             )
 
-        board = get_sprint_kanban(sprint_id)
+        filters = _parse_board_filter_params(request, request.user.id)
+        board = get_sprint_board_metadata(sprint_id, filters=filters)
         if board is None:
             raise SprintNotFoundError(f"Sprint '{sprint_id}' not found.")
 
         _require_issue_view(request.user.id, project_id)
         return success_response(data={"board": _kanban_board_data(project_id, board)})
+
+
+class ProjectSprintBoardColumnView(APIView):
+    permission_classes = [Authenticated]
+
+    @extend_schema(tags=["issues"])
+    def get(self, request, project_id: UUID, sprint_id: UUID, column_id: str):
+        _require_project(project_id)
+        if get_project_sprint_by_id(project_id, sprint_id) is None:
+            raise SprintNotFoundError(
+                f"Sprint '{sprint_id}' not found in project '{project_id}'."
+            )
+
+        _require_issue_view(request.user.id, project_id)
+
+        filters = _parse_board_filter_params(request, request.user.id)
+        page, page_size = _parse_board_pagination(request)
+        column_page = get_board_column_issues(
+            project_id,
+            column_id,
+            sprint_id=sprint_id,
+            filters=filters,
+            page=page,
+            page_size=page_size,
+        )
+        if column_page is None:
+            raise ValidationError({"column_id": f"Column '{column_id}' not found."})
+
+        return success_response(data=_kanban_column_issues_data(column_page))
 
 
 class IssueDetailView(APIView):

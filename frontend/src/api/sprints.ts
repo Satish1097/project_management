@@ -1,4 +1,5 @@
-import type { KanbanBoardApi } from './issues'
+import type { BoardColumnQuery, KanbanBoardApi, KanbanColumnIssuesApi } from './issues'
+import { buildBoardColumnQueryParams } from './issues'
 import type { ApiResponse } from './types'
 import { ApiError } from './types'
 import { apiClient } from './client'
@@ -109,12 +110,31 @@ export async function getSprintActivity(
 export async function getSprintBoard(
   projectId: string,
   sprintId: string,
+  query?: BoardColumnQuery,
 ): Promise<KanbanBoardApi> {
   try {
     const { data } = await apiClient.get<ApiResponse<{ board: KanbanBoardApi }>>(
       `/projects/${projectId}/sprints/${sprintId}/board`,
+      { params: buildBoardColumnQueryParams(query) },
     )
     return data.data.board
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getSprintBoardColumnIssues(
+  projectId: string,
+  sprintId: string,
+  columnId: string,
+  query?: BoardColumnQuery,
+): Promise<KanbanColumnIssuesApi> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<KanbanColumnIssuesApi>>(
+      `/projects/${projectId}/sprints/${sprintId}/board/columns/${columnId}`,
+      { params: buildBoardColumnQueryParams(query) },
+    )
+    return data.data
   } catch (error) {
     throw toApiError(error)
   }

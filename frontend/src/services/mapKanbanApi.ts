@@ -1,4 +1,4 @@
-import type { KanbanBoardApi } from '@/api/issues'
+import type { IssueApi, KanbanBoardApi } from '@/api/issues'
 import { mapIssueSummaryToUi } from '@/services/mapIssueApi'
 import { upsertApiIssue } from '@/services/issuesRegistry'
 import type { KanbanColumn, KanbanIssue } from '@/types/kanban'
@@ -28,16 +28,36 @@ function mapPriority(priority: string): KanbanIssue['priority'] {
   return 'medium'
 }
 
+export function mapApiIssuesToKanbanIssues(
+  issues: IssueApi[],
+  projectId: string,
+  statusId: string,
+  isDoneStatus: boolean,
+): KanbanIssue[] {
+  return issues.map((issue) => {
+    upsertApiIssue(mapIssueSummaryToUi(issue, projectId))
+    const uiIssue = mapIssueSummaryToUi(issue, projectId)
+    return {
+      id: issue.id,
+      key: issue.key,
+      title: issue.title,
+      priority: mapPriority(issue.priority),
+      priorityLevel: issue.priority as IssuePriorityLevel,
+      label: uiIssue.label,
+      labels: issue.labels.map((label) => label.name),
+      statusId,
+      assigneeId: issue.assignee,
+      assignee: uiIssue.assignee,
+      done: isDoneStatus,
+    }
+  })
+}
+
+/** Map board metadata (no issues) into column shells for the kanban UI. */
 export function mapKanbanBoardToColumns(
   board: KanbanBoardApi,
   projectId: string,
 ): KanbanColumn[] {
-  for (const column of board.columns) {
-    for (const issue of column.issues) {
-      upsertApiIssue(mapIssueSummaryToUi(issue, projectId))
-    }
-  }
-
   const columnsBySlug = new Map(
     board.columns.map((column) => [column.status_slug, column]),
   )
@@ -48,31 +68,17 @@ export function mapKanbanBoardToColumns(
 
   return workflowColumns.map((status) => {
     const column = columnsBySlug.get(status.slug)
-    const issues = column?.issues ?? board.grouped_issues?.[status.slug] ?? []
+    const statusId = column?.status_id ?? column?.id ?? status.id
     const isDoneStatus = status.is_terminal === true || status.category === 'done'
 
     return {
       id: status.slug,
-      statusId: column?.status_id ?? status.id,
-      title: status.name.toUpperCase(),
+      statusId,
+      title: (column?.name ?? column?.status_name ?? status.name).toUpperCase(),
       dotColor: dotColorForStatus(status),
-      count: issues.length,
-      issues: issues.map((issue) => {
-        const uiIssue = mapIssueSummaryToUi(issue, projectId)
-        return {
-          id: issue.id,
-          key: issue.key,
-          title: issue.title,
-          priority: mapPriority(issue.priority),
-          priorityLevel: issue.priority as IssuePriorityLevel,
-          label: uiIssue.label,
-          labels: issue.labels.map((label) => label.name),
-          statusId: column?.status_id ?? status.id,
-          assigneeId: issue.assignee,
-          assignee: uiIssue.assignee,
-          done: isDoneStatus,
-        }
-      }),
+      count: column?.count ?? 0,
+      issues: [],
+      isDoneStatus,
     }
   })
 }

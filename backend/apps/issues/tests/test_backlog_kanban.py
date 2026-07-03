@@ -58,7 +58,7 @@ def test_kanban_api_backlog_scope(superuser_client, project, create_test_issue):
     assert response.status_code == 200
     board = response.json()["data"]["board"]
     todo_column = next(c for c in board["columns"] if c["status_slug"] == "todo")
-    assert len(todo_column["issues"]) == 1
+    assert todo_column["count"] == 1
 
 
 @pytest.mark.django_db
@@ -87,12 +87,8 @@ def test_sprint_board_api(superuser_client, project, superuser, create_test_issu
     assert response.status_code == 200
     board = response.json()["data"]["board"]
     assert board["project_id"] == str(project.id)
-    issue_titles = {
-        issue["title"]
-        for column in board["columns"]
-        for issue in column["issues"]
-    }
-    assert issue_titles == {sprint_issue.title}
+    total_count = sum(column.get("count", 0) for column in board["columns"])
+    assert total_count == 1
     assert board["selected_sprint"]["id"] == str(sprint.id)
 
 
@@ -109,13 +105,101 @@ def test_project_sprint_board_api(superuser_client, project, superuser, create_t
     assert response.status_code == 200
     board = response.json()["data"]["board"]
     assert board["project_id"] == str(project.id)
-    issue_titles = {
-        issue["title"]
-        for column in board["columns"]
-        for issue in column["issues"]
-    }
-    assert issue_titles == {sprint_issue.title}
+    total_count = sum(column.get("count", 0) for column in board["columns"])
+    assert total_count == 1
     assert board["selected_sprint"]["id"] == str(sprint.id)
+
+
+@pytest.mark.django_db
+def test_project_board_column_pagination(
+    superuser_client,
+    project,
+    create_test_issue,
+    status_ids,
+):
+    for index in range(5):
+        create_test_issue(title=f"Paginated card {index}")
+
+    board_response = superuser_client.get(f"/api/projects/{project.id}/board")
+    assert board_response.status_code == 200
+    todo_column = next(
+        column
+        for column in board_response.json()["data"]["board"]["columns"]
+        if column["status_slug"] == "todo"
+    )
+
+    response = superuser_client.get(
+        f"/api/projects/{project.id}/board/columns/{todo_column['status_id']}",
+        {"page": 1, "page_size": 2},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["page"] == 1
+    assert payload["page_size"] == 2
+    assert payload["total"] >= 5
+    assert payload["has_next"] is True
+    assert len(payload["issues"]) == 2
+
+
+@pytest.mark.django_db
+def test_sprint_board_column_pagination(
+    superuser_client,
+    project,
+    superuser,
+    create_test_issue,
+):
+    sprint = create_sprint(project_id=project.id, name="Paginated sprint", actor_id=superuser.id)
+    for index in range(3):
+        create_test_issue(title=f"Sprint card {index}", sprint_id=sprint.id)
+
+    board_response = superuser_client.get(
+        f"/api/projects/{project.id}/sprints/{sprint.id}/board",
+    )
+    todo_column = next(
+        column
+        for column in board_response.json()["data"]["board"]["columns"]
+        if column["status_slug"] == "todo"
+    )
+
+    response = superuser_client.get(
+        f"/api/projects/{project.id}/sprints/{sprint.id}/board/columns/{todo_column['status_id']}",
+        {"page": 1, "page_size": 2},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["total"] == 3
+    assert payload["has_next"] is True
+    assert len(payload["issues"]) == 2
+
+
+@pytest.mark.django_db
+def test_board_column_default_page_size(
+    superuser_client,
+    project,
+    create_test_issue,
+):
+    for index in range(20):
+        create_test_issue(title=f"Default page card {index}")
+
+    board_response = superuser_client.get(f"/api/projects/{project.id}/board")
+    todo_column = next(
+        column
+        for column in board_response.json()["data"]["board"]["columns"]
+        if column["status_slug"] == "todo"
+    )
+
+    response = superuser_client.get(
+        f"/api/projects/{project.id}/board/columns/{todo_column['status_id']}",
+    )
+
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["page"] == 1
+    assert payload["page_size"] == 15
+    assert len(payload["issues"]) == 15
+    assert payload["has_next"] is True
 
 
 @pytest.mark.django_db

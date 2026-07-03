@@ -1,10 +1,10 @@
 import { KanbanColumn } from './KanbanColumn'
 import { KanbanDndProvider } from './KanbanDndProvider'
-import type { KanbanColumn as KanbanColumnType } from '@/types/kanban'
+import type { KanbanColumnWithPagination } from '@/features/kanban/useProjectKanban'
 import '@/features/tasks/issues-board.css'
 
 type KanbanBoardViewProps = {
-  columns: KanbanColumnType[]
+  columns: KanbanColumnWithPagination[]
   onTransitionIssue?: (
     issueId: string,
     targetStatusId: string,
@@ -14,6 +14,7 @@ type KanbanBoardViewProps = {
   enableDragDrop?: boolean
   emptyTitle?: string
   emptyHint?: string
+  onLoadMoreColumn?: (statusId: string) => void
 }
 
 export function KanbanBoardView({
@@ -23,8 +24,9 @@ export function KanbanBoardView({
   enableDragDrop = true,
   emptyTitle = 'No issues on the board',
   emptyHint = 'Create issues in the backlog to see them here.',
+  onLoadMoreColumn,
 }: KanbanBoardViewProps) {
-  const totalIssues = columns.reduce((sum, column) => sum + column.issues.length, 0)
+  const totalIssues = columns.reduce((sum, column) => sum + column.count, 0)
 
   if (totalIssues === 0) {
     return (
@@ -46,7 +48,11 @@ export function KanbanBoardView({
         <div className="issue-board-track">
           {columns.map((column) => (
             <div key={column.id} className="w-72 shrink-0">
-              <KanbanColumn column={column} draggable={false} />
+              <KanbanColumn
+                column={column}
+                draggable={false}
+                onLoadMore={onLoadMoreColumn}
+              />
             </div>
           ))}
         </div>
@@ -75,6 +81,7 @@ export function KanbanBoardView({
                   draggingIssueId={draggingIssueId}
                   isDragActive={isDragActive}
                   transitioningIssueId={transitioningIssueId}
+                  onLoadMore={onLoadMoreColumn}
                 />
               </div>
             ))}

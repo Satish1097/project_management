@@ -65,4 +65,14 @@ export type KanbanColumn = {
   dotColor: string
   count: number
   issues: KanbanIssue[]
+  isDoneStatus?: boolean
+}
+
+/** Per-column pagination state for Jira-style board loading. */
+export type KanbanColumnState = {
+  issues: KanbanIssue[]
+  page: number
+  hasNext: boolean
+  loading: boolean
+  total: number
 }

@@ -3,10 +3,13 @@ Read-only issue query helpers for apps.issues.
 
 Selectors must not mutate data or contain business logic.
 """
+from dataclasses import dataclass
+from datetime import date, timedelta
 from uuid import UUID
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Q, QuerySet
+from django.db.models import Count, Q, QuerySet
+from django.utils import timezone
 
 from apps.contracts.identity_contract import get_users_by_ids
 from apps.contracts.membership_contract import list_project_members
@@ -14,6 +17,7 @@ from apps.issues.models import Issue, IssueActivity, IssueAttachment, IssueComme
 from apps.label.selectors import get_active_labels
 from apps.issues.models.activity import IssueActivityEventType
 from apps.permissions.services import permission_service
+from apps.issues.kanban_constants import DEFAULT_KANBAN_PAGE_SIZE, MAX_KANBAN_PAGE_SIZE
 from apps.sprints.selectors import get_sprint_by_id
 from apps.workflow.selectors import get_project_statuses
 from apps.workflow.slug_utils import status_slug
@@ -395,6 +399,187 @@ def get_kanban_board_filters(project_id: UUID) -> dict:
         ],
         "labels": labels,
         "priorities": priorities,
+    }
+
+
+@dataclass(frozen=True)
+class BoardFilterParams:
+    assignee_id: UUID | None = None
+    assignee_is_null: bool = False
+    status_id: UUID | None = None
+    priority: str | None = None
+    labels: list[str] | None = None
+    search: str | None = None
+    due_date: str | None = None
+
+
+def _apply_due_date_filter(qs: QuerySet[Issue], due_date: str) -> QuerySet[Issue]:
+    today = timezone.localdate()
+    value = due_date.lower()
+    if value in ("none", "empty"):
+        return qs.filter(due_date__isnull=True)
+    if value == "overdue":
+        return qs.filter(due_date__lt=today)
+    if value == "today":
+        return qs.filter(due_date=today)
+    if value in ("week", "this_week"):
+        return qs.filter(due_date__gte=today, due_date__lte=today + timedelta(days=7))
+    try:
+        parsed = date.fromisoformat(due_date)
+    except ValueError:
+        return qs
+    return qs.filter(due_date=parsed)
+
+
+def _apply_board_filters(qs: QuerySet[Issue], filters: BoardFilterParams) -> QuerySet[Issue]:
+    if filters.assignee_is_null:
+        qs = qs.filter(assignee__isnull=True)
+    elif filters.assignee_id is not None:
+        qs = qs.filter(assignee_id=filters.assignee_id)
+    if filters.status_id is not None:
+        qs = qs.filter(status_id=filters.status_id)
+    if filters.priority is not None:
+        qs = qs.filter(priority=filters.priority)
+    if filters.labels:
+        label_filter = Q()
+        for label in filters.labels:
+            label_filter |= Q(labels__name__iexact=label)
+        qs = qs.filter(label_filter).distinct()
+    if filters.search:
+        qs = qs.filter(Q(title__icontains=filters.search) | Q(key__icontains=filters.search))
+    if filters.due_date:
+        qs = _apply_due_date_filter(qs, filters.due_date)
+    return qs
+
+
+def _board_base_queryset(project_id: UUID, sprint_id: UUID | None) -> QuerySet[Issue]:
+    if sprint_id is not None:
+        return get_sprint_issues(sprint_id)
+    return get_project_issues(project_id)
+
+
+def _resolve_board_status(project_id: UUID, column_id: str):
+    statuses = list(get_project_statuses(project_id))
+    try:
+        status_uuid = UUID(column_id)
+        for status in statuses:
+            if status.id == status_uuid:
+                return status
+    except ValueError:
+        pass
+
+    column_lower = column_id.lower()
+    for status in statuses:
+        slug = status_slug(name=status.name, category=status.category)
+        if slug == column_lower:
+            return status
+    return None
+
+
+def get_board_metadata(
+    project_id: UUID,
+    *,
+    sprint_id: UUID | None = None,
+    sprint=None,
+    filters: BoardFilterParams | None = None,
+) -> dict:
+    statuses = list(get_project_statuses(project_id))
+    qs = _board_base_queryset(project_id, sprint_id)
+    if filters:
+        qs = _apply_board_filters(qs, filters)
+
+    count_by_status = {
+        row["status_id"]: row["count"]
+        for row in qs.values("status_id").annotate(count=Count("id"))
+    }
+
+    return {
+        "sprint": sprint,
+        "columns": [
+            {
+                "status": status,
+                "count": count_by_status.get(status.id, 0),
+            }
+            for status in statuses
+        ],
+    }
+
+
+def get_project_board_metadata(
+    project_id: UUID,
+    *,
+    filters: BoardFilterParams | None = None,
+) -> dict:
+    return get_board_metadata(project_id, sprint_id=None, sprint=None, filters=filters)
+
+
+def get_sprint_board_metadata(
+    sprint_id: UUID,
+    *,
+    filters: BoardFilterParams | None = None,
+) -> dict | None:
+    sprint = get_sprint_by_id(sprint_id)
+    if sprint is None:
+        return None
+    return get_board_metadata(
+        sprint.project_id,
+        sprint_id=sprint_id,
+        sprint=sprint,
+        filters=filters,
+    )
+
+
+def get_board_column_issues(
+    project_id: UUID,
+    column_id: str,
+    *,
+    sprint_id: UUID | None = None,
+    filters: BoardFilterParams | None = None,
+    page: int = 1,
+    page_size: int = DEFAULT_KANBAN_PAGE_SIZE,
+) -> dict | None:
+    status = _resolve_board_status(project_id, column_id)
+    if status is None:
+        return None
+
+    if filters and filters.status_id is not None and filters.status_id != status.id:
+        return {
+            "status": status,
+            "page": page,
+            "page_size": page_size,
+            "total": 0,
+            "has_next": False,
+            "issues": [],
+        }
+
+    qs = _board_base_queryset(project_id, sprint_id).filter(status_id=status.id)
+
+    if filters:
+        column_filters = BoardFilterParams(
+            assignee_id=filters.assignee_id,
+            assignee_is_null=filters.assignee_is_null,
+            status_id=None,
+            priority=filters.priority,
+            labels=filters.labels,
+            search=filters.search,
+            due_date=filters.due_date,
+        )
+        qs = _apply_board_filters(qs, column_filters)
+
+    total = qs.count()
+    page = max(1, page)
+    page_size = min(max(1, page_size), MAX_KANBAN_PAGE_SIZE)
+    offset = (page - 1) * page_size
+    issues = list(qs[offset : offset + page_size])
+    has_next = offset + len(issues) < total
+
+    return {
+        "status": status,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "has_next": has_next,
+        "issues": issues,
     }
 
 
