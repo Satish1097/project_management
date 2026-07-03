@@ -1,8 +1,8 @@
 import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
+import { useEffect } from 'react'
 import { LayoutGrid, Plus, Users } from 'lucide-react'
 import {
   isProjectBoardPath,
-  isSprintBoardPath,
   resolveSprintViewTab,
   ROUTES,
   sprintActivityPath,
@@ -20,12 +20,14 @@ import { useCreateIssue } from '@/contexts/CreateIssueContext'
 import { ProjectMembersProvider, useProjectMembersContext } from '@/contexts/ProjectMembersContext'
 import { projectMembersToAvatarGroup } from '@/features/members/memberUtils'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
+import { useProjects } from '@/contexts/ProjectsContext'
 import {
   formatSprintMetaLine,
   getActiveSprint,
   getProjectById,
   getSprintById,
 } from '@/services/projectData'
+import { projectSwitchTrace } from '@/utils/projectSwitchTrace'
 
 function resolveHeaderSubtitle(
   pathname: string,
@@ -54,10 +56,36 @@ function resolveHeaderSubtitle(
 
 export function ProjectShell() {
   const { projectId = '' } = useParams()
-  const project = getProjectById(projectId)
+  const { projects, isLoading: projectsLoading } = useProjects()
+  const projectFromList = projects.find((item) => item.id === projectId)
+  const projectFromRegistry = getProjectById(projectId)
+  const project = projectFromList ?? projectFromRegistry
+
+  useEffect(() => {
+    projectSwitchTrace.projectShellRender(
+      projectId,
+      projectFromList?.name ?? null,
+      projectFromRegistry?.name ?? null,
+    )
+  }, [projectId, projectFromList?.name, projectFromRegistry?.name])
 
   if (!project) {
-    return <Navigate to={ROUTES.projects} replace />
+    if (projectsLoading) {
+      return (
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-devflow-surface p-8 text-body text-devflow-text-secondary">
+          Loading project…
+        </div>
+      )
+    }
+    return (
+      <>
+        {(() => {
+          projectSwitchTrace.redirect('ProjectShell.tsx', 'Navigate', ROUTES.projects)
+          return null
+        })()}
+        <Navigate to={ROUTES.projects} replace />
+      </>
+    )
   }
 
   return (
@@ -83,11 +111,6 @@ function ProjectShellContent({
   const sprintMatch = pathname.match(/\/sprints\/([^/]+)/)
   const sprintId = sprintMatch?.[1]
   const sprintViewTab = resolveSprintViewTab(pathname)
-  const showSprintViewTabs =
-    sprintId &&
-    sprintViewTab &&
-    sprintViewTab !== 'Board' &&
-    !isSprintBoardPath(pathname)
 
   const { openCreateIssue } = useCreateIssue()
 
@@ -156,7 +179,7 @@ function ProjectShellContent({
 
         <ProjectNav />
       </header>
-      {showSprintViewTabs ? (
+      {sprintId && sprintViewTab ? (
         <SprintViewTabs
           activeTab={sprintViewTab}
           boardPath={sprintBoardPath(projectId, sprintId)}

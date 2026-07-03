@@ -1,9 +1,23 @@
+import { matchPath } from 'react-router-dom'
+import { isProjectBoardPath, isSprintBoardPath } from '@/constants/routes'
+
 export type CreateIssueSource = 'global' | 'backlog' | 'board' | 'project'
 
 export type CreateIssueDefaults = {
   projectId?: string
   sprintId?: string | null
   source: CreateIssueSource
+}
+
+function isBoardContextPath(pathname: string): boolean {
+  return (
+    isProjectBoardPath(pathname) ||
+    isSprintBoardPath(pathname) ||
+    matchPath(
+      { path: '/projects/:projectId/sprints/:sprintId/board/*', end: false },
+      pathname,
+    ) !== null
+  )
 }
 
 export function resolveCreateIssueContext(pathname: string): CreateIssueDefaults {
@@ -23,7 +37,7 @@ export function resolveCreateIssueContext(pathname: string): CreateIssueDefaults
     return { projectId, sprintId: null, source: 'backlog' }
   }
 
-  if (pathname.includes('/board')) {
+  if (isBoardContextPath(pathname)) {
     return { projectId, sprintId: sprintId ?? null, source: 'board' }
   }
 

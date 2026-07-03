@@ -35,6 +35,14 @@ export function useBoardFilterMetadata(
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const cachedProjectId = useRef<string | null>(null)
+  const fetchIdRef = useRef(0)
+
+  useEffect(() => {
+    if (cachedProjectId.current === projectId) return
+    cachedProjectId.current = null
+    setMetadata(null)
+    setError(null)
+  }, [projectId])
 
   const applyFilters = useCallback((filters: KanbanBoardFiltersApi) => {
     setMetadata(toMetadata(filters))
@@ -45,33 +53,45 @@ export function useBoardFilterMetadata(
   const loadFilters = useCallback(async () => {
     if (!projectId || !enabled) return
 
+    const fetchId = ++fetchIdRef.current
     setLoading(true)
     setError(null)
 
     try {
       const filters = await getKanbanBoardFilters(projectId)
+      if (fetchId !== fetchIdRef.current) return
       applyFilters(filters)
     } catch (err) {
+      if (fetchId !== fetchIdRef.current) return
       const message =
         err instanceof ApiError ? err.message : 'Failed to load board filters.'
       setError(message)
     } finally {
-      setLoading(false)
+      if (fetchId === fetchIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [applyFilters, enabled, projectId])
 
   useEffect(() => {
     if (!enabled || !projectId) return
 
-    if (embeddedFilters) {
+    // Only apply embeddedFilters when the cache is valid for this project.
+    // When cachedProjectId is null the project just changed: embeddedFilters
+    // may be from the previous project (stale state from the render before
+    // the useProjectKanban reset fired). Applying stale filters here would
+    // poison the cache — setting cachedProjectId to the NEW project id with
+    // the OLD project's filter data — so subsequent renders short-circuit the
+    // cache check and loadFilters() for the new project is never called.
+    if (embeddedFilters && cachedProjectId.current !== null) {
       applyFilters(embeddedFilters)
       return
     }
 
-    if (cachedProjectId.current === projectId && metadata) return
+    if (cachedProjectId.current === projectId) return
 
     void loadFilters()
-  }, [applyFilters, embeddedFilters, enabled, loadFilters, metadata, projectId])
+  }, [applyFilters, embeddedFilters, enabled, loadFilters, projectId])
 
   useEffect(() => {
     if (!enabled || !projectId) return

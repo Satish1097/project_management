@@ -37,6 +37,13 @@ export function useProjectIssueList({
   const [error, setError] = useState<string | null>(null)
   const filtersKey = useMemo(() => JSON.stringify(filters), [filters])
   const previousFiltersKey = useRef(filtersKey)
+  const fetchIdRef = useRef(0)
+
+  useEffect(() => {
+    fetchIdRef.current += 1
+    setListPage(null)
+    setError(null)
+  }, [project.id, sprintId])
 
   const query = useMemo(
     () => boardListQueryFromSearchParams(searchParams, filters, sprintId, filterMetadata),
@@ -63,19 +70,24 @@ export function useProjectIssueList({
   const loadList = useCallback(async () => {
     if (!enabled) return
 
+    const fetchId = ++fetchIdRef.current
     setLoading(true)
     setError(null)
 
     try {
       const data = await listIssuesPaginated(project.id, query)
+      if (fetchId !== fetchIdRef.current) return
       setListPage(data)
     } catch (err) {
+      if (fetchId !== fetchIdRef.current) return
       const message =
         err instanceof ApiError ? err.message : 'Failed to load issue list.'
       setError(message)
       setListPage(null)
     } finally {
-      setLoading(false)
+      if (fetchId === fetchIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [enabled, project.id, query])
 

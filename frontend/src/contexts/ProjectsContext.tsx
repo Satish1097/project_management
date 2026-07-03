@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { parseProjectRoute } from '@/constants/routes'
 import {
   createProject as apiCreateProject,
   updateProject as apiUpdateProject,
@@ -24,6 +25,7 @@ import {
 } from '@/services/projectsRegistry'
 import { mapProjectDetailToUi, mapProjectSummaryToUi } from '@/services/mapProjectApi'
 import type { Project } from '@/types/projects'
+import { projectSwitchTrace } from '@/utils/projectSwitchTrace'
 
 type ProjectsContextValue = {
   projects: Project[]
@@ -97,8 +99,15 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       currentProject && projects.some((project) => project.id === currentProject.id)
 
     if (!selectedValid) {
+      const routeProjectId = parseProjectRoute(window.location.pathname).projectId
+      if (routeProjectId && projects.some((project) => project.id === routeProjectId)) {
+        return
+      }
+
       const fallbackId = projects[0].id
       if (currentProject?.id === fallbackId) return
+      projectSwitchTrace.projectsContextFallback(fallbackId, routeProjectId)
+      projectSwitchTrace.setCurrentProject('ProjectsContext.tsx', fallbackId)
       setCurrentProject(fallbackId)
     }
   }, [isLoading, currentOrganization, currentProject?.id, projects, setCurrentProject])
@@ -118,6 +127,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       const project = mapProjectDetailToUi(created)
 
       await refreshContext()
+      projectSwitchTrace.setCurrentProject('ProjectsContext.tsx createProject', project.id)
       setCurrentProject(project.id)
       upsertProjectInRegistry(project)
       setProjects((prev) => {

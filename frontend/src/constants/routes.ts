@@ -1,3 +1,6 @@
+import { matchPath } from 'react-router-dom'
+import { projectSwitchTrace } from '@/utils/projectSwitchTrace'
+
 /**
  * Central route path definitions and helpers.
  * Keep paths stable here so navigation, guards, and links stay in sync.
@@ -61,14 +64,21 @@ export function projectKanbanPath(projectId: string) {
 /** Primary project board route — all issues, never sprint-scoped. */
 export const projectBoardPath = projectKanbanPath
 
-/** Project-wide board (all issues) — not a sprint-scoped board. */
-export function isProjectBoardPath(pathname: string): boolean {
-  return /\/projects\/[^/]+\/board\/?$/.test(pathname)
+const PROJECT_BOARD_ROUTE = '/projects/:projectId/board'
+const SPRINT_BOARD_ROUTE = '/projects/:projectId/sprints/:sprintId/board'
+
+function matchesExactRoute(routePath: string, pathname: string): boolean {
+  return matchPath({ path: routePath, end: true }, pathname) !== null
 }
 
-/** Sprint-scoped board views (board / list / activity). */
+/** Project-wide board (all issues) — not a sprint-scoped board. */
+export function isProjectBoardPath(pathname: string): boolean {
+  return matchesExactRoute(PROJECT_BOARD_ROUTE, pathname)
+}
+
+/** Sprint-scoped board route. */
 export function isSprintBoardPath(pathname: string): boolean {
-  return /\/sprints\/[^/]+\/board(?:\/|$)/.test(pathname)
+  return matchesExactRoute(SPRINT_BOARD_ROUTE, pathname)
 }
 
 export function projectSprintsPath(projectId: string) {
@@ -262,6 +272,30 @@ export function parseProjectRoute(pathname: string): {
   return { projectId: match[1], sprintId: match[2] }
 }
 
+/**
+ * When switching projects, preserve the current project page when possible.
+ * Sprint-scoped routes fall back to the new project's sprints list.
+ */
+export function replaceProjectInPath(pathname: string, projectId: string): string {
+  const projectMatch = pathname.match(/^\/projects\/[^/]+(?<suffix>\/.*)?$/)
+  if (!projectMatch) {
+    const result = projectBacklogPath(projectId)
+    if (import.meta.env.DEV) projectSwitchTrace.replaceProjectInPath(pathname, projectId, result)
+    return result
+  }
+
+  const suffix = projectMatch.groups?.suffix ?? ''
+  if (suffix.startsWith('/sprints/')) {
+    const result = projectSprintsPath(projectId)
+    if (import.meta.env.DEV) projectSwitchTrace.replaceProjectInPath(pathname, projectId, result)
+    return result
+  }
+
+  const result = `/projects/${projectId}${suffix}`
+  if (import.meta.env.DEV) projectSwitchTrace.replaceProjectInPath(pathname, projectId, result)
+  return result
+}
+
 export type SprintModuleTab =
   | 'Overview'
   | 'Board'
@@ -284,7 +318,7 @@ export function resolveSprintViewTab(
 ): 'Board' | 'List' | 'Activity' | undefined {
   if (pathname.endsWith('/list')) return 'List'
   if (pathname.endsWith('/activity')) return 'Activity'
-  if (/\/sprints\/[^/]+\/board(?:\/|$)/.test(pathname)) return 'Board'
+  if (isSprintBoardPath(pathname)) return 'Board'
   return undefined
 }
 
@@ -294,7 +328,7 @@ export function resolveSprintModuleTab(
   if (pathname.endsWith('/planning')) return 'Planning'
   if (pathname.endsWith('/list')) return 'List'
   if (pathname.endsWith('/activity')) return 'Activity'
-  if (/\/sprints\/[^/]+\/board(?:\/|$)/.test(pathname)) return 'Board'
+  if (isSprintBoardPath(pathname)) return 'Board'
   if (/\/projects\/[^/]+\/sprints\/[^/]+\/?$/.test(pathname)) return 'Overview'
   return undefined
 }

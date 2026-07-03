@@ -1,5 +1,6 @@
 import { Link, useLocation, useParams } from 'react-router-dom'
 import {
+  isProjectBoardPath,
   projectActivityPath,
   projectBacklogPath,
   projectBoardPath,
@@ -54,7 +55,7 @@ export function ProjectNav() {
       return pathname === base
     }
     if (segment === 'board') {
-      return pathname === projectBoardPath(projectId)
+      return isProjectBoardPath(pathname)
     }
     if (segment === 'activity') {
       return pathname === projectActivityPath(projectId)

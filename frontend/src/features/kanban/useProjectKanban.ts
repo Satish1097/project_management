@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getProjectKanban } from '@/api/issues'
 import { getSprintBoard } from '@/api/sprints'
 import { ApiError } from '@/api/types'
@@ -6,9 +6,6 @@ import { registerKanbanRefresh } from '@/features/kanban/kanbanRefreshBridge'
 import { mapKanbanBoardToColumns } from '@/services/mapKanbanApi'
 import type { KanbanColumn } from '@/types/kanban'
 import type { KanbanBoardFiltersApi } from '@/api/issues'
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 type UseProjectKanbanOptions = {
   sprintId?: string
@@ -24,14 +21,15 @@ export function useProjectKanban(
   const [boardFilters, setBoardFilters] = useState<KanbanBoardFiltersApi | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const fetchIdRef = useRef(0)
 
   const loadBoard = useCallback(async () => {
     if (!projectId || !enabled) {
       setLoading(false)
       return
     }
-    if (sprintId && !UUID_RE.test(sprintId)) return
 
+    const fetchId = ++fetchIdRef.current
     setLoading(true)
     setError(null)
 
@@ -39,20 +37,30 @@ export function useProjectKanban(
       const board = sprintId
         ? await getSprintBoard(projectId, sprintId)
         : await getProjectKanban(projectId)
+      if (fetchId !== fetchIdRef.current) return
+
       setColumns(mapKanbanBoardToColumns(board, projectId))
       setBoardFilters(board.filters ?? null)
     } catch (err) {
+      if (fetchId !== fetchIdRef.current) return
       const message =
         err instanceof ApiError ? err.message : 'Failed to load kanban board.'
       setError(message)
       setColumns([])
       setBoardFilters(null)
     } finally {
-      setLoading(false)
+      if (fetchId === fetchIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [projectId, sprintId, enabled])
 
   useEffect(() => {
+    fetchIdRef.current += 1
+    setColumns([])
+    setBoardFilters(null)
+    setError(null)
+    setLoading(true)
     void loadBoard()
   }, [loadBoard])
 

@@ -24,9 +24,6 @@ import { getProjectById, getSprintById } from '@/services/projectData'
 import { syncProjectOpenIssueCount } from '@/services/projectStats'
 import type { KanbanBoardFilters } from '@/types/kanban'
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 export function ProjectKanbanPage() {
   const { projectId = '', sprintId } = useParams<{
     projectId: string
@@ -36,8 +33,7 @@ export function ProjectKanbanPage() {
   const project = getProjectById(projectId)
   const sprint = sprintId ? getSprintById(projectId, sprintId) : undefined
   const { loading: sprintsLoading } = useLoadProjectSprints(projectId)
-  const boardReady =
-    !sprintId || (!sprintsLoading && !!sprint && UUID_RE.test(sprintId))
+  const boardReady = !sprintId || (!sprintsLoading && !!sprint)
   const { viewMode, setViewMode } = useBoardViewMode()
   const isListView = viewMode === 'list'
   const [transitioningIssueId, setTransitioningIssueId] = useState<string | null>(null)
@@ -139,7 +135,7 @@ export function ProjectKanbanPage() {
       )
     }
 
-    if (!sprint || !UUID_RE.test(sprintId)) {
+    if (!sprint) {
       return <Navigate to={projectSprintsPath(projectId)} replace />
     }
   }
@@ -231,6 +227,7 @@ export function ProjectKanbanPage() {
           </div>
         ) : (
           <KanbanBoardView
+            key={`${projectId}:${sprintId ?? ''}`}
             columns={columns}
             onTransitionIssue={handleTransitionIssue}
             transitioningIssueId={transitioningIssueId}

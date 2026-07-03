@@ -47,7 +47,9 @@ import { ProjectSprintsPage } from '@/features/projects/ProjectSprintsPage'
 import { ProjectPlaceholderPage } from '@/features/projects/ProjectPlaceholderPage'
 import { ProjectTeamPage } from '@/features/projects/ProjectTeamPage'
 import { ProjectBacklogPage } from '@/features/projects/ProjectBacklogPage'
+import { SprintShell } from '@/components/layout/SprintShell'
 import { ProjectKanbanPage } from '@/features/kanban/ProjectKanbanPage'
+import { SprintBoardPage } from '@/features/projects/SprintBoardPage'
 import { SprintDetailPage } from '@/features/projects/SprintDetailPage'
 import { SprintPlanningPage } from '@/features/projects/SprintPlanningPage'
 import { SprintListPage } from '@/features/projects/SprintListPage'
@@ -114,10 +116,16 @@ export const router = createBrowserRouter([
               { path: 'backlog', element: <ProjectBacklogPage /> },
               { path: 'board', element: <ProjectKanbanPage /> },
               { path: 'sprints', element: <ProjectSprintsPage /> },
-              { path: 'sprints/:sprintId', element: <SprintDetailPage /> },
               {
-                path: 'sprints/:sprintId/planning',
-                element: <SprintPlanningPage />,
+                path: 'sprints/:sprintId',
+                element: <SprintShell />,
+                children: [
+                  { index: true, element: <SprintDetailPage /> },
+                  { path: 'planning', element: <SprintPlanningPage /> },
+                  { path: 'board', element: <SprintBoardPage /> },
+                  { path: 'list', element: <SprintListPage /> },
+                  { path: 'activity', element: <SprintActivityPage /> },
+                ],
               },
               { path: 'team', element: <ProjectTeamPage /> },
               {
@@ -155,12 +163,6 @@ export const router = createBrowserRouter([
                     element: <ProjectSettingsIntegrationsPage />,
                   },
                 ],
-              },
-              { path: 'sprints/:sprintId/board', element: <ProjectKanbanPage /> },
-              { path: 'sprints/:sprintId/list', element: <SprintListPage /> },
-              {
-                path: 'sprints/:sprintId/activity',
-                element: <SprintActivityPage />,
               },
             ],
           },

@@ -2,9 +2,9 @@ import { Check, ChevronDown, Plus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
+  parseProjectRoute,
   projectBacklogPath,
-  projectBoardPath,
-  projectSprintsPath,
+  replaceProjectInPath,
 } from '@/constants/routes'
 import { useProjects } from '@/contexts/ProjectsContext'
 import { setStoredOrganizationId } from '@/features/context/contextStorage'
@@ -12,26 +12,13 @@ import { useAppContext } from '@/features/context/useAppContext'
 import { CreateOrganizationModal } from '@/features/onboarding/CreateOrganizationModal'
 import { CreateProjectDrawer } from '@/features/projects/CreateProjectDrawer'
 import { cn } from '@/utils/cn'
+import { projectSwitchTrace } from '@/utils/projectSwitchTrace'
 
 type SidebarContextPanelProps = {
   collapsed: boolean
 }
 
 type ContextOption = { id: string; name: string }
-
-function projectSwitchPath(pathname: string, projectId: string): string {
-  const projectMatch = pathname.match(/^\/projects\/[^/]+(?<suffix>\/.*)?$/)
-  if (!projectMatch) return projectBacklogPath(projectId)
-
-  const suffix = projectMatch.groups?.suffix ?? ''
-  if (suffix.startsWith('/sprints/')) {
-    return suffix.includes('/board')
-      ? projectBoardPath(projectId)
-      : projectSprintsPath(projectId)
-  }
-
-  return `/projects/${projectId}${suffix}`
-}
 
 type ContextSelectorProps = {
   label: string
@@ -301,7 +288,8 @@ function ContextSelectorCollapsed({
 
 export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const location = useLocation()
+  const { pathname } = location
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
   const [createOrgOpen, setCreateOrgOpen] = useState(false)
   const {
@@ -310,7 +298,6 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
     currentOrganization,
     currentProject: selectedProject,
     setCurrentOrganization,
-    setCurrentProject,
     refreshContext,
     isLoading: contextLoading,
   } = useAppContext()
@@ -319,10 +306,12 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
   const isSuperuser = user?.is_superuser === true
   const orgOptions = organizations.map((org) => ({ id: org.id, name: org.name }))
 
-  const currentProject =
-    selectedProject && projects.length > 0
-      ? (projects.find((project) => project.id === selectedProject.id) ?? null)
-      : selectedProject
+  const routeProjectId = parseProjectRoute(pathname).projectId
+  const selectedProjectId = routeProjectId ?? selectedProject?.id ?? ''
+
+  useEffect(() => {
+    projectSwitchTrace.sidebarContextPanelMount(collapsed)
+  }, [collapsed])
 
   const handleProjectCreated = (projectId: string) => {
     navigate(projectBacklogPath(projectId))
@@ -330,10 +319,21 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
 
   const handleProjectChange = useCallback(
     (projectId: string) => {
-      setCurrentProject(projectId)
-      navigate(projectSwitchPath(pathname, projectId))
+      const nextPathname = replaceProjectInPath(pathname, projectId)
+      const willNavigate = nextPathname !== pathname
+      projectSwitchTrace.handleProjectChange(
+        projectId,
+        pathname,
+        nextPathname,
+        willNavigate,
+      )
+      if (!willNavigate) return
+
+      const target = `${nextPathname}${location.search}${location.hash}`
+      projectSwitchTrace.navigateCalled('SidebarContextPanel.tsx', target, true)
+      navigate(target, { replace: true })
     },
-    [navigate, pathname, setCurrentProject],
+    [location.hash, location.search, navigate, pathname],
   )
 
   const handleOrganizationCreated = useCallback(
@@ -379,7 +379,7 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
           )}
           {currentOrganization && projects.length > 0 && (
             <ContextSelectorCollapsed
-              value={currentProject?.id ?? ''}
+              value={selectedProjectId}
               options={projects.map((project) => ({
                 id: project.id,
                 name: project.name,
@@ -445,7 +445,7 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
         {currentOrganization && projects.length > 0 ? (
           <ContextSelector
             label="Project"
-            value={currentProject?.id ?? ''}
+            value={selectedProjectId}
             options={projects.map((project) => ({
               id: project.id,
               name: project.name,

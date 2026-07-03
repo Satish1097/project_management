@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
@@ -10,6 +10,7 @@ import { layout } from '@/constants/layout'
 import { parseProjectRoute, projectBacklogPath } from '@/constants/routes'
 
 import { cn } from '@/utils/cn'
+import { projectSwitchTrace } from '@/utils/projectSwitchTrace'
 
 import { useAuth } from '@/features/auth/AuthProvider'
 
@@ -197,15 +198,29 @@ function AppShellLayout() {
 
   const { collapsed } = useSidebar()
   const { pathname } = useLocation()
+  const prevPathRef = useRef(pathname)
   const { currentProject, setCurrentProject } = useAppContext()
   const { projects, isLoading: projectsLoading } = useProjects()
 
   useEffect(() => {
+    if (prevPathRef.current !== pathname) {
+      projectSwitchTrace.locationChange(prevPathRef.current, pathname)
+      prevPathRef.current = pathname
+    }
+  }, [pathname])
+
+  useEffect(() => {
     const { projectId } = parseProjectRoute(pathname)
-    if (!projectId || currentProject?.id === projectId) return
+    if (!projectId) return
     if (projectsLoading) return
     if (!projects.some((p) => p.id === projectId)) return
+    if (currentProject?.id === projectId) {
+      projectSwitchTrace.appShellSyncProject(pathname, projectId, 'skip')
+      return
+    }
 
+    projectSwitchTrace.appShellSyncProject(pathname, projectId, 'set')
+    projectSwitchTrace.setCurrentProject('AppShell.tsx', projectId)
     setCurrentProject(projectId)
   }, [currentProject?.id, pathname, setCurrentProject, projects, projectsLoading])
 

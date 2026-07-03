@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import {
   ROUTES,
+  isProjectBoardPath,
   projectBacklogPath,
   projectBoardPath,
   projectOverviewPath,
@@ -107,7 +108,7 @@ export function isProjectNavActive(
     return pathname === base
   }
   if (navId === 'board') {
-    return pathname === projectBoardPath(projectId)
+    return isProjectBoardPath(pathname)
   }
   if (navId === 'backlog') {
     return pathname.startsWith(projectBacklogPath(projectId))
