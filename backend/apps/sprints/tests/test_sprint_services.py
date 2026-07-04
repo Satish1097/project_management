@@ -119,6 +119,28 @@ def test_complete_sprint_carry_forward_planned(project, superuser):
 
 
 @pytest.mark.django_db
+def test_resume_paused_sprint_with_another_active_sprint(project, superuser):
+    """Parallel Sprints: resuming a paused sprint must not fail when another is active."""
+    active = sprint_service.create_sprint(
+        user=superuser, project_id=project.id, name="Active"
+    )
+    paused = sprint_service.create_sprint(
+        user=superuser, project_id=project.id, name="Paused"
+    )
+    sprint_service.start_sprint(user=superuser, sprint_id=active.id)
+    sprint_service.start_sprint(user=superuser, sprint_id=paused.id)
+    sprint_service.pause_sprint(user=superuser, sprint_id=paused.id)
+
+    resumed = sprint_service.resume_sprint(user=superuser, sprint_id=paused.id)
+
+    active.refresh_from_db()
+    paused.refresh_from_db()
+    assert active.status == SprintStatus.ACTIVE
+    assert resumed.status == SprintStatus.ACTIVE
+    assert paused.status == SprintStatus.ACTIVE
+
+
+@pytest.mark.django_db
 def test_only_planned_sprints_can_start(project, superuser):
     sprint = sprint_service.create_sprint(
         user=superuser, project_id=project.id, name="Once"

@@ -96,6 +96,47 @@ def test_parallel_active_sprints_allowed(manager_client, project_with_manager):
 
 
 @pytest.mark.django_db
+def test_resume_paused_sprint_with_another_active(manager_client, project_with_manager):
+    """Resuming a paused sprint succeeds while another sprint stays active."""
+    active = manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints",
+        SPRINT_PAYLOAD,
+        format="json",
+    )
+    paused = manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints",
+        {**SPRINT_PAYLOAD, "name": "Paused Sprint"},
+        format="json",
+    )
+    active_id = active.json()["data"]["sprint"]["id"]
+    paused_id = paused.json()["data"]["sprint"]["id"]
+
+    manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints/{active_id}/start",
+        format="json",
+    )
+    manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints/{paused_id}/start",
+        format="json",
+    )
+    pause = manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints/{paused_id}/pause",
+        format="json",
+    )
+    assert pause.status_code == 200
+    assert pause.json()["data"]["sprint"]["status"] == "paused"
+
+    resume = manager_client.post(
+        f"/api/projects/{project_with_manager.id}/sprints/{paused_id}/resume",
+        format="json",
+    )
+
+    assert resume.status_code == 200
+    assert resume.json()["data"]["sprint"]["status"] == "active"
+    assert resume.json()["success"] is True
+
+
+@pytest.mark.django_db
 def test_complete_sprint_carry_forward_to_backlog(
     manager_client,
     project_with_manager,
