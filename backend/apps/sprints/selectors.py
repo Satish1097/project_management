@@ -35,13 +35,24 @@ def get_project_sprints(project_id: UUID) -> QuerySet[Sprint]:
     )
 
 
-def get_active_sprint(project_id: UUID) -> Sprint | None:
+def get_active_sprints(project_id: UUID) -> QuerySet[Sprint]:
+    """All active sprints for a project (Parallel Sprints: may be many)."""
     return (
         _optimized_sprint_queryset()
         .filter(project_id=project_id, status=SprintStatus.ACTIVE)
         .order_by("-created_at")
-        .first()
     )
+
+
+def get_active_sprint(project_id: UUID) -> Sprint | None:
+    """
+    Returns one active sprint (most recently created), or None.
+
+    Parallel Sprints: a project may have multiple active sprints. Prefer
+    ``get_active_sprints`` for anything that must reflect all of them; this
+    helper is retained for callers that only need a representative sprint.
+    """
+    return get_active_sprints(project_id).first()
 
 
 def get_paused_sprint(project_id: UUID) -> Sprint | None:
@@ -213,11 +224,12 @@ def select_sprint_health(
     return _sprint_health_to_dict(sprint)
 
 
-def select_active_sprint_health(user_id: UUID, project_id: UUID) -> dict | None:
+def select_active_sprints_health(user_id: UUID, project_id: UUID) -> list[dict] | None:
+    """Health for every active sprint in the project (Parallel Sprints)."""
     if not permission_service.can_view_project(user_id, project_id):
         return None
 
-    sprint = (
+    sprints = (
         _sprint_health_queryset()
         .filter(project_id=project_id, status=SprintStatus.ACTIVE)
         .only(
@@ -230,12 +242,21 @@ def select_active_sprint_health(user_id: UUID, project_id: UUID) -> dict | None:
             "capacity_points",
         )
         .order_by("-created_at")
-        .first()
     )
-    if sprint is None:
-        return None
+    return [_sprint_health_to_dict(sprint) for sprint in sprints]
 
-    return _sprint_health_to_dict(sprint)
+
+def select_active_sprint_health(user_id: UUID, project_id: UUID) -> dict | None:
+    """
+    Health for a single active sprint (most recent).
+
+    Parallel Sprints: prefer ``select_active_sprints_health`` when all active
+    sprints matter; retained for single-sprint callers.
+    """
+    results = select_active_sprints_health(user_id, project_id)
+    if not results:
+        return None
+    return results[0]
 
 
 def select_project_sprint_health(user_id: UUID, project_id: UUID) -> list[dict] | None:

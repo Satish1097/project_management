@@ -100,7 +100,15 @@ export function useOptimisticIssueActions(projectId: string) {
         issueId,
         {
           assigneeId: userId,
-          assignee: userId && member ? member : UNASSIGNED_ASSIGNEE,
+          assignee:
+            userId && member
+              ? {
+                  name: member.name,
+                  color: member.color,
+                  userId,
+                  email: member.email,
+                }
+              : UNASSIGNED_ASSIGNEE,
         },
         { assignee: userId },
       )

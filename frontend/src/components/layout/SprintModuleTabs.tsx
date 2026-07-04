@@ -8,7 +8,6 @@ type SprintModuleTabsProps = {
   boardPath: string
   listPath: string
   activityPath: string
-  planningPath: string
   trailing?: React.ReactNode
 }
 
@@ -17,7 +16,6 @@ const tabs: { id: SprintModuleTab; label: string }[] = [
   { id: 'Board', label: 'Board' },
   { id: 'List', label: 'List' },
   { id: 'Activity', label: 'Activity' },
-  { id: 'Planning', label: 'Planning' },
 ]
 
 export function SprintModuleTabs({
@@ -26,7 +24,6 @@ export function SprintModuleTabs({
   boardPath,
   listPath,
   activityPath,
-  planningPath,
   trailing,
 }: SprintModuleTabsProps) {
   const paths: Record<SprintModuleTab, string> = {
@@ -34,7 +31,6 @@ export function SprintModuleTabs({
     Board: boardPath,
     List: listPath,
     Activity: activityPath,
-    Planning: planningPath,
   }
 
   return (

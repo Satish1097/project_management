@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Loader2, UserPlus } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { BRANDING } from '@/constants/branding'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { InviteMemberForm } from '@/features/members/InviteMemberForm'
 import { MemberActionsMenu } from '@/features/members/MemberActionsMenu'
 import {
@@ -120,7 +120,16 @@ export function ProjectSettingsMembersPage() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-4">
-                        <Avatar name={displayName} color={color} size={40} />
+                        <UserAvatar
+                          name={displayName}
+                          color={color}
+                          size={40}
+                          userId={member.user_id}
+                          email={member.email}
+                          role={member.role}
+                          joinedAt={member.joined_at}
+                          projectId={projectId}
+                        />
                         <div>
                           <p className="font-semibold text-devflow-text">{displayName}</p>
                           {email ? (

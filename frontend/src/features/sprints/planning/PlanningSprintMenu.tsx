@@ -4,7 +4,7 @@ import { MoreHorizontal } from 'lucide-react'
 import {
   sprintBoardPath,
   sprintDetailPath,
-  sprintPlanningPath,
+  projectBacklogSprintPath,
 } from '@/constants/routes'
 import type { Sprint } from '@/types/sprints'
 import { cn } from '@/utils/cn'
@@ -68,11 +68,11 @@ export function PlanningSprintMenu({
           </Link>
           <Link
             role="menuitem"
-            to={sprintPlanningPath(projectId, sprint.id)}
+            to={projectBacklogSprintPath(projectId, sprint.id)}
             className="block px-3 py-1.5 text-[13px] text-devflow-text hover:bg-devflow-muted"
             onClick={() => setOpen(false)}
           >
-            Planning
+            Plan in backlog
           </Link>
         </div>
       ) : null}

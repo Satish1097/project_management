@@ -1,6 +1,7 @@
 import { History, Rocket } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
+import { avatarColorFromName } from '@/features/members/memberUtils'
 import { layout } from '@/constants/layout'
 import type { DashboardActivityApi } from '@/types/dashboard'
 import { cn } from '@/utils/cn'
@@ -36,7 +37,9 @@ function ActivityAvatar({
     )
   }
 
-  return <Avatar name={value} color={color ?? '#94a3b8'} size={26} />
+  return (
+    <UserAvatar name={value} color={color ?? avatarColorFromName(value)} size={26} />
+  )
 }
 
 type ActivityFeedPagination = {

@@ -1,7 +1,7 @@
 import { GripVertical } from 'lucide-react'
 import { useIssueDetail } from '@/contexts/IssueDetailContext'
 import { useIssueCardClick } from '@/hooks/useIssueCardClick'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { PriorityIndicator } from '@/components/ui/PriorityIndicator'
 import {
   InlineAssigneePicker,
@@ -142,7 +142,13 @@ export function PlanningIssueCard({
             </>
           ) : (
             <>
-              <Avatar name={issue.assignee.name} color={issue.assignee.color} size={18} />
+              <UserAvatar
+                name={issue.assignee.name}
+                color={issue.assignee.color}
+                size={18}
+                userId={issue.assigneeId ?? undefined}
+                projectId={issue.projectId}
+              />
               <span className="truncate text-[11px] text-devflow-text-muted">
                 {issue.assignee.name}
               </span>

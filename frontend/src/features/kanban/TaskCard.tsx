@@ -1,6 +1,7 @@
 import { useDraggable } from '@dnd-kit/core'
+import { useParams } from 'react-router-dom'
 import { useIssueDetail } from '@/contexts/IssueDetailContext'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { LabelBadge } from '@/components/ui/LabelBadge'
 import { PriorityIndicator } from '@/components/ui/PriorityIndicator'
 import { SprintBadge } from '@/components/ui/SprintBadge'
@@ -34,6 +35,7 @@ export function TaskCard({
   showSprintBadge = false,
 }: TaskCardProps) {
   const { openIssueDetail } = useIssueDetail()
+  const { projectId = '' } = useParams()
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: issue.id,
     data: { columnId, statusId: statusId ?? columnId, issue },
@@ -104,10 +106,12 @@ export function TaskCard({
 
       <div className="issue-card__footer">
         <div className="issue-card__project" aria-hidden="true" />
-        <Avatar
+        <UserAvatar
           name={issue.assignee.name}
           color={issue.assignee.color}
           size={20}
+          userId={issue.assigneeId ?? undefined}
+          projectId={projectId}
         />
       </div>
     </article>

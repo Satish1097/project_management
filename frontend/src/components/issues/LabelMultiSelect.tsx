@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Plus, X } from 'lucide-react'
-import { getProjectLabels, type LabelApi } from '@/api/labels'
+import { useProjectLabelsData } from '@/hooks/useProjectLabelsData'
 import { getLabels, addLabel } from '@/services/labelsRegistry'
 
 type LabelMultiSelectProps = {
@@ -17,30 +17,9 @@ export function LabelMultiSelect({
   const [open, setOpen] = useState(false)
   const [newLabel, setNewLabel] = useState('')
   const [mockLabels, setMockLabels] = useState(() => getLabels())
-  const [apiLabels, setApiLabels] = useState<LabelApi[]>([])
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (!projectId) return
-
-    let cancelled = false
-    setLoading(true)
-    void getProjectLabels(projectId)
-      .then((labels) => {
-        if (!cancelled) {
-          setApiLabels(labels.filter((label) => !label.is_archived))
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [projectId])
 
   const useApi = Boolean(projectId)
+  const { labels: apiLabels, loading } = useProjectLabelsData(projectId ?? '')
 
   const allLabels = useMemo(() => {
     if (useApi) {

@@ -1,17 +1,26 @@
 import { useEffect, type RefObject } from 'react'
 
-export function useClickOutside<T extends HTMLElement>(
-  ref: RefObject<T | null>,
+function isInsideRef(
+  ref: RefObject<HTMLElement | null>,
+  target: Node,
+): boolean {
+  return Boolean(ref.current?.contains(target))
+}
+
+export function useClickOutside(
+  ref: RefObject<HTMLElement | null> | RefObject<HTMLElement | null>[],
   onOutside: () => void,
   enabled = true,
 ): void {
   useEffect(() => {
     if (!enabled) return
 
+    const refs = Array.isArray(ref) ? ref : [ref]
+
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target
       if (!(target instanceof Node)) return
-      if (ref.current?.contains(target)) return
+      if (refs.some((item) => isInsideRef(item, target))) return
       onOutside()
     }
 

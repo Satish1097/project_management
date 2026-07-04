@@ -1,5 +1,7 @@
 import pytest
 
+from apps.sprints.services.sprint_service import sprint_service
+
 
 SPRINT_PAYLOAD = {
     "name": "Sprint 1",
@@ -29,16 +31,14 @@ def test_developer_cannot_start_sprint(
     project_with_manager,
     superuser,
 ):
-    from apps.sprints.services.sprint_service import create_sprint
-
-    sprint = create_sprint(
+    sprint = sprint_service.create_sprint(
+        user=superuser,
         project_id=project_with_manager.id,
         name="Dev Sprint",
-        actor_id=superuser.id,
     )
 
     response = developer_client.post(
-        f"/api/sprints/{sprint.id}/start",
+        f"/api/projects/{project_with_manager.id}/sprints/{sprint.id}/start",
         format="json",
     )
 
@@ -64,7 +64,8 @@ def test_start_sprint_success(manager_client, project_with_manager):
 
 
 @pytest.mark.django_db
-def test_one_active_sprint_guard(manager_client, project_with_manager):
+def test_parallel_active_sprints_allowed(manager_client, project_with_manager):
+    """Parallel Sprints: a project may have multiple ACTIVE sprints at once."""
     first = manager_client.post(
         f"/api/projects/{project_with_manager.id}/sprints",
         SPRINT_PAYLOAD,
@@ -78,16 +79,20 @@ def test_one_active_sprint_guard(manager_client, project_with_manager):
     first_id = first.json()["data"]["sprint"]["id"]
     second_id = second.json()["data"]["sprint"]["id"]
 
-    manager_client.post(
+    first_start = manager_client.post(
         f"/api/projects/{project_with_manager.id}/sprints/{first_id}/start",
         format="json",
     )
-    response = manager_client.post(
+    second_start = manager_client.post(
         f"/api/projects/{project_with_manager.id}/sprints/{second_id}/start",
         format="json",
     )
 
-    assert response.status_code == 409
+    assert first_start.status_code == 200
+    # Starting a second sprint must succeed and not disturb the first.
+    assert second_start.status_code == 200
+    assert first_start.json()["data"]["sprint"]["status"] == "active"
+    assert second_start.json()["data"]["sprint"]["status"] == "active"
 
 
 @pytest.mark.django_db

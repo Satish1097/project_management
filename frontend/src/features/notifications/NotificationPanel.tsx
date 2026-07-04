@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Check } from 'lucide-react'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import { notificationIconMap } from './notificationIcons'
@@ -136,7 +136,7 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
                   )}
                 >
                   <div className="relative shrink-0">
-                    <Avatar name={n.title} color={n.color} size={38} />
+                    <UserAvatar name={n.title} color={n.color} size={38} />
                     <span
                       className="absolute -bottom-0.5 -right-0.5 flex size-[18px] items-center justify-center rounded-full border-2 border-devflow-card bg-devflow-bell-bg text-devflow-text-muted"
                       aria-hidden

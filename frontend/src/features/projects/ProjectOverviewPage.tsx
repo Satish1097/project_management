@@ -11,7 +11,7 @@ import type { Sprint } from '@/types/sprints'
 import { useProjectMembersContext } from '@/contexts/ProjectMembersContext'
 import {
   formatSprintStatus,
-  getActiveSprint,
+  getActiveSprints,
   getProjectById,
   getSprintsForProject,
   getSprintCompletionPercent,
@@ -34,7 +34,9 @@ export function ProjectOverviewPage() {
   const { loading: sprintsLoading } = useLoadProjectSprints(projectId)
   const { stats: issueStats, loading: issueStatsLoading } = useProjectIssueStats(projectId)
   const { members, loading: membersLoading } = useProjectMembersContext()
-  const activeSprint = getActiveSprint(projectId)
+  // Parallel Sprints: a project may have multiple active sprints.
+  const activeSprints = getActiveSprints(projectId)
+  const primaryActiveSprint = activeSprints[0]
   const sprints = getSprintsForProject(projectId)
   const [activities, setActivities] = useState<DashboardActivityApi[] | null>(null)
   const [activityLoading, setActivityLoading] = useState(false)
@@ -66,7 +68,21 @@ export function ProjectOverviewPage() {
     openIssueCount != null
       ? `${openIssueCount} Open ${openIssueCount === 1 ? 'Issue' : 'Issues'}`
       : (project.openIssuesLabel ?? project.issuesLabel)
-  const sprintProgress = activeSprint ? getSprintCompletionPercent(activeSprint) : 0
+  const sprintProgress =
+    activeSprints.length > 0
+      ? Math.round(
+          activeSprints.reduce(
+            (sum, s) => sum + getSprintCompletionPercent(s),
+            0,
+          ) / activeSprints.length,
+        )
+      : 0
+  const activeSprintValue =
+    activeSprints.length === 0
+      ? 'None'
+      : activeSprints.length === 1
+        ? (primaryActiveSprint?.name ?? 'None')
+        : `${activeSprints.length} active`
 
   return (
     <main className="page-main !gap-0 p-4">
@@ -103,14 +119,16 @@ export function ProjectOverviewPage() {
             }
           />
           <MetricCard
-            label="Active sprint"
-            value={sprintsLoading ? '—' : (activeSprint?.name ?? 'None')}
+            label={activeSprints.length > 1 ? 'Active sprints' : 'Active sprint'}
+            value={sprintsLoading ? '—' : activeSprintValue}
             footer={
               sprintsLoading
                 ? 'Loading sprints…'
-                : activeSprint
-                  ? formatSprintStatus(activeSprint.status)
-                  : 'Start a sprint from Sprints'
+                : activeSprints.length === 1 && primaryActiveSprint
+                  ? formatSprintStatus(primaryActiveSprint.status)
+                  : activeSprints.length > 1
+                    ? 'Running in parallel'
+                    : 'Start a sprint from Sprints'
             }
           />
           <MetricCard
@@ -125,26 +143,32 @@ export function ProjectOverviewPage() {
             value={sprintsLoading ? '—' : `${sprintProgress}%`}
             progress={sprintsLoading ? undefined : sprintProgress}
             footer={
-              sprintsLoading ? 'Loading sprints…' : 'Issues completed in active sprint'
+              sprintsLoading
+                ? 'Loading sprints…'
+                : activeSprints.length > 1
+                  ? 'Average across active sprints'
+                  : 'Issues completed in active sprint'
             }
           />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,13fr)_minmax(0,7fr)] lg:items-start">
           <div className="flex min-w-0 flex-col gap-4">
-            {!sprintsLoading && activeSprint && (
-              <ActiveSprintCard
-                sprint={activeSprint}
-                projectId={projectId}
-                progress={sprintProgress}
-              />
-            )}
+            {!sprintsLoading &&
+              activeSprints.map((sprint) => (
+                <ActiveSprintCard
+                  key={sprint.id}
+                  sprint={sprint}
+                  projectId={projectId}
+                  progress={getSprintCompletionPercent(sprint)}
+                />
+              ))}
 
             {!sprintsLoading && sprints.length > 0 && (
               <SprintListSection projectId={projectId} sprints={sprints} />
             )}
 
-            {!sprintsLoading && !activeSprint && sprints.length === 0 && (
+            {!sprintsLoading && activeSprints.length === 0 && sprints.length === 0 && (
               <div className={cn(layout.uiCard, 'text-center')}>
                 <p className="text-body text-devflow-text-secondary">
                   No sprints yet. Create one from the Sprints page to start tracking work.

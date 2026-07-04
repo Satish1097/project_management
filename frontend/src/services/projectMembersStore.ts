@@ -97,3 +97,22 @@ export function resetProjectMembersStore(): void {
   inflight.clear()
   notify()
 }
+
+export function findProjectMember(
+  userId: string,
+  projectId?: string,
+): ProjectMemberRecord | undefined {
+  if (!userId) return undefined
+
+  if (projectId) {
+    const snapshot = cache.get(projectId)
+    return snapshot?.members.find((member) => member.user_id === userId)
+  }
+
+  for (const snapshot of cache.values()) {
+    const member = snapshot.members.find((item) => item.user_id === userId)
+    if (member) return member
+  }
+
+  return undefined
+}

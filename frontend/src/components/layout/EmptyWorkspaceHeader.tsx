@@ -1,9 +1,11 @@
 import { HelpCircle } from 'lucide-react'
 import { BRANDING } from '@/constants/branding'
 import { layout } from '@/constants/layout'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { avatarColorFromName } from '@/features/members/memberUtils'
 import { cn } from '@/utils/cn'
 
 const tabs = ['All Issues', 'Active', 'Backlog'] as const
@@ -15,6 +17,10 @@ type EmptyWorkspaceHeaderProps = {
 export function EmptyWorkspaceHeader({
   activeTab = 'All Issues',
 }: EmptyWorkspaceHeaderProps) {
+  const { user } = useAuth()
+  const currentUserName = user?.display_name || user?.email || 'You'
+  const currentUserColor = avatarColorFromName(currentUserName)
+
   return (
     <header className={cn(layout.appHeader, 'header-glass backdrop-blur-[2px]')}>
       <div className="flex items-center gap-4">
@@ -49,10 +55,12 @@ export function EmptyWorkspaceHeader({
         >
           <HelpCircle className="size-5" strokeWidth={1.75} />
         </button>
-        <Avatar
-          name="You"
-          color="#94a3b8"
+        <UserAvatar
+          name={currentUserName}
+          color={currentUserColor}
           size={28}
+          userId={user?.id}
+          email={user?.email}
           className="border border-devflow-border"
         />
         <button

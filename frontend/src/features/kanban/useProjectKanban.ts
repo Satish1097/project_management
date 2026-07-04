@@ -2,10 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getBoardColumnIssues, getProjectKanban } from '@/api/issues'
 import { getSprintBoard, getSprintBoardColumnIssues } from '@/api/sprints'
 import { ApiError } from '@/api/types'
-import {
-  boardColumnQueryFromFilters,
-  DEFAULT_KANBAN_PAGE_SIZE,
-} from '@/features/kanban/boardColumnQuery'
+import { boardColumnQueryFromFilters } from '@/features/kanban/boardColumnQuery'
+import { DEFAULT_KANBAN_PAGE_SIZE } from '@/constants/kanban'
 import { registerKanbanRefresh } from '@/features/kanban/kanbanRefreshBridge'
 import {
   mapApiIssuesToKanbanIssues,

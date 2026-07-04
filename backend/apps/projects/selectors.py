@@ -191,21 +191,32 @@ def select_dashboard_summary(user_id: UUID) -> dict[str, int]:
     }
 
 
-def _active_sprint_report(project_id: UUID) -> dict | None:
-    sprint = (
+def _active_sprints_report(project_id: UUID) -> list[dict]:
+    """All active sprints for a project (Parallel Sprints)."""
+    sprints = (
         Sprint.objects.filter(project_id=project_id, status=SprintStatus.ACTIVE)
         .only("id", "name", "status")
         .order_by("-created_at")
-        .first()
     )
-    if sprint is None:
-        return None
+    return [
+        {
+            "id": sprint.id,
+            "name": sprint.name,
+            "status": sprint.status,
+        }
+        for sprint in sprints
+    ]
 
-    return {
-        "id": sprint.id,
-        "name": sprint.name,
-        "status": sprint.status,
-    }
+
+def _active_sprint_report(project_id: UUID) -> dict | None:
+    """
+    Single active sprint (most recent) for backward compatibility.
+
+    Parallel Sprints: prefer ``_active_sprints_report`` when all active
+    sprints matter.
+    """
+    active_sprints = _active_sprints_report(project_id)
+    return active_sprints[0] if active_sprints else None
 
 
 def _select_issue_counts_by_status(project_id: UUID) -> list[dict]:
@@ -291,6 +302,7 @@ def select_project_report_summary(user_id: UUID, project_id: UUID) -> dict | Non
             Q(sprint__isnull=True) | ~Q(sprint__status=SprintStatus.ACTIVE)
         ).count(),
         "active_sprint": _active_sprint_report(project_id),
+        "active_sprints": _active_sprints_report(project_id),
         "issue_counts_by_status": _select_issue_counts_by_status(project_id),
         "issue_counts_by_priority": _select_issue_counts_by_priority(project_id),
         "issue_counts_by_assignee": _select_issue_counts_by_assignee(project_id),

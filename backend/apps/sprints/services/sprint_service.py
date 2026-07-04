@@ -12,7 +12,6 @@ from django.db import transaction
 from apps.issues.selectors import get_incomplete_sprint_issue_ids
 from apps.permissions.services import permission_service
 from apps.sprints.exceptions import (
-    SprintAlreadyActiveError,
     SprintCompletionError,
     SprintError,
     SprintNotFoundError,
@@ -30,16 +29,6 @@ def _get_sprint_or_raise(sprint_id: UUID) -> Sprint:
 
 def _normalize_name(name: str) -> str:
     return name.strip()
-
-
-def _ensure_single_active_sprint(project_id: UUID, exclude_sprint_id: UUID | None = None) -> None:
-    active_qs = Sprint.objects.filter(project_id=project_id, status=SprintStatus.ACTIVE)
-    if exclude_sprint_id is not None:
-        active_qs = active_qs.exclude(pk=exclude_sprint_id)
-    if active_qs.exists():
-        raise SprintAlreadyActiveError(
-            "Another sprint is already active in this project."
-        )
 
 
 def _can_start_sprint(user_id: UUID, sprint: Sprint) -> bool:
@@ -111,7 +100,8 @@ class SprintService:
         if sprint.status != SprintStatus.PLANNED:
             raise SprintError("Only planned sprints can be started.")
 
-        _ensure_single_active_sprint(sprint.project_id, exclude_sprint_id=sprint.id)
+        # Parallel Sprints: starting this sprint must NOT touch any other
+        # active sprint in the project. Multiple active sprints may coexist.
         sprint.status = SprintStatus.ACTIVE
         sprint.save(update_fields=["status", "updated_at"])
         return sprint
@@ -134,7 +124,8 @@ class SprintService:
         if sprint.status != SprintStatus.PAUSED:
             raise SprintError("Only paused sprints can be resumed.")
 
-        _ensure_single_active_sprint(sprint.project_id, exclude_sprint_id=sprint.id)
+        # Parallel Sprints: resuming this sprint must NOT touch any other
+        # active sprint in the project.
         sprint.status = SprintStatus.ACTIVE
         sprint.save(update_fields=["status", "updated_at"])
         return sprint

@@ -191,14 +191,16 @@ export function useProjectBacklog(
         sprint,
       }))
 
+      // Jira-style ordering: active sprints first, then planned sprints,
+      // then the Backlog section last.
       const nextSections: BacklogSectionMeta[] = [
+        ...sprintSections,
         {
           sectionId: BACKLOG_SECTION_ID,
           kind: 'backlog',
           title: 'Backlog',
           issueCount: metadata.backlog_issue_count,
         },
-        ...sprintSections,
       ]
 
       setSections(nextSections)
@@ -243,14 +245,16 @@ export function useProjectBacklog(
         sprint,
       }))
 
+      // Jira-style ordering: active sprints first, then planned sprints,
+      // then the Backlog section last.
       const nextSections: BacklogSectionMeta[] = [
+        ...sprintSections,
         {
           sectionId: BACKLOG_SECTION_ID,
           kind: 'backlog',
           title: 'Backlog',
           issueCount: metadata.backlog_issue_count,
         },
-        ...sprintSections,
       ]
 
       setSections(nextSections)

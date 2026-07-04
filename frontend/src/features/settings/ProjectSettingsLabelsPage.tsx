@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
 import {
   createProjectLabel,
   deleteProjectLabel,
-  getProjectLabels,
   updateProjectLabel,
   type LabelApi,
 } from '@/api/labels'
 import { ApiError } from '@/api/types'
 import { CreateLabelModal } from '@/features/settings/CreateLabelModal'
+import { useProjectLabelsData } from '@/hooks/useProjectLabelsData'
+import {
+  addProjectLabelToStore,
+  removeProjectLabelFromStore,
+  updateProjectLabelInStore,
+} from '@/services/projectLabelsStore'
 
 type UiLabel = {
   id: string
@@ -45,43 +50,11 @@ function mapApiLabelToUiLabel(label: LabelApi): UiLabel {
 
 export function ProjectSettingsLabelsPage() {
   const { projectId = '' } = useParams()
-  const [labels, setLabels] = useState<LabelApi[]>([])
-  const [loading, setLoading] = useState(true)
+  const { labels, loading, error: loadError } = useProjectLabelsData(projectId)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [labelModalOpen, setLabelModalOpen] = useState(false)
   const [editingLabel, setEditingLabel] = useState<LabelApi | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadLabels() {
-      if (!projectId) {
-        setLoading(false)
-        return
-      }
-
-      setLoading(true)
-      setError(null)
-      try {
-        const data = await getProjectLabels(projectId)
-        if (!cancelled) {
-          setLabels(data.filter((label) => !label.is_archived))
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : 'Failed to load labels.')
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    void loadLabels()
-    return () => {
-      cancelled = true
-    }
-  }, [projectId])
 
   const uiLabels = useMemo(() => labels.map(mapApiLabelToUiLabel), [labels])
 
@@ -119,13 +92,13 @@ export function ProjectSettingsLabelsPage() {
           name,
           color,
         })
-        setLabels((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+        updateProjectLabelInStore(projectId, updated)
       } else {
         const created = await createProjectLabel(projectId, {
           name,
           color,
         })
-        setLabels((prev) => [...prev, created].filter((label) => !label.is_archived))
+        addProjectLabelToStore(projectId, created)
       }
     } catch (err) {
       const message =
@@ -148,7 +121,7 @@ export function ProjectSettingsLabelsPage() {
     setError(null)
     try {
       await deleteProjectLabel(projectId, label.id)
-      setLabels((prev) => prev.filter((item) => item.id !== label.id))
+      removeProjectLabelFromStore(projectId, label.id)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to delete label.')
     } finally {
@@ -165,8 +138,10 @@ export function ProjectSettingsLabelsPage() {
     )
   }
 
-  if (error && uiLabels.length === 0) {
-    return <p className="text-body text-red-600">{error}</p>
+  const displayError = error ?? loadError
+
+  if (displayError && uiLabels.length === 0) {
+    return <p className="text-body text-red-600">{displayError}</p>
   }
 
   return (
@@ -189,7 +164,7 @@ export function ProjectSettingsLabelsPage() {
         </button>
       </div>
       <div className="mt-4 space-y-4">
-        {error ? <p className="text-body text-red-600">{error}</p> : null}
+        {displayError ? <p className="text-body text-red-600">{displayError}</p> : null}
         {uiLabels.map((label) => {
           const source = labels.find((item) => item.id === label.id)
           if (!source) return null

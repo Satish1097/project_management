@@ -10,7 +10,9 @@ import { ProjectStatusBadge } from '@/components/ui/ProjectStatusBadge'
 import { ProjectNav } from '@/components/layout/ProjectNav'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { avatarColorFromName } from '@/features/members/memberUtils'
 import { useCreateIssue } from '@/contexts/CreateIssueContext'
 import { ProjectMembersProvider, useProjectMembersContext } from '@/contexts/ProjectMembersContext'
 import { projectMembersToAvatarGroup } from '@/features/members/memberUtils'
@@ -18,16 +20,17 @@ import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
 import { useProjects } from '@/contexts/ProjectsContext'
 import {
   formatSprintMetaLine,
-  getActiveSprint,
+  getActiveSprints,
   getProjectById,
   getSprintById,
 } from '@/services/projectData'
+import type { Sprint } from '@/types/sprints'
 import { projectSwitchTrace } from '@/utils/projectSwitchTrace'
 
 function resolveHeaderSubtitle(
   pathname: string,
   projectId: string,
-  activeSprint: ReturnType<typeof getActiveSprint>,
+  activeSprints: Sprint[],
 ): string {
   if (isProjectBoardPath(pathname)) {
     return 'Board'
@@ -42,8 +45,12 @@ function resolveHeaderSubtitle(
     return formatSprintMetaLine(viewingSprint)
   }
 
-  if (activeSprint) {
-    return formatSprintMetaLine(activeSprint)
+  // Parallel Sprints: a project may have multiple active sprints.
+  if (activeSprints.length === 1) {
+    return formatSprintMetaLine(activeSprints[0])
+  }
+  if (activeSprints.length > 1) {
+    return `${activeSprints.length} active sprints`
   }
 
   return 'No active sprint'
@@ -99,13 +106,16 @@ function ProjectShellContent({
 }) {
   const { pathname } = useLocation()
   useLoadProjectSprints(projectId)
-  const activeSprint = getActiveSprint(projectId)
+  const activeSprints = getActiveSprints(projectId)
   const { members, loading: membersLoading } = useProjectMembersContext()
   const { members: avatarMembers, extra } = projectMembersToAvatarGroup(members)
+  const { user } = useAuth()
+  const currentUserName = user?.display_name || user?.email || 'You'
+  const currentUserColor = avatarColorFromName(currentUserName)
 
   const { openCreateIssue } = useCreateIssue()
 
-  const headerSubtitle = resolveHeaderSubtitle(pathname, projectId, activeSprint)
+  const headerSubtitle = resolveHeaderSubtitle(pathname, projectId, activeSprints)
 
   return (
     <>
@@ -134,7 +144,7 @@ function ProjectShellContent({
               <span className="text-caption text-devflow-text-secondary">
                 {membersLoading ? '—' : members.length}
               </span>
-              <AvatarGroup members={avatarMembers} extra={extra} />
+              <AvatarGroup members={avatarMembers} extra={extra} projectId={projectId} />
             </div>
             {project.progress !== undefined && (
               <div className="hidden w-20 xl:block">
@@ -159,10 +169,12 @@ function ProjectShellContent({
             </button>
             <ThemeToggle />
             <NotificationBell />
-            <Avatar
-              name="You"
-              color="#94a3b8"
+            <UserAvatar
+              name={currentUserName}
+              color={currentUserColor}
               size={28}
+              userId={user?.id}
+              email={user?.email}
               className="border border-devflow-border bg-devflow-avatar-bg"
             />
           </div>

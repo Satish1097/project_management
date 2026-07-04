@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate, useParams } from 'react-router-dom'
+import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { BacklogQuickCreate } from '@/components/issues/BacklogQuickCreate'
 import { BacklogIssueCard } from '@/features/backlog/BacklogIssueCard'
@@ -22,6 +22,7 @@ import type { ProjectIssue } from '@/types/issues'
 const ENTER_ANIMATION_MS = 220
 const EXIT_ANIMATION_MS = 200
 const SEARCH_DEBOUNCE_MS = 300
+const SPRINT_HIGHLIGHT_MS = 1500
 
 function resolveSectionIdForSprint(sprintId: string | null): string {
   return sprintId ? `sprint-${sprintId}` : BACKLOG_SECTION_ID
@@ -29,6 +30,7 @@ function resolveSectionIdForSprint(sprintId: string | null): string {
 
 export function ProjectBacklogPage() {
   const { projectId = '' } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const project = getProjectById(projectId)
   const { recentlyCreatedSprintId } = useSprints()
 
@@ -41,6 +43,9 @@ export function ProjectBacklogPage() {
   const [enteringIds, setEnteringIds] = useState<Set<string>>(new Set())
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set())
+  const [highlightedSprintId, setHighlightedSprintId] = useState<string | null>(null)
+  const pendingFocusSprintIdRef = useRef<string | null>(null)
+  const preserveExpandedSectionsRef = useRef<Set<string>>(new Set())
   const searchRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -69,13 +74,68 @@ export function ProjectBacklogPage() {
       for (const section of sections) {
         if (section.kind !== 'sprint' || !section.sprint) continue
         const key = section.sectionId
-        if (!prev.has(key) && defaultSprintCollapsed(section.sprint)) {
+        if (
+          !prev.has(key) &&
+          defaultSprintCollapsed(section.sprint) &&
+          !preserveExpandedSectionsRef.current.has(key)
+        ) {
           next.add(key)
         }
       }
       return next
     })
   }, [sections])
+
+  useEffect(() => {
+    const sprintId = searchParams.get('sprint')
+    if (!sprintId) return
+
+    pendingFocusSprintIdRef.current = sprintId
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('sprint')
+        return next
+      },
+      { replace: true },
+    )
+  }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    const sprintId = pendingFocusSprintIdRef.current
+    if (!sprintId) return
+
+    const section = sections.find((item) => item.sprint?.id === sprintId)
+    if (!section) {
+      if (!loading) pendingFocusSprintIdRef.current = null
+      return
+    }
+
+    const sectionId = section.sectionId
+    pendingFocusSprintIdRef.current = null
+    preserveExpandedSectionsRef.current.add(sectionId)
+
+    setCollapsedSections((prev) => {
+      if (!prev.has(sectionId)) return prev
+      const next = new Set(prev)
+      next.delete(sectionId)
+      return next
+    })
+    initializeSection(sectionId)
+    setHighlightedSprintId(sprintId)
+
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-planning-section="${sectionId}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+
+    const timer = window.setTimeout(() => {
+      setHighlightedSprintId(null)
+    }, SPRINT_HIGHLIGHT_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [sections, loading, initializeSection])
 
   useEffect(() => {
     if (!recentlyCreatedSprintId) return
@@ -310,7 +370,9 @@ export function ProjectBacklogPage() {
                 isDropTarget
                 isDragOver={dragOverSection === section.sectionId}
                 highlighted={
-                  section.sprint != null && recentlyCreatedSprintId === section.sprint.id
+                  section.sprint != null &&
+                  (recentlyCreatedSprintId === section.sprint.id ||
+                    highlightedSprintId === section.sprint.id)
                 }
                 sprint={section.sprint}
                 projectId={projectId}

@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import type { WorkspaceMember } from '@/services/mockMembers'
 import { cn } from '@/utils/cn'
 
@@ -31,7 +31,15 @@ export function UserSelectField({
       <div className="relative">
         {selected && (
           <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2">
-            <Avatar name={selected.name} color={selected.color} size={24} />
+            <UserAvatar
+              name={selected.name}
+              color={selected.color}
+              size={24}
+              userId={selected.id}
+              email={selected.email}
+              role={selected.role}
+              showHoverCard={false}
+            />
           </span>
         )}
         <select

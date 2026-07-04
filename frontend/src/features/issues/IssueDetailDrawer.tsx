@@ -21,10 +21,11 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { AssigneeSelect } from '@/components/issues/AssigneeSelect'
+import { AssigneeField } from '@/components/issues/AssigneeSelect'
+import { useAssigneeMembers } from '@/components/issues/inline/InlineAssigneePicker'
 import { IssuePrioritySelect } from '@/components/issues/IssuePrioritySelect'
 import { LabelMultiSelect } from '@/components/issues/LabelMultiSelect'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { IssueStatusBadge } from '@/components/ui/IssueStatusBadge'
 import { LabelBadge } from '@/components/ui/LabelBadge'
 import { PriorityBadge } from '@/components/ui/PriorityBadge'
@@ -300,16 +301,33 @@ export function IssueDetailDrawer({
     if (isApiIssueId(issue.id)) {
       setDetailLoading(true)
       void apiGetIssue(issue.id)
-        .then((detail) => {
+        .then(async (detail) => {
           const mapped = mapIssueDetailToUi(detail, issue.projectId)
           loadedWorkflowStatusRef.current = mapped.workflowStatus
+
+          await ensureProjectMembersLoaded(issue.projectId)
+          const { members } = getProjectMembersSnapshot(issue.projectId)
+          const reporterMember = members.find((member) => member.user_id === detail.reporter)
+          const reporterName =
+            reporterMember?.display_name ||
+            reporterMember?.email ||
+            (user?.id === detail.reporter
+              ? user.display_name || user.email
+              : 'Reporter')
+
           setDraft(mapped)
           setExtras({
             description: detail.description ?? '',
             acceptanceCriteria: '',
             epic: mapped.key.split('-')[0] + '-EPIC-1',
-            reporter: mapped.assignee,
-            createdBy: detail.reporter ?? 'Unknown',
+            reporter: {
+              name: reporterName,
+              color: avatarColorForUserId(detail.reporter ?? reporterName),
+              userId: detail.reporter ?? undefined,
+              email: reporterMember?.email,
+              role: reporterMember?.role,
+            },
+            createdBy: reporterName,
             createdAt: new Date(detail.created_at).toLocaleString(undefined, {
               dateStyle: 'medium',
               timeStyle: 'short',
@@ -409,6 +427,7 @@ export function IssueDetailDrawer({
               author: {
                 name: authorName,
                 color: avatarColorForUserId(comment.author),
+                userId: comment.author,
               },
               body: comment.body,
               createdAt: comment.created_at,
@@ -974,6 +993,9 @@ export function IssueDetailDrawer({
 
         return {
           id: item.id,
+          actorId: item.actor ?? undefined,
+          actorName: resolveActorName(item.actor),
+          actorColor: avatarColorForUserId(item.actor ?? 'unknown'),
           message: `${actorName} ${action}`,
           transition,
           timestamp: formatActivityCreatedAt(item.created_at),
@@ -1223,17 +1245,26 @@ export function IssueDetailDrawer({
                       {formattedActivity.map((item) => (
                         <li
                           key={item.id}
-                          className="rounded-lg border border-devflow-border bg-devflow-surface px-3 py-2.5"
+                          className="flex gap-3 rounded-lg border border-devflow-border bg-devflow-surface px-3 py-2.5"
                         >
-                          <p className="text-body text-devflow-text">{item.message}</p>
-                          {item.transition && (
-                            <p className="text-body text-devflow-text-secondary">
-                              {item.transition}
+                          <UserAvatar
+                            name={item.actorName}
+                            color={item.actorColor}
+                            size={32}
+                            userId={item.actorId}
+                            projectId={draft?.projectId}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-body text-devflow-text">{item.message}</p>
+                            {item.transition && (
+                              <p className="text-body text-devflow-text-secondary">
+                                {item.transition}
+                              </p>
+                            )}
+                            <p className="text-caption text-devflow-text-muted">
+                              {item.timestamp}
                             </p>
-                          )}
-                          <p className="text-caption text-devflow-text-muted">
-                            {item.timestamp}
-                          </p>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -1242,10 +1273,12 @@ export function IssueDetailDrawer({
                   <ul className="space-y-4">
                     {extras.activity.map((item) => (
                       <li key={item.id} className="flex gap-3">
-                        <Avatar
+                        <UserAvatar
                           name={item.actor.name}
                           color={item.actor.color}
                           size={32}
+                          userId={item.actor.userId}
+                          projectId={draft?.projectId}
                         />
                         <div>
                           <p className="text-body text-devflow-text">
@@ -1274,10 +1307,12 @@ export function IssueDetailDrawer({
                 <ul className="space-y-4">
                   {extras.comments.map((comment) => (
                     <li key={comment.id} className="flex gap-3">
-                      <Avatar
+                      <UserAvatar
                         name={comment.author.name}
                         color={comment.author.color}
                         size={32}
+                        userId={comment.authorId}
+                        projectId={draft?.projectId}
                       />
                       <div className="min-w-0 flex-1 rounded-lg border border-devflow-border bg-devflow-surface px-3 py-2">
                         <div className="flex items-baseline justify-between gap-2">
@@ -1672,19 +1707,22 @@ function MetadataPanel({
     : statusLoading
       ? 'Loading workflow statuses…'
       : undefined
+  const assigneeMembers = useAssigneeMembers(draft.projectId)
 
   return (
     <div className="space-y-3">
       <MetaField label="Assignee">
-        <AssigneeSelect
+        <AssigneeField
           projectId={draft.projectId}
           value={assigneeId}
-          onChange={(id) => {
-            const member = mockMembers.find((m) => m.id === id)
+          onChange={(userId) => {
+            const member = userId
+              ? assigneeMembers.find((item) => item.id === userId)
+              : undefined
             onPatch({
-              assigneeId: id || null,
+              assigneeId: userId,
               assignee: member
-                ? { name: member.name, color: member.color }
+                ? { name: member.name, color: member.color, userId: member.id }
                 : { name: 'Unassigned', color: '#94a3b8' },
             })
           }}
@@ -1693,10 +1731,12 @@ function MetadataPanel({
 
       <MetaField label="Reporter">
         <div className="flex items-center gap-2.5 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2.5">
-          <Avatar
+          <UserAvatar
             name={extras.reporter.name}
             color={extras.reporter.color}
             size={24}
+            userId={extras.reporter.userId}
+            projectId={draft.projectId}
           />
           <span className="text-input text-devflow-text">{extras.reporter.name}</span>
         </div>

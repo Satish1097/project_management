@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Loader2, Settings2, UserPlus } from 'lucide-react'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { InviteMemberDrawer } from '@/features/members/InviteMemberDrawer'
 import {
   avatarColorFromName,
@@ -92,7 +92,16 @@ export function ProjectTeamPage() {
                     className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
                   >
                     <div className="flex min-w-0 items-center gap-4">
-                      <Avatar name={displayName} color={color} size={40} />
+                      <UserAvatar
+                        name={displayName}
+                        color={color}
+                        size={40}
+                        userId={member.user_id}
+                        email={member.email}
+                        role={member.role}
+                        joinedAt={member.joined_at}
+                        projectId={projectId}
+                      />
                       <div className="min-w-0">
                         <p className="font-semibold text-devflow-text">{displayName}</p>
                         {email ? (

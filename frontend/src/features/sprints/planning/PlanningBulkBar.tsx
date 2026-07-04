@@ -1,4 +1,5 @@
 import { ArrowLeft, Trash2, X } from 'lucide-react'
+import { useLayoutEffect, useState } from 'react'
 import {
   InlineAssigneePicker,
   InlineLabelPicker,
@@ -32,6 +33,32 @@ type PlanningBulkBarProps = {
   className?: string
 }
 
+const DEFAULT_PROJECT_HEADER_OFFSET_PX = 120
+
+function useProjectHeaderStickyTop() {
+  const [topPx, setTopPx] = useState(DEFAULT_PROJECT_HEADER_OFFSET_PX)
+
+  useLayoutEffect(() => {
+    const header = document.querySelector<HTMLElement>('.shell-main > header')
+    if (!header) return
+
+    const sync = () => {
+      setTopPx(header.getBoundingClientRect().height)
+    }
+
+    sync()
+    const observer = new ResizeObserver(sync)
+    observer.observe(header)
+    window.addEventListener('resize', sync)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', sync)
+    }
+  }, [])
+
+  return topPx
+}
+
 export function resolvePlanningSelectionContext(
   selectedIds: string[],
 ): PlanningSelectionContext {
@@ -59,6 +86,7 @@ export function PlanningBulkBar({
   onBeforeDelete,
   className,
 }: PlanningBulkBarProps) {
+  const projectHeaderOffsetPx = useProjectHeaderStickyTop()
   const { bulkAssignSprintOptimistic, bulkPatchIssues, bulkDelete } =
     useOptimisticIssueActions(projectId)
   const { updateIssue, refresh } = useIssues()
@@ -111,13 +139,19 @@ export function PlanningBulkBar({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-devflow-primary/25',
-        'bg-[var(--df-nav-tint)]/12 px-2.5 py-1.5',
+        'sticky z-[9] bg-devflow-surface',
         className,
       )}
-      role="toolbar"
-      aria-label="Bulk actions"
+      style={{ top: projectHeaderOffsetPx }}
     >
+      <div
+        className={cn(
+          'flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-devflow-primary/25',
+          'bg-[var(--df-nav-tint)]/12 px-2.5 py-1.5',
+        )}
+        role="toolbar"
+        aria-label="Bulk actions"
+      >
       <span className="text-[12px] font-medium tabular-nums text-devflow-text">
         {selectedIds.length} selected
       </span>
@@ -233,6 +267,7 @@ export function PlanningBulkBar({
         <X className="size-3" />
         Clear
       </button>
+      </div>
     </div>
   )
 }

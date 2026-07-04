@@ -5,7 +5,7 @@ import { SprintStatusBadge } from '@/components/ui/SprintStatusBadge'
 import {
   sprintBoardPath,
   sprintDetailPath,
-  sprintPlanningPath,
+  projectBacklogSprintPath,
 } from '@/constants/routes'
 import { CreateSprintDrawer } from '@/features/sprints/CreateSprintDrawer'
 import { CompleteSprintModal } from '@/features/sprints/CompleteSprintModal'
@@ -68,13 +68,12 @@ export function ProjectSprintsPage() {
     return list
   }, [projectSprints, query, statusFilter, sort])
 
-  const active = filtered.find((s) => s.status === 'active')
+  // Parallel Sprints: a project may have multiple active sprints at once.
+  const activeSprints = filtered.filter((s) => s.status === 'active')
   const planned = filtered.filter((s) => s.status === 'planned')
   const completed = filtered.filter((s) => s.status === 'completed')
   const other = filtered.filter(
-    (s) =>
-      !['active', 'planned', 'completed'].includes(s.status) &&
-      s.id !== active?.id,
+    (s) => !['active', 'planned', 'completed'].includes(s.status),
   )
 
   const nextSprintNumber =
@@ -169,18 +168,30 @@ export function ProjectSprintsPage() {
             onSortChange={setSort}
           />
 
-          {active && statusFilter !== 'planned' && statusFilter !== 'completed' && (
-            <section className="flex flex-col gap-2">
-              <h3 className="text-section-title text-devflow-text">Active sprint</h3>
-              <ActiveSprintCard
-                sprint={active}
-                projectId={projectId}
-                highlighted={recentlyCreatedSprintId === active.id}
-                onPause={() => void handlePause(active)}
-                onComplete={() => setCompleteTarget(active)}
-              />
-            </section>
-          )}
+          {activeSprints.length > 0 &&
+            statusFilter !== 'planned' &&
+            statusFilter !== 'completed' && (
+              <section className="flex flex-col gap-2">
+                <h3 className="text-section-title text-devflow-text">
+                  {activeSprints.length === 1
+                    ? 'Active sprint'
+                    : `Active sprints (${activeSprints.length})`}
+                </h3>
+                <ul className="flex flex-col gap-2">
+                  {activeSprints.map((sprint) => (
+                    <li key={sprint.id}>
+                      <ActiveSprintCard
+                        sprint={sprint}
+                        projectId={projectId}
+                        highlighted={recentlyCreatedSprintId === sprint.id}
+                        onPause={() => void handlePause(sprint)}
+                        onComplete={() => setCompleteTarget(sprint)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
           {planned.length > 0 && (
             <section className="flex flex-col gap-2">
@@ -429,7 +440,7 @@ function PlannedSprintCard({
           Edit
         </button>
         <Link
-          to={sprintPlanningPath(projectId, sprint.id)}
+          to={projectBacklogSprintPath(projectId, sprint.id)}
           className="rounded-lg border border-devflow-border px-3 py-1.5 text-btn text-devflow-text hover:bg-devflow-surface"
         >
           Plan

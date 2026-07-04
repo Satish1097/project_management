@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import {
   DEFAULT_KANBAN_FILTERS,
   hasActiveKanbanFilters,
@@ -34,6 +34,7 @@ export function BoardFilters({
   const filters = filtersProp ?? localFilters
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null)
   const barRef = useRef<HTMLDivElement>(null)
+  const { projectId = '' } = useParams()
 
   const assigneeOptions = filterMetadata?.assignees ?? []
   const statusOptions = filterMetadata?.statuses ?? []
@@ -104,11 +105,13 @@ export function BoardFilters({
       <div className="flex min-w-0 flex-wrap items-center gap-2.5">
         <div className="flex items-center">
           {previewAssignees.map((assignee, index) => (
-            <Avatar
+            <UserAvatar
               key={assignee.id}
               name={assignee.display_name}
               color={avatarColors[index] ?? '#94a3b8'}
               size={28}
+              userId={assignee.id}
+              projectId={projectId}
               className={cnAvatarOverlap(index)}
             />
           ))}

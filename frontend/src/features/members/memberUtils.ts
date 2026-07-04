@@ -30,13 +30,26 @@ export function getMemberDisplayName(member: {
 }
 
 export function projectMembersToAvatarGroup(
-  members: Array<{ display_name?: string; email?: string }>,
+  members: Array<{
+    user_id?: string
+    display_name?: string
+    email?: string
+    role?: string
+    joined_at?: string
+  }>,
   maxVisible = 3,
 ) {
   const visible = members.slice(0, maxVisible)
   const avatarMembers = visible.map((member) => {
     const name = getMemberDisplayName(member)
-    return { name, color: avatarColorFromName(name) }
+    return {
+      name,
+      color: avatarColorFromName(name),
+      userId: member.user_id,
+      email: member.email,
+      role: member.role,
+      joinedAt: member.joined_at,
+    }
   })
   const extra =
     members.length > maxVisible ? members.length - maxVisible : undefined

@@ -3,7 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { SprintStatusBadge } from '@/components/ui/SprintStatusBadge'
 import {
   sprintBoardPath,
-  sprintPlanningPath,
+  projectBacklogSprintPath,
 } from '@/constants/routes'
 import { CompleteSprintModal } from '@/features/sprints/CompleteSprintModal'
 import { CreateSprintDrawer } from '@/features/sprints/CreateSprintDrawer'
@@ -167,7 +167,7 @@ export function SprintDetailPage() {
 
           <div className="mt-4 flex items-center gap-2">
             <span className="text-caption text-devflow-text-secondary">Team</span>
-            <AvatarGroup members={avatarMembers} extra={avatarExtra} />
+            <AvatarGroup members={avatarMembers} extra={avatarExtra} projectId={projectId} />
             <span className="text-caption text-devflow-text-muted">
               {membersLoading ? '—' : `${teamCount} members`}
             </span>
@@ -191,7 +191,7 @@ export function SprintDetailPage() {
                   Edit sprint
                 </button>
                 <Link
-                  to={sprintPlanningPath(projectId, sprintId)}
+                  to={projectBacklogSprintPath(projectId, sprintId)}
                   className="rounded-lg border border-devflow-border px-3 py-1.5 text-btn text-devflow-text hover:bg-devflow-surface"
                 >
                   Plan sprint
@@ -271,10 +271,10 @@ export function SprintDetailPage() {
               <li className="text-body text-devflow-text-muted">
                 No issues in this sprint.{' '}
                 <Link
-                  to={sprintPlanningPath(projectId, sprintId)}
+                  to={projectBacklogSprintPath(projectId, sprintId)}
                   className="text-devflow-primary hover:underline"
                 >
-                  Add from planning
+                  Add from backlog
                 </Link>
               </li>
             )}

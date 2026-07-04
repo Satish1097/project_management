@@ -26,28 +26,60 @@ class SprintDetailDTO(SprintSummaryDTO):
     completed_at: Optional[datetime] = None
 
 
-def get_active_sprint(project_id: UUID) -> Optional[SprintSummaryDTO]:
-    from apps.sprints.selectors import select_active_sprint
+def _to_summary_dto(sprint) -> SprintSummaryDTO:
+    return SprintSummaryDTO(
+        id=sprint.id,
+        project_id=sprint.project_id,
+        name=sprint.name,
+        status=sprint.status,
+        start_date=sprint.start_date,
+        end_date=sprint.end_date,
+    )
 
-    return select_active_sprint(project_id)
+
+def _to_detail_dto(sprint) -> SprintDetailDTO:
+    return SprintDetailDTO(
+        id=sprint.id,
+        project_id=sprint.project_id,
+        name=sprint.name,
+        status=sprint.status,
+        start_date=sprint.start_date,
+        end_date=sprint.end_date,
+        goal=sprint.goal or "",
+    )
+
+
+def list_active_sprints_for_project(project_id: UUID) -> list[SprintSummaryDTO]:
+    from apps.sprints.selectors import get_active_sprints
+
+    return [_to_summary_dto(sprint) for sprint in get_active_sprints(project_id)]
+
+
+def get_active_sprint(project_id: UUID) -> Optional[SprintSummaryDTO]:
+    from apps.sprints.selectors import get_active_sprint as _get_active_sprint
+
+    sprint = _get_active_sprint(project_id)
+    return _to_summary_dto(sprint) if sprint is not None else None
 
 
 def get_sprint_by_id(sprint_id: UUID) -> Optional[SprintDetailDTO]:
-    from apps.sprints.selectors import select_sprint_by_id
+    from apps.sprints.selectors import get_sprint_by_id as _get_sprint_by_id
 
-    return select_sprint_by_id(sprint_id)
+    sprint = _get_sprint_by_id(sprint_id)
+    return _to_detail_dto(sprint) if sprint is not None else None
 
 
 def get_sprint_summary(sprint_id: UUID) -> Optional[SprintSummaryDTO]:
-    from apps.sprints.selectors import select_sprint_summary
+    from apps.sprints.selectors import get_sprint_by_id as _get_sprint_by_id
 
-    return select_sprint_summary(sprint_id)
+    sprint = _get_sprint_by_id(sprint_id)
+    return _to_summary_dto(sprint) if sprint is not None else None
 
 
 def list_sprints_for_project(project_id: UUID) -> list[SprintSummaryDTO]:
-    from apps.sprints.selectors import select_sprints_for_project
+    from apps.sprints.selectors import get_project_sprints
 
-    return select_sprints_for_project(project_id)
+    return [_to_summary_dto(sprint) for sprint in get_project_sprints(project_id)]
 
 
 def get_sprint_metrics(sprint_id: UUID) -> dict[str, int] | None:

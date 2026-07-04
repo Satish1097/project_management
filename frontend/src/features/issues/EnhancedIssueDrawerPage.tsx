@@ -12,7 +12,7 @@ import { sprintIssueDetailPath } from '@/constants/routes'
 import { IssueStatusBadge } from '@/components/ui/IssueStatusBadge'
 import { LabelBadge } from '@/components/ui/LabelBadge'
 import { PriorityBadge } from '@/components/ui/PriorityBadge'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 
 const subtasks = [
   { id: '1', title: 'Define OAuth scopes', done: true },
@@ -141,7 +141,7 @@ export function EnhancedIssueDrawerPage() {
                     Assignee
                   </p>
                   <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2">
-                    <Avatar name="Sarah Chen" color="#8b5cf6" size={24} />
+                    <UserAvatar name="Sarah Chen" color="#8b5cf6" size={24} />
                     <span className="text-input">Sarah Chen</span>
                   </div>
                 </div>

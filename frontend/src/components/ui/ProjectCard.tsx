@@ -129,7 +129,7 @@ export function ProjectCard({
             <span className="text-devflow-text-muted"> • </span>
             <span>{memberLabel}</span>
           </p>
-          <AvatarGroup members={avatarMembers} extra={avatarExtra} />
+          <AvatarGroup members={avatarMembers} extra={avatarExtra} projectId={project.id} />
         </div>
 
         {project.recentActivity && viewMode === 'grid' && (

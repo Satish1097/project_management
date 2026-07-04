@@ -41,9 +41,5 @@ export function resolveCreateIssueContext(pathname: string): CreateIssueDefaults
     return { projectId, sprintId: sprintId ?? null, source: 'board' }
   }
 
-  if (sprintId && pathname.includes('/planning')) {
-    return { projectId, sprintId, source: 'board' }
-  }
-
   return { projectId, sprintId: null, source: 'project' }
 }

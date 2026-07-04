@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useOpenIssueFromTask } from '@/contexts/IssueDetailContext'
 import { useIssueCardClick } from '@/hooks/useIssueCardClick'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { LabelBadge } from '@/components/ui/LabelBadge'
 import { PriorityIndicator } from '@/components/ui/PriorityIndicator'
 import type { Task } from '@/types/tasks'
@@ -85,7 +85,7 @@ export function IssueCard({
           <ProjectIcon className="size-3 shrink-0" strokeWidth={1.75} />
           <span>{task.project}</span>
         </div>
-        <Avatar name={task.assignee.name} color={task.assignee.color} size={20} />
+        <UserAvatar name={task.assignee.name} color={task.assignee.color} size={20} />
       </div>
     </article>
   )

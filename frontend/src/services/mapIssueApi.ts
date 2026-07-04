@@ -44,13 +44,19 @@ function resolveAssignee(
   assigneeId: string | null,
   displayName?: string,
 ): ProjectIssue['assignee'] {
+  if (!assigneeId) return UNASSIGNED
   if (displayName) {
-    return { name: displayName, color: colorForName(displayName) }
+    return {
+      name: displayName,
+      color: colorForName(displayName),
+      userId: assigneeId,
+    }
   }
-  if (assigneeId) {
-    return { name: 'Assigned', color: '#6366f1' }
+  return {
+    userId: assigneeId,
+    name: 'Member',
+    color: colorForName(assigneeId),
   }
-  return UNASSIGNED
 }
 
 export function mapIssueToUi(issue: IssueApi, projectId?: string): ProjectIssue {

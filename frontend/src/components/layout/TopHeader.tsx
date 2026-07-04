@@ -2,7 +2,9 @@ import { Link } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { layout } from '@/constants/layout'
 import { ROUTES, projectOverviewPath } from '@/constants/routes'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { avatarColorFromName } from '@/features/members/memberUtils'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { cn } from '@/utils/cn'
@@ -34,6 +36,10 @@ export function TopHeader({
   listPath,
   activityPath,
 }: TopHeaderProps) {
+  const { user } = useAuth()
+  const currentUserName = user?.display_name || user?.email || 'You'
+  const currentUserColor = avatarColorFromName(currentUserName)
+
   const tabPaths: Record<Tab, string | undefined> = {
     Board: boardPath,
     List: listPath,
@@ -93,10 +99,12 @@ export function TopHeader({
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <NotificationBell />
-          <Avatar
-            name="You"
-            color="#94a3b8"
+          <UserAvatar
+            name={currentUserName}
+            color={currentUserColor}
             size={28}
+            userId={user?.id}
+            email={user?.email}
             className="border border-devflow-border bg-devflow-avatar-bg"
           />
         </div>
@@ -173,10 +181,12 @@ export function TopHeader({
         </Link>
         <ThemeToggle />
         <NotificationBell />
-        <Avatar
-          name="You"
-          color="#94a3b8"
+        <UserAvatar
+          name={currentUserName}
+          color={currentUserColor}
           size={28}
+          userId={user?.id}
+          email={user?.email}
           className="border border-devflow-border bg-devflow-avatar-bg"
         />
       </div>

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
-import { sprintPlanningPath } from '@/constants/routes'
+import { projectBacklogSprintPath } from '@/constants/routes'
 import { useSprints } from '@/contexts/SprintsContext'
 import type { Sprint } from '@/types/sprints'
 import { cn } from '@/utils/cn'
@@ -63,10 +63,10 @@ export function BacklogSprintSidebar({
               {sprint.issueCount === 1 ? 'issue' : 'issues'}
             </p>
             <Link
-              to={sprintPlanningPath(projectId, sprint.id)}
+              to={projectBacklogSprintPath(projectId, sprint.id)}
               className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-medium text-devflow-primary hover:underline"
             >
-              Planning
+              Plan
               <ArrowRight className="size-2.5" aria-hidden />
             </Link>
           </div>

@@ -5,10 +5,10 @@ import { SprintStatusBadge } from '@/components/ui/SprintStatusBadge'
 import { AvatarGroup } from '@/components/ui/AvatarGroup'
 import {
   projectBacklogPath,
+  projectBacklogSprintPath,
   projectSprintsPath,
   sprintBoardPath,
   sprintDetailPath,
-  sprintPlanningPath,
 } from '@/constants/routes'
 import {
   SprintFiltersBar,
@@ -220,6 +220,7 @@ function WorkspaceSprintCard({ sprint }: { sprint: Sprint }) {
           members={membersLoading ? [] : avatarMembers}
           extra={membersLoading ? undefined : avatarExtra}
           size={24}
+          projectId={sprint.projectId}
         />
       </div>
 
@@ -240,10 +241,10 @@ function WorkspaceSprintCard({ sprint }: { sprint: Sprint }) {
           Open Board
         </Link>
         <Link
-          to={sprintPlanningPath(sprint.projectId, sprint.id)}
+          to={projectBacklogSprintPath(sprint.projectId, sprint.id)}
           className="rounded-lg border border-devflow-border bg-devflow-card px-3 py-1.5 text-btn text-devflow-text hover:bg-devflow-surface"
         >
-          Planning
+          Plan
         </Link>
         <Link
           to={projectBacklogPath(sprint.projectId)}

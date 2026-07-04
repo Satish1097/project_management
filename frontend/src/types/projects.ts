@@ -6,6 +6,10 @@ export type ProjectMember = {
   name: string
   color: string
   initials?: string
+  userId?: string
+  email?: string
+  role?: string
+  joinedAt?: string
 }
 
 export type Project = {

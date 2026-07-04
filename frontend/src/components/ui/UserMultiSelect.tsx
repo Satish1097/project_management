@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Search, X } from 'lucide-react'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import type { WorkspaceMember } from '@/services/mockMembers'
 import { cn } from '@/utils/cn'
 
@@ -75,7 +75,14 @@ export function UserMultiSelect({
                 key={user.id}
                 className="inline-flex items-center gap-1 rounded-md bg-devflow-card py-0.5 pl-0.5 pr-1.5 text-caption text-devflow-text shadow-devflow-sm"
               >
-                <Avatar name={user.name} color={user.color} size={20} />
+                <UserAvatar
+                  name={user.name}
+                  color={user.color}
+                  size={20}
+                  userId={user.id}
+                  email={user.email}
+                  role={user.role}
+                />
                 <span className="max-w-[8rem] truncate">{user.name.split(' ')[0]}</span>
                 <button
                   type="button"
@@ -148,7 +155,14 @@ export function UserMultiSelect({
                       className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-devflow-surface"
                       onClick={() => toggleUser(user.id)}
                     >
-                      <Avatar name={user.name} color={user.color} size={28} />
+                      <UserAvatar
+                        name={user.name}
+                        color={user.color}
+                        size={28}
+                        userId={user.id}
+                        email={user.email}
+                        role={user.role}
+                      />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-body text-devflow-text">
                           {user.name}

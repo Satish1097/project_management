@@ -46,6 +46,9 @@ export type IssueAttachment = {
 export type IssueAssignee = {
   name: string
   color: string
+  userId?: string
+  email?: string
+  role?: string
 }
 
 export type ProjectIssue = {

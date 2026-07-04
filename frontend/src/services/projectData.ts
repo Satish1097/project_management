@@ -35,8 +35,20 @@ export function getSprintById(
   return getSprintByIdRegistry(projectId, sprintId)
 }
 
+/** All active sprints for a project (Parallel Sprints: may be more than one). */
+export function getActiveSprints(projectId: string): Sprint[] {
+  return getSprintsForProject(projectId).filter((s) => s.status === 'active')
+}
+
+/**
+ * One active sprint (first match), or undefined.
+ *
+ * Parallel Sprints: a project can have multiple active sprints; prefer
+ * `getActiveSprints` when all of them matter. Retained for callers that only
+ * need a representative sprint.
+ */
 export function getActiveSprint(projectId: string): Sprint | undefined {
-  return getSprintsForProject(projectId).find((s) => s.status === 'active')
+  return getActiveSprints(projectId)[0]
 }
 
 export function formatSprintStatus(status: SprintStatus): string {

@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Plus, Tag, X } from 'lucide-react'
-import { createProjectLabel, getProjectLabels, type LabelApi } from '@/api/labels'
+import { createProjectLabel } from '@/api/labels'
 import { InlineDropdown } from '@/components/issues/inline/InlineDropdown'
 import { INLINE_CELL_TRIGGER } from '@/components/issues/backlogTableLayout'
 import { LabelBadge } from '@/components/ui/LabelBadge'
+import { useProjectLabelsData } from '@/hooks/useProjectLabelsData'
 import { getLabels, addLabel } from '@/services/labelsRegistry'
+import { addProjectLabelToStore } from '@/services/projectLabelsStore'
 import { showToast } from '@/features/toast/toast'
 import { ApiError } from '@/api/types'
 import { cn } from '@/utils/cn'
@@ -35,32 +37,11 @@ export function InlineLabelPicker({
   cell = false,
   className,
 }: InlineLabelPickerProps) {
-  const [apiLabels, setApiLabels] = useState<LabelApi[]>([])
   const [mockLabels, setMockLabels] = useState(() => getLabels())
-  const [loading, setLoading] = useState(false)
   const [createName, setCreateName] = useState('')
 
   const useApi = Boolean(projectId)
-
-  useEffect(() => {
-    if (!projectId) return
-
-    let cancelled = false
-    setLoading(true)
-    void getProjectLabels(projectId)
-      .then((labels) => {
-        if (!cancelled) {
-          setApiLabels(labels.filter((label) => !label.is_archived))
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [projectId])
+  const { labels: apiLabels, loading } = useProjectLabelsData(projectId)
 
   const allLabels = useMemo<LabelOption[]>(() => {
     if (useApi) {
@@ -101,7 +82,7 @@ export function InlineLabelPicker({
           name: trimmed,
           color: '#6366f1',
         })
-        setApiLabels((prev) => [...prev, created])
+        addProjectLabelToStore(projectId, created)
         onChange([...value, created.id], [...resolvedNames, created.name])
         setCreateName('')
       } catch (error) {

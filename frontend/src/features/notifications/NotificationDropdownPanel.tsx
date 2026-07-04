@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ChevronRight, Settings, X } from 'lucide-react'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import { notificationIconMap } from './notificationIcons'
@@ -148,7 +148,7 @@ function DropdownNotificationRow({
           )}
         </div>
 
-        <Avatar
+        <UserAvatar
           name={notification.title}
           color={notification.color}
           size={36}

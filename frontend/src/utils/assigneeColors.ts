@@ -9,6 +9,19 @@ const MEMBER_COLORS = [
 
 export const UNASSIGNED_ASSIGNEE = { name: 'Unassigned', color: '#94a3b8' } as const
 
+/** UI placeholder labels — not real user display names */
+const PLACEHOLDER_ASSIGNEE_NAMES = new Set([
+  'Assigned',
+  'Unassigned',
+  'Member',
+  'Reporter',
+  'Creator',
+])
+
+export function isPlaceholderAssigneeName(name: string): boolean {
+  return PLACEHOLDER_ASSIGNEE_NAMES.has(name)
+}
+
 export function colorForName(name: string): string {
   let hash = 0
   for (let i = 0; i < name.length; i += 1) {

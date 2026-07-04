@@ -81,9 +81,8 @@ export function PlanningSection({
       onDrop={onDrop}
       className={cn(
         'rounded-lg border bg-devflow-surface transition-colors',
-        highlighted
-          ? 'border-devflow-primary/40 ring-1 ring-devflow-primary/15'
-          : 'border-devflow-border',
+        highlighted && 'sprint-card-highlight border-devflow-primary/40 ring-1 ring-devflow-primary/15',
+        !highlighted && 'border-devflow-border',
         isDragOver && isDropTarget && 'border-devflow-primary bg-[var(--df-nav-tint)]/20',
         mobileAccordion && collapsed && 'md:border-devflow-border',
       )}

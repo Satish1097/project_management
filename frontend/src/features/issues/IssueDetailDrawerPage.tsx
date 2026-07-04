@@ -12,7 +12,7 @@ import {
 } from '@/services/projectData'
 import { IssueStatusBadge } from '@/components/ui/IssueStatusBadge'
 import { LabelBadge } from '@/components/ui/LabelBadge'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { AvatarGroup } from '@/components/ui/AvatarGroup'
 import { BoardFilters } from '@/features/kanban/BoardFilters'
 import { KanbanColumn } from '@/features/kanban/KanbanColumn'
@@ -122,7 +122,7 @@ export function IssueDetailDrawerPage() {
             <h3 className="mb-4 text-section-title text-devflow-text">Activity</h3>
             <div className="space-y-4">
               <div className="flex gap-3">
-                <Avatar name="Sarah Chen" color="#8b5cf6" size={32} />
+                <UserAvatar name="Sarah Chen" color="#8b5cf6" size={32} />
                 <div>
                   <p className="text-body">
                     <span className="font-semibold">Sarah Chen</span> changed status to{' '}
@@ -132,7 +132,7 @@ export function IssueDetailDrawerPage() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Avatar name="Alex Rivera" color="#3b82f6" size={32} />
+                <UserAvatar name="Alex Rivera" color="#3b82f6" size={32} />
                 <div>
                   <p className="text-body">
                     <span className="font-semibold">Alex Rivera</span> added label{' '}

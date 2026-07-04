@@ -36,13 +36,9 @@ class Sprint(models.Model):
     class Meta:
         verbose_name = "sprint"
         verbose_name_plural = "sprints"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["project"],
-                condition=models.Q(status="active"),
-                name="sprints_sprint_one_active_per_project",
-            ),
-        ]
+        # Parallel Sprints (Jira-style): a project may have multiple ACTIVE
+        # sprints simultaneously, so no unique constraint is enforced on
+        # (project, status=active).
         indexes = [
             models.Index(fields=["project", "status"]),
         ]

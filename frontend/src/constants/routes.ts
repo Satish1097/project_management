@@ -57,6 +57,12 @@ export function projectBacklogPath(projectId: string) {
   return `${projectPath(projectId)}/backlog`
 }
 
+/** Backlog with a sprint section focused (scroll, expand, highlight). */
+export function projectBacklogSprintPath(projectId: string, sprintId: string) {
+  const params = new URLSearchParams({ sprint: sprintId })
+  return `${projectBacklogPath(projectId)}?${params.toString()}`
+}
+
 export function projectKanbanPath(projectId: string) {
   return `${projectPath(projectId)}/board`
 }
@@ -131,10 +137,6 @@ export function isProjectSettingsPath(pathname: string, projectId: string): bool
 
 export function sprintDetailPath(projectId: string, sprintId: string) {
   return `${projectPath(projectId)}/sprints/${sprintId}`
-}
-
-export function sprintPlanningPath(projectId: string, sprintId: string) {
-  return `${projectPath(projectId)}/sprints/${sprintId}/planning`
 }
 
 export function sprintBoardPath(projectId: string, sprintId: string) {
@@ -301,10 +303,9 @@ export type SprintModuleTab =
   | 'Board'
   | 'List'
   | 'Activity'
-  | 'Planning'
 
 export function isSprintModulePath(pathname: string): boolean {
-  return /\/projects\/[^/]+\/sprints\/[^/]+(\/(board|list|activity|planning))?\/?$/.test(
+  return /\/projects\/[^/]+\/sprints\/[^/]+(\/(board|list|activity))?\/?$/.test(
     pathname,
   )
 }
@@ -325,7 +326,6 @@ export function resolveSprintViewTab(
 export function resolveSprintModuleTab(
   pathname: string,
 ): SprintModuleTab | undefined {
-  if (pathname.endsWith('/planning')) return 'Planning'
   if (pathname.endsWith('/list')) return 'List'
   if (pathname.endsWith('/activity')) return 'Activity'
   if (isSprintBoardPath(pathname)) return 'Board'

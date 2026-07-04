@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { ProjectShell } from '@/components/layout/ProjectShell'
 import {
@@ -7,6 +7,7 @@ import {
   projectSettingsGeneralPath,
   projectSettingsLabelsPath,
   projectSettingsMembersPath,
+  projectBacklogSprintPath,
   sprintAdvancedBoardPath,
   sprintIssueDetailEnhancedPath,
   sprintIssueDetailPath,
@@ -51,13 +52,19 @@ import { SprintShell } from '@/components/layout/SprintShell'
 import { ProjectKanbanPage } from '@/features/kanban/ProjectKanbanPage'
 import { SprintBoardPage } from '@/features/projects/SprintBoardPage'
 import { SprintDetailPage } from '@/features/projects/SprintDetailPage'
-import { SprintPlanningPage } from '@/features/projects/SprintPlanningPage'
 import { SprintListPage } from '@/features/projects/SprintListPage'
 import { SprintActivityPage } from '@/features/projects/SprintActivityPage'
 import { BoardLegacyRedirect } from '@/features/projects/BoardLegacyRedirect'
 
 const { projectId: defaultProjectId, sprintId: defaultSprintId } =
   DEFAULT_BOARD_CONTEXT
+
+function SprintPlanningRedirect() {
+  const { projectId = '', sprintId = '' } = useParams()
+  return (
+    <Navigate to={projectBacklogSprintPath(projectId, sprintId)} replace />
+  )
+}
 
 /**
  * Route tree:
@@ -121,7 +128,10 @@ export const router = createBrowserRouter([
                 element: <SprintShell />,
                 children: [
                   { index: true, element: <SprintDetailPage /> },
-                  { path: 'planning', element: <SprintPlanningPage /> },
+                  {
+                    path: 'planning',
+                    element: <SprintPlanningRedirect />,
+                  },
                   { path: 'board', element: <SprintBoardPage /> },
                   { path: 'list', element: <SprintListPage /> },
                   { path: 'activity', element: <SprintActivityPage /> },
