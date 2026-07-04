@@ -88,6 +88,8 @@ export function mapKanbanBoardToColumns(
       title: (column?.name ?? column?.status_name ?? status.name).toUpperCase(),
       dotColor: dotColorForStatus(status),
       count: column?.count ?? 0,
+      wipCount: column?.wip_count,
+      wipLimit: column?.wip_limit ?? null,
       issues: [],
       isDoneStatus,
     }

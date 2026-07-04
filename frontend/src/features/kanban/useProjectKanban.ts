@@ -9,7 +9,7 @@ import {
   mapApiIssuesToKanbanIssues,
   mapKanbanBoardToColumns,
 } from '@/services/mapKanbanApi'
-import type { KanbanBoardFiltersApi } from '@/api/issues'
+import type { KanbanBoardApi, KanbanBoardFiltersApi } from '@/api/issues'
 import { mergeItemsById } from '@/lib/sectionPagination'
 import type {
   KanbanBoardFilterMetadata,
@@ -50,6 +50,8 @@ export function useProjectKanban(
   const [columns, setColumns] = useState<KanbanColumn[]>([])
   const [columnStates, setColumnStates] = useState<Record<string, KanbanColumnState>>({})
   const [boardFilters, setBoardFilters] = useState<KanbanBoardFiltersApi | null>(null)
+  const [hasActiveSprint, setHasActiveSprint] = useState(true)
+  const [selectedSprint, setSelectedSprint] = useState<KanbanBoardApi['selected_sprint']>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -200,6 +202,8 @@ export function useProjectKanban(
       const mappedColumns = mapKanbanBoardToColumns(board, projectId)
       setColumns(mappedColumns)
       setBoardFilters(board.filters ?? null)
+      setHasActiveSprint(board.has_active_sprint ?? true)
+      setSelectedSprint(board.selected_sprint ?? null)
       setColumnStates({})
       loadedPagesRef.current = {}
       columnFetchIdsRef.current = {}
@@ -213,6 +217,8 @@ export function useProjectKanban(
       setColumns([])
       setColumnStates({})
       setBoardFilters(null)
+      setHasActiveSprint(true)
+      setSelectedSprint(null)
     } finally {
       if (fetchGeneration === fetchIdRef.current) {
         setLoading(false)
@@ -250,6 +256,8 @@ export function useProjectKanban(
       const mappedColumns = mapKanbanBoardToColumns(board, projectId)
       setColumns(mappedColumns)
       setBoardFilters(board.filters ?? null)
+      setHasActiveSprint(board.has_active_sprint ?? true)
+      setSelectedSprint(board.selected_sprint ?? null)
 
       const reloadTasks: Promise<void>[] = []
       for (const column of mappedColumns) {
@@ -319,6 +327,8 @@ export function useProjectKanban(
     setColumns([])
     setColumnStates({})
     setBoardFilters(null)
+    setHasActiveSprint(true)
+    setSelectedSprint(null)
     setError(null)
     setLoading(true)
     loadedPagesRef.current = {}
@@ -387,10 +397,20 @@ export function useProjectKanban(
         prev.map((column) => {
           const statusId = column.statusId ?? column.id
           if (statusId === sourceStatusId) {
-            return { ...column, count: Math.max(0, column.count - 1) }
+            const nextWip = column.wipCount != null ? Math.max(0, column.wipCount - 1) : undefined
+            return {
+              ...column,
+              count: Math.max(0, column.count - 1),
+              wipCount: nextWip,
+            }
           }
           if (statusId === targetStatusId) {
-            return { ...column, count: column.count + 1 }
+            const nextWip = column.wipCount != null ? column.wipCount + 1 : undefined
+            return {
+              ...column,
+              count: column.count + 1,
+              wipCount: nextWip,
+            }
           }
           return column
         }),
@@ -439,6 +459,8 @@ export function useProjectKanban(
   return {
     columns: mergedColumns,
     boardFilters,
+    hasActiveSprint,
+    selectedSprint,
     loading,
     error,
     totalIssues,

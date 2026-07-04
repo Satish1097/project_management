@@ -77,7 +77,7 @@ export function ActivityFeed({
   showProjectName = true,
   showSectionHeader = true,
   emptyMessage = 'No recent activity yet',
-  emptyHelperText = 'Activity will appear here when issues, comments, sprint changes, or status updates occur.',
+  emptyHelperText = 'Activity will appear here when issues, comments, or status updates occur.',
   pagination,
 }: ActivityFeedProps) {
   const isSecondary = variant === 'secondary'

@@ -12,6 +12,8 @@ export type ProjectIssueStats = {
   totalIssues: number
   openIssues: number
   doneIssues: number
+  backlogIssues?: number
+  todoIssues?: number
 }
 
 export function useProjectIssueStats(projectId: string) {
@@ -32,6 +34,8 @@ export function useProjectIssueStats(projectId: string) {
         totalIssues: report.total_issues,
         openIssues: report.open_issues,
         doneIssues: report.done_issues,
+        backlogIssues: report.backlog_issues,
+        todoIssues: report.todo_issues,
       }
       setStats(nextStats)
 

@@ -13,6 +13,7 @@ from apps.projects.tests.conftest import (  # noqa: F401
     authenticate,
     celery_always_eager,
     developer_client,
+    kanban_project,
     manager_client,
     organization,
     other_user,

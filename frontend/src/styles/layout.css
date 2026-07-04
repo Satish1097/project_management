@@ -65,7 +65,6 @@
 
   .sidebar-header {
     @apply shrink-0 border-b border-devflow-border px-3 pb-3 pt-3;
-    @apply dark:border-zinc-800;
   }
 
   .sidebar-nav-scroll {
@@ -77,7 +76,6 @@
 
   .sidebar-footer {
     @apply shrink-0 border-t border-devflow-border px-3 py-2;
-    @apply dark:border-zinc-800;
   }
 
   /* ─── Sidebar context selectors ────────────────────────────────────────── */
@@ -94,7 +92,6 @@
 
   .sidebar-context-selector {
     @apply flex w-full shrink-0 flex-col justify-center rounded-md border border-devflow-border bg-devflow-card px-2;
-    @apply dark:border-zinc-800 dark:bg-zinc-900;
     height: var(--height-sidebar-context);
   }
 
@@ -105,36 +102,50 @@
 
   .sidebar-context-label {
     @apply mb-0.5 block text-[10px] font-semibold uppercase leading-none tracking-wider text-devflow-text-muted;
-    @apply dark:text-zinc-500;
   }
 
   .sidebar-context-select-row {
-    @apply relative flex h-[22px] min-w-0 items-center;
+    @apply relative flex h-[22px] min-w-0 items-center rounded-sm transition-colors;
+  }
+
+  .sidebar-context-select-row:hover {
+    @apply bg-devflow-muted/60;
+  }
+
+  .sidebar-context-select-row:focus-within {
+    @apply ring-2 ring-devflow-primary/30 ring-offset-1 ring-offset-devflow-card;
   }
 
   .sidebar-context-select,
   .sidebar-context-value {
     @apply w-full truncate bg-transparent text-[13px] font-semibold leading-none text-devflow-text outline-none;
-    @apply dark:text-zinc-200;
   }
 
   .sidebar-context-select {
     @apply appearance-none pr-5;
+    color-scheme: light;
+  }
+
+  html.dark .sidebar-context-select {
+    color-scheme: dark;
+  }
+
+  .sidebar-context-select option,
+  .sidebar-context-select optgroup {
+    background-color: var(--df-card);
+    color: var(--df-text);
   }
 
   .sidebar-context-value {
     @apply block pr-5 text-devflow-text-secondary;
-    @apply dark:text-zinc-400;
   }
 
   .sidebar-context-value--placeholder {
     @apply font-normal text-devflow-text-muted;
-    @apply dark:text-zinc-500;
   }
 
   .sidebar-context-chevron {
     @apply pointer-events-none absolute right-0 top-1/2 size-3.5 -translate-y-1/2 shrink-0 text-devflow-text-muted;
-    @apply dark:text-zinc-500;
   }
 
   .sidebar-context-select--collapsed {
@@ -143,7 +154,7 @@
 
   .sidebar-context-create-btn {
     @apply mt-0.5 w-full rounded-md border border-devflow-border bg-devflow-card py-1 text-center text-[12px] font-medium text-devflow-text transition-colors;
-    @apply hover:bg-devflow-muted dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800;
+    @apply hover:bg-devflow-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-devflow-primary/30 focus-visible:ring-offset-1 focus-visible:ring-offset-devflow-card;
   }
 
   .sidebar-context-selector--menu {
@@ -152,21 +163,39 @@
 
   .sidebar-workspace-menu {
     @apply absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-devflow-border bg-devflow-card py-1 shadow-devflow-lg;
-    @apply dark:border-zinc-700 dark:bg-zinc-900;
+    @apply max-h-64 overflow-y-auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--df-scrollbar) transparent;
+  }
+
+  .sidebar-workspace-menu::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sidebar-workspace-menu::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-workspace-menu::-webkit-scrollbar-thumb {
+    background: var(--df-scrollbar);
+    border-radius: 9999px;
+  }
+
+  .sidebar-workspace-menu::-webkit-scrollbar-thumb:hover {
+    background: var(--df-scrollbar-hover);
   }
 
   .sidebar-workspace-menu-heading {
     @apply px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-devflow-text-muted;
-    @apply dark:text-zinc-500;
   }
 
   .sidebar-workspace-menu-item {
     @apply flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] text-devflow-text transition-colors;
-    @apply hover:bg-devflow-muted dark:text-zinc-200 dark:hover:bg-zinc-800;
+    @apply hover:bg-devflow-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-devflow-primary/30 focus-visible:ring-inset;
   }
 
   .sidebar-workspace-menu-item--active {
-    @apply font-semibold;
+    @apply bg-[var(--df-nav-tint)] font-semibold text-devflow-primary;
   }
 
   .sidebar-workspace-menu-check {
@@ -178,12 +207,12 @@
   }
 
   .sidebar-workspace-menu-divider {
-    @apply my-1 border-t border-devflow-border dark:border-zinc-700;
+    @apply my-1 border-t border-devflow-border;
   }
 
   .sidebar-workspace-menu-create {
     @apply flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[13px] font-medium text-devflow-primary transition-colors;
-    @apply hover:bg-devflow-muted dark:hover:bg-zinc-800;
+    @apply hover:bg-devflow-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-devflow-primary/30 focus-visible:ring-inset;
   }
 
   /* ─── Sidebar navigation ───────────────────────────────────────────────── */

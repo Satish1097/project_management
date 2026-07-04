@@ -14,9 +14,9 @@ import {
   SidebarNavSection,
 } from '@/components/layout/SidebarNavSection'
 import {
-  PROJECT_NAV_ITEMS,
-  QUICK_ACTION_ITEMS,
   WORKSPACE_NAV_ITEMS,
+  getProjectNavItemsForMethodology,
+  getQuickActionItemsForMethodology,
   isProfileNavActive,
   isProjectNavActive,
   projectNavPath,
@@ -30,6 +30,7 @@ import { layout } from '@/constants/layout'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useAppContext } from '@/features/context/useAppContext'
 import { CreateSprintDrawer } from '@/features/sprints/CreateSprintDrawer'
+import { useProjectMethodology } from '@/hooks/useProjectMethodology'
 import { cn } from '@/utils/cn'
 
 export function Sidebar() {
@@ -42,6 +43,9 @@ export function Sidebar() {
   const { projectId: routeProjectId } = parseProjectRoute(pathname)
   const projectId = routeProjectId ?? currentProject?.id ?? null
   const [createSprintOpen, setCreateSprintOpen] = useState(false)
+  const { methodology, isScrum } = useProjectMethodology(projectId ?? undefined)
+  const projectNavItems = getProjectNavItemsForMethodology(methodology)
+  const quickActionItems = getQuickActionItemsForMethodology(methodology)
 
   const handleLogout = async () => {
     await logout()
@@ -85,7 +89,7 @@ export function Sidebar() {
       >
         {projectId && (
           <SidebarNavSection label="Project" collapsed={collapsed}>
-            {PROJECT_NAV_ITEMS.map(({ id, label, icon }) => (
+            {projectNavItems.map(({ id, label, icon }) => (
               <SidebarNavLink
                 key={id}
                 to={
@@ -116,7 +120,7 @@ export function Sidebar() {
         </SidebarNavSection>
 
         <SidebarNavSection label="Quick Actions" collapsed={collapsed}>
-          {QUICK_ACTION_ITEMS.map(({ id, label, icon }) => (
+          {quickActionItems.map(({ id, label, icon }) => (
             <SidebarNavButton
               key={id}
               label={label}
@@ -168,7 +172,7 @@ export function Sidebar() {
         </button>
       </div>
 
-      {projectId ? (
+      {projectId && isScrum ? (
         <CreateSprintDrawer
           open={createSprintOpen}
           onClose={() => setCreateSprintOpen(false)}

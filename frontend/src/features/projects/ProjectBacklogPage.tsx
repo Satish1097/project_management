@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { Search } from 'lucide-react'
+import { projectBoardPath } from '@/constants/routes'
 import { BacklogQuickCreate } from '@/components/issues/BacklogQuickCreate'
 import { BacklogIssueCard } from '@/features/backlog/BacklogIssueCard'
 import { BacklogIssueList } from '@/features/backlog/BacklogIssueList'
@@ -14,6 +15,7 @@ import {
 import { PlanningSection } from '@/features/sprints/planning/PlanningSection'
 import { useSprints } from '@/contexts/SprintsContext'
 import { useOptimisticIssueActions } from '@/hooks/useOptimisticIssueActions'
+import { useProjectMethodology } from '@/hooks/useProjectMethodology'
 import { getProjectById } from '@/services/projectData'
 import { getIssueById } from '@/services/issuesRegistry'
 import { ApiError } from '@/api/types'
@@ -23,6 +25,7 @@ const ENTER_ANIMATION_MS = 220
 const EXIT_ANIMATION_MS = 200
 const SEARCH_DEBOUNCE_MS = 300
 const SPRINT_HIGHLIGHT_MS = 1500
+const CREATED_ISSUE_HIGHLIGHT_MS = 1200
 
 function resolveSectionIdForSprint(sprintId: string | null): string {
   return sprintId ? `sprint-${sprintId}` : BACKLOG_SECTION_ID
@@ -30,6 +33,7 @@ function resolveSectionIdForSprint(sprintId: string | null): string {
 
 export function ProjectBacklogPage() {
   const { projectId = '' } = useParams()
+  const { isKanban } = useProjectMethodology(projectId)
   const [searchParams, setSearchParams] = useSearchParams()
   const project = getProjectById(projectId)
   const { recentlyCreatedSprintId } = useSprints()
@@ -42,6 +46,7 @@ export function ProjectBacklogPage() {
   const [moveError, setMoveError] = useState<string | null>(null)
   const [enteringIds, setEnteringIds] = useState<Set<string>>(new Set())
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
+  const [highlightedIssueIds, setHighlightedIssueIds] = useState<Set<string>>(new Set())
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set())
   const [highlightedSprintId, setHighlightedSprintId] = useState<string | null>(null)
   const pendingFocusSprintIdRef = useRef<string | null>(null)
@@ -56,7 +61,7 @@ export function ProjectBacklogPage() {
     loadMoreSection,
     moveIssueBetweenSections,
     rollbackIssueMove,
-    prependIssueToSection,
+    appendIssueToSection,
   } = useProjectBacklog(projectId, { search: debouncedQuery, enabled: !!project })
 
   const { bulkAssignSprintOptimistic } = useOptimisticIssueActions(projectId)
@@ -153,8 +158,10 @@ export function ProjectBacklogPage() {
 
   const handleIssueCreated = useCallback(
     (issue: ProjectIssue) => {
-      prependIssueToSection(BACKLOG_SECTION_ID, issue)
+      const targetSectionId = resolveSectionIdForSprint(issue.sprintId)
+      appendIssueToSection(targetSectionId, issue)
       setEnteringIds((prev) => new Set(prev).add(issue.id))
+      setHighlightedIssueIds((prev) => new Set(prev).add(issue.id))
       window.setTimeout(() => {
         setEnteringIds((prev) => {
           const next = new Set(prev)
@@ -162,8 +169,15 @@ export function ProjectBacklogPage() {
           return next
         })
       }, ENTER_ANIMATION_MS)
+      window.setTimeout(() => {
+        setHighlightedIssueIds((prev) => {
+          const next = new Set(prev)
+          next.delete(issue.id)
+          return next
+        })
+      }, CREATED_ISSUE_HIGHLIGHT_MS)
     },
-    [prependIssueToSection],
+    [appendIssueToSection],
   )
 
   const handleBeforeDelete = useCallback((ids: string[]) => {
@@ -212,6 +226,10 @@ export function ProjectBacklogPage() {
 
   if (!project) {
     return <Navigate to="/projects" replace />
+  }
+
+  if (isKanban) {
+    return <Navigate to={projectBoardPath(projectId)} replace />
   }
 
   const toggleSelect = (id: string, next?: boolean) => {
@@ -295,6 +313,7 @@ export function ProjectBacklogPage() {
       }}
       isEntering={enteringIds.has(issue.id)}
       isExiting={exitingIds.has(issue.id)}
+      isHighlighted={highlightedIssueIds.has(issue.id)}
     />
   )
 

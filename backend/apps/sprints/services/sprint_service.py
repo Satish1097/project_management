@@ -11,6 +11,7 @@ from django.db import transaction
 
 from apps.issues.selectors import get_incomplete_sprint_issue_ids
 from apps.permissions.services import permission_service
+from apps.projects.services.project_service import require_scrum_project
 from apps.sprints.exceptions import (
     SprintCompletionError,
     SprintError,
@@ -50,6 +51,7 @@ class SprintService:
         end_date=None,
         capacity_points: int | None = None,
     ) -> Sprint:
+        require_scrum_project(project_id)
         if not _can_start_sprint_for_project(user.id, project_id):
             raise SprintError("Permission denied: cannot create sprint.")
 
@@ -65,6 +67,7 @@ class SprintService:
 
     def update_sprint(self, user, sprint_id: UUID, **fields) -> Sprint:
         sprint = _get_sprint_or_raise(sprint_id)
+        require_scrum_project(sprint.project_id)
         if not permission_service.can_start_sprint(user.id, sprint.project_id):
             raise SprintError("Permission denied: cannot update sprint.")
 
@@ -95,6 +98,7 @@ class SprintService:
 
     def start_sprint(self, user, sprint_id: UUID) -> Sprint:
         sprint = _get_sprint_or_raise(sprint_id)
+        require_scrum_project(sprint.project_id)
         if not _can_start_sprint(user.id, sprint):
             raise SprintError("Permission denied: cannot start sprint.")
         if sprint.status != SprintStatus.PLANNED:
@@ -108,6 +112,7 @@ class SprintService:
 
     def pause_sprint(self, user, sprint_id: UUID) -> Sprint:
         sprint = _get_sprint_or_raise(sprint_id)
+        require_scrum_project(sprint.project_id)
         if not permission_service.can_start_sprint(user.id, sprint.project_id):
             raise SprintError("Permission denied: cannot pause sprint.")
         if sprint.status != SprintStatus.ACTIVE:
@@ -119,6 +124,7 @@ class SprintService:
 
     def resume_sprint(self, user, sprint_id: UUID) -> Sprint:
         sprint = _get_sprint_or_raise(sprint_id)
+        require_scrum_project(sprint.project_id)
         if not permission_service.can_start_sprint(user.id, sprint.project_id):
             raise SprintError("Permission denied: cannot resume sprint.")
         if sprint.status != SprintStatus.PAUSED:
@@ -139,6 +145,7 @@ class SprintService:
         target_sprint_id: UUID | None = None,
     ) -> Sprint:
         sprint = _get_sprint_or_raise(sprint_id)
+        require_scrum_project(sprint.project_id)
         if not permission_service.can_complete_sprint(user.id, sprint.project_id):
             raise SprintError("Permission denied: cannot complete sprint.")
         if sprint.status not in {SprintStatus.ACTIVE, SprintStatus.PAUSED}:

@@ -431,7 +431,7 @@ export function useProjectBacklog(
     [moveIssueBetweenSections],
   )
 
-  const prependIssueToSection = useCallback((sectionId: string, issue: ProjectIssue) => {
+  const appendIssueToSection = useCallback((sectionId: string, issue: ProjectIssue) => {
     upsertApiIssue(issue)
     setSectionStates((prev) => {
       const current = prev[sectionId] ?? createEmptySectionState<ProjectIssue>()
@@ -439,9 +439,9 @@ export function useProjectBacklog(
         ...prev,
         [sectionId]: {
           ...current,
-          issues: mergeItemsById([issue], current.issues),
+          issues: mergeItemsById(current.issues, [issue]),
           total: current.total + 1,
-          initialized: true,
+          initialized: current.initialized,
         },
       }
     })
@@ -452,7 +452,6 @@ export function useProjectBacklog(
           : section,
       ),
     )
-    initializedSectionsRef.current.add(sectionId)
   }, [])
 
   const mergedSections = useMemo(
@@ -483,7 +482,7 @@ export function useProjectBacklog(
     loadMoreSection,
     moveIssueBetweenSections,
     rollbackIssueMove,
-    prependIssueToSection,
+    appendIssueToSection,
   }
 }
 

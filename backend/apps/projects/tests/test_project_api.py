@@ -201,3 +201,79 @@ def test_list_organization_projects(superuser_client, organization, project):
     projects = response.json()["data"]["projects"]
     assert len(projects) == 1
     assert projects[0]["id"] == str(project.id)
+    assert projects[0]["methodology"] == "scrum"
+    assert projects[0]["board_type"] == "scrum"
+
+
+@pytest.mark.django_db
+def test_get_project_detail_includes_methodology(superuser_client, project):
+    response = superuser_client.get(f"/api/projects/{project.id}")
+
+    assert response.status_code == 200
+    project_data = response.json()["data"]["project"]
+    assert project_data["methodology"] == "scrum"
+    assert project_data["board_type"] == "scrum"
+    assert project_data["default_sprint_weeks"] == 2
+
+
+@pytest.mark.django_db
+def test_create_project_kanban_methodology(superuser_client, organization):
+    response = superuser_client.post(
+        f"/api/organizations/{organization.id}/projects",
+        {
+            **PROJECT_PAYLOAD,
+            "key": "KANB",
+            "slug": "kanban-board",
+            "name": "Kanban Board",
+            "methodology": "kanban",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    project = response.json()["data"]["project"]
+    assert project["methodology"] == "kanban"
+    assert project["board_type"] == "kanban"
+    assert "default_sprint_weeks" not in project
+
+
+@pytest.mark.django_db
+def test_create_project_scrum_with_default_sprint_weeks(superuser_client, organization):
+    response = superuser_client.post(
+        f"/api/organizations/{organization.id}/projects",
+        {
+            **PROJECT_PAYLOAD,
+            "key": "SCR3",
+            "slug": "scrum-three-week",
+            "name": "Scrum Three Week",
+            "methodology": "scrum",
+            "default_sprint_weeks": 3,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    project = response.json()["data"]["project"]
+    assert project["methodology"] == "scrum"
+    assert project["board_type"] == "scrum"
+    assert project["default_sprint_weeks"] == 3
+
+
+@pytest.mark.django_db
+def test_create_project_without_methodology_defaults_to_scrum(superuser_client, organization):
+    response = superuser_client.post(
+        f"/api/organizations/{organization.id}/projects",
+        {
+            **PROJECT_PAYLOAD,
+            "key": "DEFS",
+            "slug": "default-scrum",
+            "name": "Default Scrum",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    project = response.json()["data"]["project"]
+    assert project["methodology"] == "scrum"
+    assert project["board_type"] == "scrum"
+    assert project["default_sprint_weeks"] == 2

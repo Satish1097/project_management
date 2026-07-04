@@ -60,6 +60,7 @@ import { getWorkflow, type WorkflowStatusApi } from '@/api/workflow'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { showToast } from '@/features/toast/toast'
 import { useIssues } from '@/contexts/IssuesContext'
+import { useProjectMethodology } from '@/hooks/useProjectMethodology'
 import {
   getIssueDetailExtras,
   updateIssueDetailExtras,
@@ -272,6 +273,7 @@ export function IssueDetailDrawer({
   const attachmentInputRef = useRef<HTMLInputElement | null>(null)
   const initialSnapshotRef = useRef('')
   const loadedWorkflowStatusRef = useRef<IssueWorkflowStatus | undefined>(undefined)
+  const { isScrum } = useProjectMethodology(draft?.projectId ?? issue?.projectId)
 
   const persisted = useMemo(
     () => Boolean(draft?.id && isApiIssueId(draft.id)),
@@ -556,9 +558,13 @@ export function IssueDetailDrawer({
           description: extras.description.trim(),
           type: draft.issueType,
           priority: draft.priorityLevel ?? 'medium',
-          sprint: draft.sprintId,
+          ...(isScrum
+            ? {
+                sprint: draft.sprintId,
+                story_points: draft.storyPoints ?? null,
+              }
+            : {}),
           assignee: memberIdFromAssignee(draft) || null,
-          story_points: draft.storyPoints ?? null,
           due_date: draft.dueDate || null,
           estimate_hours: draft.estimateHours ?? null,
           labels: draft.labelIds ?? [],
@@ -596,6 +602,7 @@ export function IssueDetailDrawer({
     updateIssueViaApi,
     onIssueUpdated,
     loadIssueActivity,
+    isScrum,
   ])
 
   const patchDraft = useCallback((patch: Partial<ProjectIssue>) => {
@@ -984,7 +991,9 @@ export function IssueDetailDrawer({
 
   const formattedActivity = useMemo(
     () =>
-      activity.map((item) => {
+      activity
+        .filter((item) => isScrum || item.event_type !== 'sprint_changed')
+        .map((item) => {
         const actorName = resolveActorName(item.actor)
         const action = ACTIVITY_MESSAGE_BY_EVENT_TYPE[item.event_type] ?? 'updated issue'
         const transition = TRANSITION_EVENT_TYPES.has(item.event_type)
@@ -1001,7 +1010,7 @@ export function IssueDetailDrawer({
           timestamp: formatActivityCreatedAt(item.created_at),
         }
       }),
-    [activity, formatTransitionValue, resolveActorName],
+    [activity, formatTransitionValue, isScrum, resolveActorName],
   )
 
   const handleAttachmentSelection = useCallback(
@@ -1170,6 +1179,8 @@ export function IssueDetailDrawer({
                     extras={extras}
                     projectName={project?.name}
                     sprintName={sprint?.name}
+                    showSprint={isScrum}
+                    showStoryPoints={isScrum}
                     persistedStatus={persisted}
                     workflowStatuses={workflowStatuses}
                     statusLoading={workflowLoading}
@@ -1587,6 +1598,8 @@ export function IssueDetailDrawer({
                   extras={extras}
                   projectName={project?.name}
                   sprintName={sprint?.name}
+                  showSprint={isScrum}
+                  showStoryPoints={isScrum}
                   persistedStatus={persisted}
                   workflowStatuses={workflowStatuses}
                   statusLoading={workflowLoading}
@@ -1646,6 +1659,8 @@ type MetadataPanelProps = {
   extras: IssueDetailExtras
   projectName?: string
   sprintName?: string
+  showSprint?: boolean
+  showStoryPoints?: boolean
   persistedStatus?: boolean
   workflowStatuses?: WorkflowStatusApi[]
   statusLoading?: boolean
@@ -1659,6 +1674,8 @@ function MetadataPanel({
   extras,
   projectName,
   sprintName,
+  showSprint = true,
+  showStoryPoints = true,
   persistedStatus = false,
   workflowStatuses = [],
   statusLoading = false,
@@ -1773,12 +1790,14 @@ function MetadataPanel({
         />
       </MetaField>
 
-      <MetaField label="Sprint">
-        <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2.5 text-input text-devflow-text">
-          <ChevronDown className="size-4 shrink-0 text-devflow-text-muted" />
-          <span className="truncate">{sprintName ?? 'Backlog'}</span>
-        </div>
-      </MetaField>
+      {showSprint ? (
+        <MetaField label="Sprint">
+          <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2.5 text-input text-devflow-text">
+            <ChevronDown className="size-4 shrink-0 text-devflow-text-muted" />
+            <span className="truncate">{sprintName ?? 'Backlog'}</span>
+          </div>
+        </MetaField>
+      ) : null}
 
       <MetaField label="Due Date">
         <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2.5">
@@ -1814,24 +1833,26 @@ function MetadataPanel({
           />
         </MetaField>
 
-        <MetaField label="Story Points">
-          <select
-            value={String(draft.storyPoints ?? '')}
-            onChange={(e) =>
-              onPatch({
-                storyPoints: e.target.value ? Number(e.target.value) : undefined,
-              })
-            }
-            className="w-full rounded-lg border border-devflow-border bg-devflow-card px-3 py-2.5 text-input"
-          >
-            <option value="">—</option>
-            {STORY_POINT_OPTIONS.map((pt) => (
-              <option key={pt} value={pt}>
-                {pt}
-              </option>
-            ))}
-          </select>
-        </MetaField>
+        {showStoryPoints ? (
+          <MetaField label="Story Points">
+            <select
+              value={String(draft.storyPoints ?? '')}
+              onChange={(e) =>
+                onPatch({
+                  storyPoints: e.target.value ? Number(e.target.value) : undefined,
+                })
+              }
+              className="w-full rounded-lg border border-devflow-border bg-devflow-card px-3 py-2.5 text-input"
+            >
+              <option value="">—</option>
+              {STORY_POINT_OPTIONS.map((pt) => (
+                <option key={pt} value={pt}>
+                  {pt}
+                </option>
+              ))}
+            </select>
+          </MetaField>
+        ) : null}
 
         <MetaField label="Project">
           <span className="block rounded-lg border border-transparent px-1 py-0.5 text-input text-devflow-text-secondary">

@@ -37,29 +37,89 @@ function ContextSelector({
   onChange,
   'aria-label': ariaLabel,
 }: ContextSelectorProps) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const selected = options.find((option) => option.id === value)
+  const displayValue = selected?.name ?? placeholder
+
+  useEffect(() => {
+    if (!open) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
   return (
-    <div className="sidebar-context-selector">
+    <div ref={containerRef} className="sidebar-context-selector sidebar-context-selector--menu">
       <span className="sidebar-context-label">{label}</span>
-      <div className="sidebar-context-select-row">
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          aria-label={ariaLabel}
-          className="sidebar-context-select"
-        >
-          {!value && (
-            <option value="" disabled>
-              {placeholder}
-            </option>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="sidebar-context-select-row w-full text-left"
+      >
+        <span
+          className={cn(
+            'sidebar-context-select truncate',
+            !selected && 'font-normal text-devflow-text-muted',
           )}
-          {options.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.name}
-            </option>
-          ))}
-        </select>
+        >
+          {displayValue}
+        </span>
         <ChevronDown className="sidebar-context-chevron" aria-hidden />
-      </div>
+      </button>
+
+      {open ? (
+        <div className="sidebar-workspace-menu" role="listbox" aria-label={ariaLabel}>
+          {options.map((option) => {
+            const isActive = option.id === value
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                className={cn(
+                  'sidebar-workspace-menu-item',
+                  isActive && 'sidebar-workspace-menu-item--active',
+                )}
+                onClick={() => {
+                  onChange(option.id)
+                  setOpen(false)
+                }}
+              >
+                <Check
+                  className={cn(
+                    'sidebar-workspace-menu-check',
+                    !isActive && 'sidebar-workspace-menu-check--empty',
+                  )}
+                  aria-hidden
+                />
+                <span className="truncate">{option.name}</span>
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -141,7 +201,7 @@ function WorkspaceDropdown({
         <span
           className={cn(
             'sidebar-context-select truncate',
-            !selected && 'font-normal text-devflow-text-muted dark:text-zinc-500',
+            !selected && 'font-normal text-devflow-text-muted',
             collapsed && 'sr-only',
           )}
         >
@@ -237,7 +297,7 @@ function ContextSelectorSkeleton({ label }: { label: string }) {
     <div className="sidebar-context-selector" aria-hidden>
       <span className="sidebar-context-label">{label}</span>
       <div className="sidebar-context-select-row">
-        <div className="h-[14px] w-3/4 animate-pulse rounded bg-devflow-muted dark:bg-zinc-800" />
+        <div className="h-[14px] w-3/4 animate-pulse rounded bg-devflow-muted" />
       </div>
     </div>
   )
@@ -281,7 +341,7 @@ function ContextSelectorCollapsed({
           </option>
         ))}
       </select>
-      <ChevronDown className="size-3 shrink-0 text-devflow-text-muted dark:text-zinc-500" aria-hidden />
+      <ChevronDown className="size-3 shrink-0 text-devflow-text-muted" aria-hidden />
     </div>
   )
 }
@@ -358,7 +418,7 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
       return (
         <div className="sidebar-context-panel sidebar-context-panel--single mt-2 items-center">
           <div
-            className="sidebar-context-selector sidebar-context-selector--collapsed animate-pulse bg-devflow-muted dark:bg-zinc-800"
+            className="sidebar-context-selector sidebar-context-selector--collapsed animate-pulse bg-devflow-muted"
             aria-hidden
           />
         </div>

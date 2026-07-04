@@ -21,6 +21,7 @@ def _issue_is_done(issue: Issue) -> bool:
 class IssueSerializer(serializers.ModelSerializer):
     status = WorkflowStatusSerializer(read_only=True)
     labels = LabelSerializer(many=True, read_only=True)
+    assignee = serializers.SerializerMethodField()
 
     class Meta:
         model = Issue
@@ -51,6 +52,10 @@ class IssueSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def get_assignee(self, obj: Issue):
+        assignee_id = obj.get_primary_assignee_id()
+        return str(assignee_id) if assignee_id else None
 
 
 class _IssueMutationValidationMixin:

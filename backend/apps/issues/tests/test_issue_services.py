@@ -63,7 +63,7 @@ def test_assign_issue_service(project_with_roles, user, superuser, create_test_i
         actor_id=superuser.id,
     )
 
-    assert updated.assignee_id == user.id
+    assert updated.get_primary_assignee_id() == user.id
 
 
 @pytest.mark.django_db

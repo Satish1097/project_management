@@ -298,3 +298,56 @@ def test_select_project_role_lookup(superuser, project, other_user):
 @pytest.mark.django_db
 def test_select_project_by_id_not_found():
     assert select_project_by_id(uuid.uuid4()) is None
+
+
+@pytest.mark.django_db
+def test_create_project_scrum_methodology_defaults(superuser, organization):
+    project = create_project(
+        organization=organization.id,
+        name="Scrum Defaults",
+        key="SCRM",
+        slug="scrum-defaults",
+        creator=superuser,
+        methodology="scrum",
+    )
+
+    dto = select_project_by_id(project.id)
+    assert dto is not None
+    assert dto.methodology == "scrum"
+    assert dto.board_type == "scrum"
+    assert dto.default_sprint_weeks == 2
+
+
+@pytest.mark.django_db
+def test_create_project_kanban_methodology(superuser, organization):
+    project = create_project(
+        organization=organization.id,
+        name="Kanban Flow",
+        key="KNBN",
+        slug="kanban-flow",
+        creator=superuser,
+        methodology="kanban",
+    )
+
+    dto = select_project_by_id(project.id)
+    assert dto is not None
+    assert dto.methodology == "kanban"
+    assert dto.board_type == "kanban"
+    assert dto.default_sprint_weeks is None
+
+
+@pytest.mark.django_db
+def test_create_project_scrum_custom_sprint_weeks(superuser, organization):
+    project = create_project(
+        organization=organization.id,
+        name="Scrum Four Week",
+        key="SC4W",
+        slug="scrum-four-week",
+        creator=superuser,
+        methodology="scrum",
+        default_sprint_weeks=4,
+    )
+
+    dto = select_project_by_id(project.id)
+    assert dto is not None
+    assert dto.default_sprint_weeks == 4

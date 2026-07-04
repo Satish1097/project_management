@@ -56,10 +56,10 @@ class CommentService:
             old_value=None,
             new_value=comment.id,
         )
-        if issue.assignee_id is not None and issue.assignee_id != user.id:
+        if issue.get_primary_assignee_id() is not None and issue.get_primary_assignee_id() != user.id:
             actor_name = get_user_display_value(user.id) or "Someone"
             notification_service.create_notification(
-                user_id=issue.assignee_id,
+                user_id=issue.get_primary_assignee_id(),
                 actor_id=user.id,
                 event_type="comment_added",
                 title="New Comment",

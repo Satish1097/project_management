@@ -11,12 +11,15 @@ from apps.projects.exceptions import (
     ProjectArchivedError,
     ProjectKeyConflictError,
     ProjectMembershipError,
+    ProjectMethodologyError,
     ProjectNotFoundError,
     ProjectSlugConflictError,
 )
 from apps.projects.models import (
+    BoardType,
     Project,
     ProjectMember,
+    ProjectMethodology,
     ProjectRole,
     ProjectStatus,
     ProjectVisibility,
@@ -37,6 +40,47 @@ def _ensure_project_editable(project: Project) -> None:
         raise ProjectArchivedError("Archived projects are read-only.")
 
 
+def require_scrum_project(project_id: UUID) -> None:
+    """Reject sprint-related operations on non-Scrum projects."""
+    project = select_project_by_id(project_id)
+    if project is None:
+        raise ProjectNotFoundError(f"Project '{project_id}' does not exist.")
+    if project.methodology != ProjectMethodology.SCRUM:
+        raise ProjectMethodologyError(
+            "Sprint operations are not supported for Kanban projects."
+        )
+
+
+def require_kanban_project(project_id: UUID) -> None:
+    """Reject Kanban-only operations on non-Kanban projects."""
+    project = select_project_by_id(project_id)
+    if project is None:
+        raise ProjectNotFoundError(f"Project '{project_id}' does not exist.")
+    if project.methodology != ProjectMethodology.KANBAN:
+        raise ProjectMethodologyError(
+            "Board configuration is only supported for Kanban projects."
+        )
+
+
+def _resolve_methodology_fields(
+    *,
+    methodology: str = ProjectMethodology.SCRUM,
+    default_sprint_weeks: int | None = None,
+) -> dict:
+    if methodology == ProjectMethodology.KANBAN:
+        return {
+            "methodology": ProjectMethodology.KANBAN,
+            "board_type": BoardType.KANBAN,
+            "default_sprint_weeks": None,
+        }
+
+    return {
+        "methodology": ProjectMethodology.SCRUM,
+        "board_type": BoardType.SCRUM,
+        "default_sprint_weeks": default_sprint_weeks if default_sprint_weeks is not None else 2,
+    }
+
+
 def create_project(
     *,
     organization: UUID,
@@ -47,6 +91,8 @@ def create_project(
     description: str = "",
     lead_user_id: UUID | None = None,
     visibility: str = ProjectVisibility.ORGANIZATION,
+    methodology: str = ProjectMethodology.SCRUM,
+    default_sprint_weeks: int | None = None,
 ) -> ProjectDTO:
     if get_organization_by_id(organization) is None:
         raise OrganizationNotFoundError(f"Organization '{organization}' does not exist.")
@@ -67,6 +113,11 @@ def create_project(
     if lead_user_id is not None and lead_user_id != creator.pk:
         raise ProjectMembershipError("Lead user must be an existing project member.")
 
+    methodology_fields = _resolve_methodology_fields(
+        methodology=methodology,
+        default_sprint_weeks=default_sprint_weeks,
+    )
+
     with transaction.atomic():
         project = Project.objects.create(
             organization_id=organization,
@@ -79,6 +130,7 @@ def create_project(
             lead_user_id=lead_user_id,
             created_by=creator,
             updated_by=creator,
+            **methodology_fields,
         )
         ProjectMember.objects.create(
             project=project,
