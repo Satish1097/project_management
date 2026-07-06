@@ -1,96 +1,180 @@
+import { useState } from 'react'
 import {
-  Archive,
-  Bug,
-  CheckSquare,
-  FolderKanban,
-  HelpCircle,
-  LayoutGrid,
-  Plus,
-  Rocket,
-  Settings,
-  Zap,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  User,
 } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { SidebarBrand } from '@/components/brand/SidebarBrand'
+import { SidebarContextPanel } from '@/components/layout/SidebarContextPanel'
+import {
+  SidebarNavButton,
+  SidebarNavLink,
+  SidebarNavSection,
+} from '@/components/layout/SidebarNavSection'
+import {
+  PROJECT_NAV_ITEMS,
+  QUICK_ACTION_ITEMS,
+  WORKSPACE_NAV_ITEMS,
+  isProfileNavActive,
+  isProjectNavActive,
+  projectNavPath,
+  workspaceNavPath,
+  isWorkspaceNavActive,
+} from '@/components/layout/sidebarNav'
+import { useCreateIssue } from '@/contexts/CreateIssueContext'
+import { useSidebar } from '@/contexts/SidebarContext'
+import { parseProjectRoute, projectBoardPath, ROUTES } from '@/constants/routes'
 import { layout } from '@/constants/layout'
-import { ROUTES } from '@/constants/routes'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { useAppContext } from '@/features/context/useAppContext'
+import { CreateSprintDrawer } from '@/features/sprints/CreateSprintDrawer'
 import { cn } from '@/utils/cn'
-
-const navItems = [
-  { label: 'My Tasks', icon: CheckSquare, path: ROUTES.myTasks },
-  { label: 'Projects', icon: FolderKanban, path: ROUTES.workspaceEmpty },
-  { label: 'Board', icon: LayoutGrid, path: ROUTES.board },
-  { label: 'Ops Center', icon: Zap, path: ROUTES.operations },
-  { label: 'QA', icon: Bug, path: ROUTES.qa },
-  { label: 'Releases', icon: Rocket, path: ROUTES.releases },
-  { label: 'Settings', icon: Settings, path: ROUTES.projectSettings },
-] as const
 
 export function Sidebar() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const { collapsed, toggle } = useSidebar()
+  const { logout } = useAuth()
+  const { openCreateIssue } = useCreateIssue()
+  const { currentProject } = useAppContext()
+  const { projectId: routeProjectId } = parseProjectRoute(pathname)
+  const projectId = routeProjectId ?? currentProject?.id ?? null
+  const [createSprintOpen, setCreateSprintOpen] = useState(false)
+
+  const handleLogout = async () => {
+    await logout()
+    navigate(ROUTES.login)
+  }
+
+  const handleQuickAction = (actionId: string) => {
+    if (actionId === 'createIssue') {
+      openCreateIssue(projectId ? { projectId } : undefined)
+      return
+    }
+    if (actionId === 'createSprint' && projectId) {
+      setCreateSprintOpen(true)
+    }
+  }
 
   return (
-    <aside className={cn(layout.shellSidebar, 'justify-between')}>
-      <div className="flex flex-col gap-0.5 p-4">
-        <div className="pb-2">
-          <SidebarBrand titleClassName="text-devflow-primary" />
+    <aside
+      className={cn(
+        layout.shellSidebar,
+        'dark:border-zinc-800 dark:bg-zinc-950',
+      )}
+    >
+      {/* Fixed header — brand + context selectors (never scrolls) */}
+      <div className={cn('sidebar-header', collapsed && 'px-2')}>
+        <div
+          className={cn(
+            'w-full shrink-0',
+            collapsed ? 'flex justify-center' : undefined,
+          )}
+        >
+          <SidebarBrand collapsed={collapsed} titleClassName="text-devflow-primary" />
         </div>
+        <SidebarContextPanel collapsed={collapsed} />
+      </div>
+
+      {/* Scrollable navigation only */}
+      <nav
+        className={cn('sidebar-nav-scroll', collapsed && 'items-center px-2')}
+        aria-label="Sidebar navigation"
+      >
+        {projectId && (
+          <SidebarNavSection label="Project" collapsed={collapsed}>
+            {PROJECT_NAV_ITEMS.map(({ id, label, icon }) => (
+              <SidebarNavLink
+                key={id}
+                to={
+                  id === 'board'
+                    ? projectBoardPath(projectId)
+                    : projectNavPath(projectId, id)
+                }
+                label={label}
+                icon={icon}
+                active={isProjectNavActive(pathname, projectId, id)}
+                collapsed={collapsed}
+              />
+            ))}
+          </SidebarNavSection>
+        )}
+
+        <SidebarNavSection label="Workspace" collapsed={collapsed}>
+          {WORKSPACE_NAV_ITEMS.map(({ id, label, icon }) => (
+            <SidebarNavLink
+              key={id}
+              to={workspaceNavPath(id, projectId)}
+              label={label}
+              icon={icon}
+              active={isWorkspaceNavActive(pathname, id)}
+              collapsed={collapsed}
+            />
+          ))}
+        </SidebarNavSection>
+
+        <SidebarNavSection label="Quick Actions" collapsed={collapsed}>
+          {QUICK_ACTION_ITEMS.map(({ id, label, icon }) => (
+            <SidebarNavButton
+              key={id}
+              label={label}
+              icon={icon}
+              collapsed={collapsed}
+              disabled={id === 'createSprint' && !projectId}
+              onClick={() => handleQuickAction(id)}
+            />
+          ))}
+        </SidebarNavSection>
+      </nav>
+
+      {/* Fixed footer — user + collapse */}
+      <div className={cn('sidebar-footer', collapsed && 'px-2')}>
+        <SidebarNavSection label="User" collapsed={collapsed}>
+          <SidebarNavLink
+            to={ROUTES.dashboard}
+            label="Profile"
+            icon={User}
+            active={isProfileNavActive(pathname)}
+            collapsed={collapsed}
+          />
+          <SidebarNavButton
+            label="Logout"
+            icon={LogOut}
+            collapsed={collapsed}
+            onClick={() => void handleLogout()}
+          />
+        </SidebarNavSection>
 
         <button
           type="button"
-          className="mb-4 flex w-full items-center justify-center gap-1.5 rounded-lg bg-devflow-primary py-1.5 text-btn text-white shadow-devflow-sm"
+          onClick={toggle}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={cn(
+            'sidebar-nav-item mt-2 text-devflow-text-muted',
+            'hover:text-devflow-text-secondary dark:text-zinc-500 dark:hover:text-zinc-400',
+            collapsed && 'sidebar-nav-item--collapsed',
+          )}
         >
-          <Plus className="size-3.5" strokeWidth={2.5} />
-          New Issue
+          {collapsed ? (
+            <PanelLeftOpen className="sidebar-nav-icon" strokeWidth={1.75} />
+          ) : (
+            <>
+              <PanelLeftClose className="sidebar-nav-icon" strokeWidth={1.75} />
+              <span>Collapse</span>
+            </>
+          )}
         </button>
-
-        <nav className="flex flex-col gap-1">
-          {navItems.map(({ label, icon: Icon, path }) => {
-            const active =
-              label === 'Projects'
-                ? pathname === ROUTES.dashboard ||
-                  pathname === ROUTES.workspaceEmpty
-                : label === 'Board'
-                  ? pathname === ROUTES.board ||
-                    pathname.startsWith('/board/')
-                : label === 'Settings'
-                  ? pathname.startsWith('/projects/settings')
-                  : pathname === path || pathname.startsWith(`${path}/`)
-
-            return (
-              <Link
-                key={label}
-                to={path}
-                className={cn(
-                  layout.navItem,
-                  'text-body text-devflow-text-secondary transition-colors',
-                  active && 'bg-devflow-nav-active-alt text-devflow-nav-active-text-alt',
-                )}
-              >
-                <Icon className="size-5 shrink-0" strokeWidth={1.75} />
-                {label}
-              </Link>
-            )
-          })}
-        </nav>
       </div>
 
-      <div className="border-t border-devflow-border px-4 pb-4 pt-3">
-        <Link
-          to="#"
-          className={cn(layout.navItem, 'text-body text-devflow-text-secondary hover:bg-devflow-hover-overlay')}
-        >
-          <HelpCircle className="size-5" strokeWidth={1.75} />
-          Help
-        </Link>
-        <Link
-          to="#"
-          className={cn(layout.navItem, 'text-body text-devflow-text-secondary hover:bg-devflow-hover-overlay')}
-        >
-          <Archive className="size-[18px]" strokeWidth={1.75} />
-          Archive
-        </Link>
-      </div>
+      {projectId ? (
+        <CreateSprintDrawer
+          open={createSprintOpen}
+          onClose={() => setCreateSprintOpen(false)}
+          projectId={projectId}
+        />
+      ) : null}
     </aside>
   )
 }

@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom'
 import { Check } from 'lucide-react'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { ROUTES } from '@/constants/routes'
 import { cn } from '@/utils/cn'
 import { notificationIconMap } from './notificationIcons'
 import {
   NOTIFICATION_TABS,
   filterNotifications,
+  formatNotificationCreatedAt,
   getTabBadgeCount,
 } from './notificationUtils'
 import { useNotifications } from './NotificationProvider'
@@ -20,10 +21,13 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
     notifications,
     activeTab,
     setActiveTab,
+    isLoading,
+    error,
     unreadCount,
     mentionUnreadCount,
     markAllRead,
     markRead,
+    reload,
   } = useNotifications()
 
   const filtered = filterNotifications(notifications, activeTab)
@@ -43,7 +47,7 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
         </h2>
         <button
           type="button"
-          onClick={markAllRead}
+          onClick={() => void markAllRead()}
           disabled={unreadCount === 0}
           className="rounded-md px-2.5 py-1.5 text-[12px] font-medium text-devflow-brand transition-colors hover:bg-[var(--df-brand-tint-hover)] disabled:cursor-default disabled:opacity-40"
         >
@@ -98,7 +102,22 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
       </nav>
 
       <ul className="flex-1 overflow-y-auto overscroll-contain">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <li className="px-4 py-10 text-center text-[13px] text-devflow-text-muted">
+            Loading notifications...
+          </li>
+        ) : error ? (
+          <li className="px-4 py-10 text-center">
+            <p className="text-[13px] text-red-600">{error}</p>
+            <button
+              type="button"
+              onClick={() => void reload()}
+              className="mt-2 text-[12px] font-medium text-devflow-brand hover:underline"
+            >
+              Retry
+            </button>
+          </li>
+        ) : filtered.length === 0 ? (
           <li className="px-4 py-10 text-center text-[13px] text-devflow-text-muted">
             No notifications here
           </li>
@@ -109,7 +128,7 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
               <li key={n.id}>
                 <button
                   type="button"
-                  onClick={() => markRead(n.id)}
+                  onClick={() => void markRead(n.id)}
                   className={cn(
                     'grid w-full min-h-[80px] grid-cols-[auto_1fr_auto] items-start gap-4 border-b border-devflow-panel-divider-soft px-5 py-4 text-left transition-colors sm:px-6',
                     'hover:bg-devflow-panel-hover focus-visible:bg-devflow-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-devflow-brand/30',
@@ -117,7 +136,7 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
                   )}
                 >
                   <div className="relative shrink-0">
-                    <Avatar name={n.user} color={n.color} size={38} />
+                    <UserAvatar name={n.title} color={n.color} size={38} />
                     <span
                       className="absolute -bottom-0.5 -right-0.5 flex size-[18px] items-center justify-center rounded-full border-2 border-devflow-card bg-devflow-bell-bg text-devflow-text-muted"
                       aria-hidden
@@ -128,24 +147,19 @@ export function NotificationPanel({ className }: NotificationPanelProps) {
 
                   <div className="min-w-0 pt-0.5">
                     <p className="text-[14px] font-semibold leading-snug text-devflow-text">
-                      {n.user}
+                      {n.title}
                     </p>
                     <p className="mt-0.5 text-[13px] leading-[1.45] text-devflow-text-secondary">
                       {n.message}
                     </p>
-                    {n.project && (
-                      <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-devflow-text-muted">
-                        {n.project}
-                      </p>
-                    )}
                   </div>
 
                   <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
                     <time
                       className="text-[11px] leading-none text-devflow-text-muted tabular-nums"
-                      dateTime={n.time}
+                      dateTime={n.createdAt}
                     >
-                      {n.time}
+                      {formatNotificationCreatedAt(n.createdAt)}
                     </time>
                     {n.unread && (
                       <span

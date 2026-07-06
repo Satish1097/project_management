@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import { Search } from 'lucide-react'
-import { BRANDING } from '@/constants/branding'
 import { layout } from '@/constants/layout'
-import { ROUTES } from '@/constants/routes'
-import { Avatar } from '@/components/ui/Avatar'
+import { ROUTES, projectOverviewPath } from '@/constants/routes'
+import { UserAvatar } from '@/components/ui/UserAvatar'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { avatarColorFromName } from '@/features/members/memberUtils'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { cn } from '@/utils/cn'
@@ -13,21 +14,73 @@ const tabs = ['Board', 'List', 'Activity'] as const
 type Tab = (typeof tabs)[number]
 
 type TopHeaderProps = {
-  variant?: 'board' | 'projects'
+  variant?: 'board' | 'projects' | 'sprintTabs'
   activeTab?: Tab
-  /** Project shown on board header — defaults to active board context */
   projectName?: string
+  projectId?: string
   sprintName?: string
   sprintStatus?: string
+  boardPath?: string
+  listPath?: string
+  activityPath?: string
 }
 
 export function TopHeader({
   variant = 'board',
   activeTab = 'Board',
-  projectName = BRANDING.boardContext.projectName,
-  sprintName = BRANDING.boardContext.sprintName,
-  sprintStatus = BRANDING.boardContext.sprintStatus,
+  projectName = 'Project',
+  projectId,
+  sprintName = 'Sprint',
+  sprintStatus = 'Active Sprint',
+  boardPath,
+  listPath,
+  activityPath,
 }: TopHeaderProps) {
+  const { user } = useAuth()
+  const currentUserName = user?.display_name || user?.email || 'You'
+  const currentUserColor = avatarColorFromName(currentUserName)
+
+  const tabPaths: Record<Tab, string | undefined> = {
+    Board: boardPath,
+    List: listPath,
+    Activity: activityPath,
+  }
+
+  const projectLink = projectId ? projectOverviewPath(projectId) : ROUTES.projects
+
+  if (variant === 'sprintTabs') {
+    return (
+      <header className={cn(layout.appHeader, 'h-auto min-h-0 border-t-0 py-0')}>
+        <nav
+          className="flex flex-1 items-center gap-0.5"
+          aria-label="Sprint views"
+        >
+          {tabs.map((tab) => {
+            const path = tabPaths[tab]
+            const className = cn(
+              'px-3 py-2 text-nav whitespace-nowrap',
+              tab === activeTab
+                ? 'font-medium text-devflow-primary'
+                : 'text-devflow-text-secondary',
+            )
+            if (path) {
+              return (
+                <Link key={tab} to={path} className={className}>
+                  {tab}
+                </Link>
+              )
+            }
+            return (
+              <button key={tab} type="button" className={className}>
+                {tab}
+              </button>
+            )
+          })}
+        </nav>
+      </header>
+    )
+  }
+
   if (variant === 'projects') {
     return (
       <header className={layout.appHeader}>
@@ -41,31 +94,17 @@ export function TopHeader({
               Search projects...
             </Link>
           </div>
-          <nav className="flex items-center gap-4">
-            {tabs.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                className={cn(
-                  'pb-1 text-nav',
-                  tab === activeTab
-                    ? 'border-b-2 border-devflow-primary text-devflow-primary'
-                    : 'text-devflow-text-secondary',
-                )}
-              >
-                {tab}
-              </button>
-            ))}
-          </nav>
         </div>
 
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <NotificationBell />
-          <Avatar
-            name="You"
-            color="#94a3b8"
+          <UserAvatar
+            name={currentUserName}
+            color={currentUserColor}
             size={28}
+            userId={user?.id}
+            email={user?.email}
             className="border border-devflow-border bg-devflow-avatar-bg"
           />
         </div>
@@ -81,7 +120,7 @@ export function TopHeader({
           aria-label={`${projectName}, ${sprintName}, ${sprintStatus}`}
         >
           <Link
-            to={ROUTES.dashboard}
+            to={projectLink}
             className="block truncate text-nav font-semibold leading-tight text-devflow-text transition-colors hover:text-devflow-primary"
             title={projectName}
           >
@@ -97,22 +136,29 @@ export function TopHeader({
         </div>
         <nav
           className="flex shrink-0 items-center gap-3 sm:gap-4"
-          aria-label="Board views"
+          aria-label="Sprint views"
         >
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              className={cn(
-                'pb-1 text-nav whitespace-nowrap',
-                tab === activeTab
-                  ? 'border-b-2 border-devflow-primary text-devflow-primary'
-                  : 'text-devflow-text-secondary',
-              )}
-            >
-              {tab}
-            </button>
-          ))}
+          {tabs.map((tab) => {
+            const path = tabPaths[tab]
+            const className = cn(
+              'pb-1 text-nav whitespace-nowrap',
+              tab === activeTab
+                ? 'border-b-2 border-devflow-primary text-devflow-primary'
+                : 'text-devflow-text-secondary',
+            )
+            if (path) {
+              return (
+                <Link key={tab} to={path} className={className}>
+                  {tab}
+                </Link>
+              )
+            }
+            return (
+              <button key={tab} type="button" className={className}>
+                {tab}
+              </button>
+            )
+          })}
         </nav>
       </div>
 
@@ -135,10 +181,12 @@ export function TopHeader({
         </Link>
         <ThemeToggle />
         <NotificationBell />
-        <Avatar
-          name="You"
-          color="#94a3b8"
+        <UserAvatar
+          name={currentUserName}
+          color={currentUserColor}
           size={28}
+          userId={user?.id}
+          email={user?.email}
           className="border border-devflow-border bg-devflow-avatar-bg"
         />
       </div>

@@ -1,10 +1,18 @@
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { Calendar, ChevronDown, MessageSquare, Paperclip, X } from 'lucide-react'
 import { TopHeader } from '@/components/layout/TopHeader'
-import { ROUTES } from '@/constants/routes'
+import {
+  sprintBoardPath,
+  sprintIssueDetailEnhancedPath,
+} from '@/constants/routes'
+import {
+  formatSprintStatus,
+  getProjectById,
+  getSprintById,
+} from '@/services/projectData'
 import { IssueStatusBadge } from '@/components/ui/IssueStatusBadge'
 import { LabelBadge } from '@/components/ui/LabelBadge'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { AvatarGroup } from '@/components/ui/AvatarGroup'
 import { BoardFilters } from '@/features/kanban/BoardFilters'
 import { KanbanColumn } from '@/features/kanban/KanbanColumn'
@@ -17,10 +25,21 @@ const assignees = [
 ]
 
 export function IssueDetailDrawerPage() {
+  const { projectId = '', sprintId = '' } = useParams()
+  const project = getProjectById(projectId)
+  const sprint = getSprintById(projectId, sprintId)
+
   return (
     <div className="min-h-screen bg-devflow-surface">
       <div className="pointer-events-none opacity-40">
-        <TopHeader variant="board" activeTab="Board" />
+        <TopHeader
+          variant="board"
+          activeTab="Board"
+          projectName={project?.name}
+          projectId={projectId}
+          sprintName={sprint?.name}
+          sprintStatus={sprint ? formatSprintStatus(sprint.status) : undefined}
+        />
         <BoardFilters />
         <main className="grid grid-cols-3 gap-4 p-4">
           {kanbanColumns.map((col) => (
@@ -37,13 +56,13 @@ export function IssueDetailDrawerPage() {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              to={ROUTES.issueDetailEnhanced}
+              to={sprintIssueDetailEnhancedPath(projectId, sprintId)}
               className="text-btn text-devflow-primary hover:underline"
             >
               Enhanced view
             </Link>
             <Link
-              to={ROUTES.board}
+              to={sprintBoardPath(projectId, sprintId)}
               className="rounded-lg p-2 text-devflow-text-secondary hover:bg-devflow-surface"
             >
               <X className="size-5" />
@@ -103,7 +122,7 @@ export function IssueDetailDrawerPage() {
             <h3 className="mb-4 text-section-title text-devflow-text">Activity</h3>
             <div className="space-y-4">
               <div className="flex gap-3">
-                <Avatar name="Sarah Chen" color="#8b5cf6" size={32} />
+                <UserAvatar name="Sarah Chen" color="#8b5cf6" size={32} />
                 <div>
                   <p className="text-body">
                     <span className="font-semibold">Sarah Chen</span> changed status to{' '}
@@ -113,7 +132,7 @@ export function IssueDetailDrawerPage() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Avatar name="Alex Rivera" color="#3b82f6" size={32} />
+                <UserAvatar name="Alex Rivera" color="#3b82f6" size={32} />
                 <div>
                   <p className="text-body">
                     <span className="font-semibold">Alex Rivera</span> added label{' '}

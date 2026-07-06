@@ -1,3 +1,4 @@
+import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AppLogo } from '@/components/brand/AppLogo'
 import { BRANDING } from '@/constants/branding'
@@ -9,6 +10,7 @@ import { GoogleIcon } from '@/components/ui/GoogleIcon'
 import { Input } from '@/components/ui/Input'
 import { PasswordInput } from '@/components/ui/PasswordInput'
 import { ROUTES } from '@/constants/routes'
+import { ApiError } from '@/api/types'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -16,6 +18,35 @@ export function LoginPage() {
   const { login } = useAuth()
   const redirectTo =
     (location.state as { from?: string } | null)?.from ?? ROUTES.dashboard
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+    setIsSubmitting(true)
+
+    try {
+      await login({
+        email,
+        password,
+        rememberMe,
+      })
+      navigate(redirectTo, { replace: true })
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError('Unable to sign in. Please try again.')
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <>
@@ -44,20 +75,26 @@ export function LoginPage() {
             </p>
           </div>
 
-          <form
-            className="flex flex-col gap-4"
-            onSubmit={(e) => {
-              e.preventDefault()
-              login()
-              navigate(redirectTo, { replace: true })
-            }}
-          >
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-body text-red-700"
+            >
+              {error}
+            </p>
+          ) : null}
+
+          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
             <Input
               label="Email"
               type="email"
               name="email"
               autoComplete="email"
               placeholder="name@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={isSubmitting}
             />
 
             <PasswordInput
@@ -65,6 +102,10 @@ export function LoginPage() {
               name="password"
               autoComplete="current-password"
               placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isSubmitting}
               labelAction={
                 <Link
                   to={ROUTES.forgotPassword}
@@ -75,9 +116,17 @@ export function LoginPage() {
               }
             />
 
-            <Checkbox label="Remember for 30 days" name="remember" />
+            <Checkbox
+              label="Remember for 30 days"
+              name="remember"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              disabled={isSubmitting}
+            />
 
-            <Button type="submit">Sign in</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Signing in…' : 'Sign in'}
+            </Button>
           </form>
 
           <Divider />

@@ -1,4 +1,5 @@
 import { Filter, Download, AlertTriangle } from 'lucide-react'
+import { useIssueDetail } from '@/contexts/IssueDetailContext'
 import { BRANDING } from '@/constants/branding'
 import { IssueStatusBadge } from '@/components/ui/IssueStatusBadge'
 import { LabelBadge } from '@/components/ui/LabelBadge'
@@ -38,6 +39,8 @@ const qaBugs = [
 const tabs = ['All Tasks', 'Ready for QA (8)', 'In Progress (3)', 'Failed (2)', 'Passed (45)']
 
 export function QAManagementPage() {
+  const { openIssueDetail } = useIssueDetail()
+
   return (
     <div className="flex min-h-screen flex-col bg-devflow-surface">
       <header className={cn(layout.appHeader, 'header-glass')}>
@@ -108,7 +111,16 @@ export function QAManagementPage() {
           {qaBugs.map((bug, i) => (
             <div
               key={bug.id}
-              className={`grid grid-cols-[48px_100px_1fr_100px_120px_80px] items-center gap-4 px-4 py-3 ${
+              role="button"
+              tabIndex={0}
+              onClick={() => openIssueDetail({ issueKey: bug.key })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  openIssueDetail({ issueKey: bug.key })
+                }
+              }}
+              className={`grid cursor-pointer grid-cols-[48px_100px_1fr_100px_120px_80px] items-center gap-4 px-4 py-3 transition-colors hover:bg-devflow-surface/80 ${
                 i < qaBugs.length - 1 ? 'border-b border-devflow-border' : ''
               }`}
             >

@@ -1,12 +1,18 @@
 import { layout } from '@/constants/layout'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { useAuth } from '@/features/auth/AuthProvider'
+import { avatarColorFromName } from '@/features/members/memberUtils'
 import { cn } from '@/utils/cn'
 
 const tabs = ['All Issues', 'Active', 'Backlog'] as const
 
 export function MyTasksHeader() {
+  const { user } = useAuth()
+  const currentUserName = user?.display_name || user?.email || 'You'
+  const currentUserColor = avatarColorFromName(currentUserName)
+
   return (
     <header className={cn(layout.appHeader, 'header-glass backdrop-blur-[6px]')}>
       <div className="flex items-center gap-4">
@@ -34,10 +40,12 @@ export function MyTasksHeader() {
       <div className="flex items-center gap-4">
         <ThemeToggle />
         <NotificationBell className="text-devflow-text-secondary hover:bg-devflow-hover-overlay" />
-        <Avatar
-          name="You"
-          color="#94a3b8"
+        <UserAvatar
+          name={currentUserName}
+          color={currentUserColor}
           size={28}
+          userId={user?.id}
+          email={user?.email}
           className="border border-devflow-border"
         />
       </div>

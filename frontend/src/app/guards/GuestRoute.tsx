@@ -3,7 +3,11 @@ import { ROUTES } from '@/constants/routes'
 import { useAuth } from '@/features/auth/AuthProvider'
 
 export function GuestRoute() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) {
+    return null
+  }
 
   if (isAuthenticated) {
     return <Navigate to={ROUTES.dashboard} replace />

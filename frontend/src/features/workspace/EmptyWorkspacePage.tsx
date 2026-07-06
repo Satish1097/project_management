@@ -55,7 +55,7 @@ export function EmptyWorkspacePage() {
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <Link
-                to={ROUTES.dashboard}
+                to={ROUTES.projects}
                 className="inline-flex items-center gap-2 rounded-lg bg-devflow-brand-deep px-4 py-2 text-btn text-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]"
               >
                 <FolderPlus className="size-5" strokeWidth={2} />

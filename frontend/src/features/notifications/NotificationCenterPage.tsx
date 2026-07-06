@@ -1,8 +1,16 @@
+import { useEffect } from 'react'
 import { MyTasksHeader } from '@/components/layout/MyTasksHeader'
 import { cn } from '@/utils/cn'
 import { NotificationPanel } from './NotificationPanel'
+import { useNotifications } from './NotificationProvider'
 
 export function NotificationCenterPage() {
+  const { reload } = useNotifications()
+
+  useEffect(() => {
+    void reload()
+  }, [reload])
+
   return (
     <div className={cn('flex min-h-screen flex-col bg-devflow-surface')}>
       <MyTasksHeader />

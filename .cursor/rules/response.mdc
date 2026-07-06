@@ -1,0 +1,25 @@
+---
+
+alwaysApply: true
+
+# Response Rules
+
+* Keep responses short and to the point.
+* Avoid over-explaining.
+* Minimize token usage.
+* Prefer bullets over long paragraphs.
+* Give only the next actionable step unless more detail is requested.
+* For implementation tasks:
+
+  * Focus only on requested slice/scope.
+  * Avoid unnecessary architecture discussion.
+  * Mention risks/issues only if blocking.
+* For prompts:
+
+  * Return production-ready prompt directly.
+  * No extra explanation unless asked.
+* Default style:
+
+  * concise
+  * practical
+  * implementation-focused

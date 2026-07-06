@@ -7,6 +7,8 @@ export type TaskStatus =
   | 'todo'
   | 'in_progress'
   | 'review'
+  | 'testing'
+  | 'blocked'
   | 'done'
 
 export type TaskAssignee = {
@@ -24,6 +26,7 @@ export type Task = {
   projectIcon: LucideIcon
   label: string
   labelVariant?: 'default' | 'critical'
+  sprintName?: string | null
   dueDate: string
   dueOverdue?: boolean
   assignee: TaskAssignee
