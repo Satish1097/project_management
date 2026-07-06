@@ -1,6 +1,7 @@
 """
 Global DRF exception handler — normalizes all errors to the standard shape.
 """
+
 import logging
 
 from django.core.exceptions import PermissionDenied
@@ -40,6 +41,7 @@ def _handle_accounts_domain_error(exc):
         InvalidRefreshTokenError,
         InvalidResetTokenError,
         InvitationAlreadyUsedError,
+        PendingInvitationExistsError,
     )
 
     if not isinstance(exc, AccountsDomainError):
@@ -54,6 +56,7 @@ def _handle_accounts_domain_error(exc):
         InvalidResetTokenError: status.HTTP_400_BAD_REQUEST,
         InvalidRefreshTokenError: status.HTTP_400_BAD_REQUEST,
         InvalidProfileFieldError: status.HTTP_400_BAD_REQUEST,
+        PendingInvitationExistsError: status.HTTP_409_CONFLICT,
     }
     status_code = status_map.get(type(exc), status.HTTP_400_BAD_REQUEST)
     return error_response(

@@ -3,13 +3,17 @@ from rest_framework import serializers
 
 
 class RegisterSerializer(serializers.Serializer):
-    invite_token = serializers.CharField()
+    invite_token = serializers.CharField(required=True, allow_blank=False)
     name = serializers.CharField(max_length=301)
     password = serializers.CharField(write_only=True, min_length=8)
 
     def validate_password(self, value):
         validate_password(value)
         return value
+
+
+class InvitationTokenSerializer(serializers.Serializer):
+    invite_token = serializers.CharField()
 
 
 class LoginSerializer(serializers.Serializer):

@@ -14,6 +14,7 @@ from apps.contracts.membership_contract import get_project_role, user_has_projec
 from apps.contracts.organization_contract import get_organization_member, is_organization_member
 
 _ORG_MANAGE_ROLES = frozenset({"owner", "admin"})
+_ORG_PROJECT_CREATE_ROLES = frozenset({"owner", "admin"})
 
 _PROJECT_EDIT_ROLES = frozenset({"project_admin", "project_manager"})
 
@@ -70,8 +71,12 @@ class PermissionService:
 
 
     def can_create_project(self, user_id: UUID, organization_id: UUID) -> bool:
-
-        return is_organization_member(user_id, organization_id)
+        member = get_organization_member(user_id, organization_id)
+        if member is None or not member.is_active:
+            return False
+        return member.role in _ORG_PROJECT_CREATE_ROLES or getattr(
+            member, "can_create_projects", False
+        )
 
 
 

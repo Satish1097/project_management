@@ -6,6 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.exceptions import (
     AccountAlreadyExistsError,
     AuthenticationError,
+    InvalidInvitationError,
     InvalidRefreshTokenError,
 )
 from apps.accounts.models import User, UserPreference, UserProfile
@@ -33,20 +34,25 @@ def _issue_tokens(user: User, *, remember_me: bool = False) -> dict[str, str]:
 
 
 def register_user(
-    invite_token: str,
     name: str,
     password: str,
+    email: str | None = None,
+    invite_token: str | None = None,
 ) -> dict:
-    invitation = validate_invitation(invite_token)
-    email = invitation.email
+    if not invite_token:
+        raise InvalidInvitationError("A valid invitation token is required to register.")
 
-    if select_user_by_email(email) is not None:
+    invitation = validate_invitation(invite_token)
+    account_email = invitation.email
+
+    normalized_email = account_email.strip().lower()
+    if select_user_by_email(normalized_email) is not None:
         raise AccountAlreadyExistsError("An account already exists for this invitation.")
 
     first_name, last_name = _split_name(name)
 
     with transaction.atomic():
-        user = User.objects.create_user(email=email, password=password)
+        user = User.objects.create_user(email=normalized_email, password=password)
         UserProfile.objects.create(
             user=user,
             first_name=first_name,
@@ -59,6 +65,21 @@ def register_user(
         "user": select_me(user),
         "tokens": _issue_tokens(user),
     }
+
+
+def accept_invitation(
+    *,
+    user: User,
+    invite_token: str,
+) -> dict:
+    invitation = validate_invitation(invite_token)
+    if invitation.email.lower() != user.email.lower():
+        raise AuthenticationError("Sign in with the invited email to accept this invitation.")
+
+    with transaction.atomic():
+        consume_invitation_memberships(user=user, invitation=invitation)
+
+    return {"user": select_me(user)}
 
 
 def login_user(

@@ -13,6 +13,12 @@ type RefreshResponseData = {
   refresh: string
 }
 
+export type InvitationDetails = {
+  email: string
+  account_exists: boolean
+  metadata: Record<string, unknown>
+}
+
 function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
 
@@ -98,6 +104,40 @@ export async function register(
     }
 
     return result
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function validateInvitation(inviteToken: string): Promise<InvitationDetails> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ invitation: InvitationDetails }>>(
+      '/auth/invitations/validate',
+      { params: { invite_token: inviteToken } },
+    )
+
+    if (!data.data?.invitation) {
+      throw new ApiError('Unexpected invitation response.')
+    }
+
+    return data.data.invitation
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function acceptInvitation(inviteToken: string): Promise<AuthUser> {
+  try {
+    const { data } = await apiClient.post<ApiResponse<{ user: AuthUser }>>(
+      '/auth/invitations/accept',
+      { invite_token: inviteToken },
+    )
+
+    if (!data.data?.user) {
+      throw new ApiError('Unexpected invitation response.')
+    }
+
+    return data.data.user
   } catch (error) {
     throw toApiError(error)
   }

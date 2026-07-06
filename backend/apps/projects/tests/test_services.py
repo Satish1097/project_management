@@ -4,6 +4,8 @@ import pytest
 
 from apps.contracts.workflow_contract import get_status_by_slug
 from apps.issues.models import Issue
+from apps.organizations.models import OrganizationRole
+from apps.organizations.services.membership_service import add_organization_member
 from apps.projects.exceptions import (
     ProjectKeyConflictError,
     ProjectMembershipError,
@@ -116,6 +118,25 @@ def test_select_projects_for_organization(superuser, organization, project):
 
     assert len(results) == 1
     assert results[0].id == project.id
+
+
+@pytest.mark.django_db
+def test_select_projects_for_organization_excludes_non_project_members(
+    superuser,
+    organization,
+    project,
+    other_user,
+):
+    add_organization_member(
+        organization_id=organization.id,
+        user_id=other_user.id,
+        added_by=superuser,
+        role=OrganizationRole.MEMBER,
+    )
+
+    results = select_projects_for_organization(organization.id, other_user.id)
+
+    assert results == []
 
 
 @pytest.mark.django_db

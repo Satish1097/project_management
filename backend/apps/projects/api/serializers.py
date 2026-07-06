@@ -23,7 +23,7 @@ class ProjectCreateSerializer(serializers.Serializer):
     visibility = serializers.ChoiceField(
         choices=ProjectVisibility.choices,
         required=False,
-        default=ProjectVisibility.ORGANIZATION,
+        default=ProjectVisibility.PRIVATE,
     )
     methodology = serializers.ChoiceField(
         choices=ProjectMethodology.choices,

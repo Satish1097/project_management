@@ -29,6 +29,7 @@ def _organization_member_to_dto(member: OrganizationMember) -> OrganizationMembe
         organization_id=member.organization_id,
         role=member.role,
         is_active=member.is_active,
+        can_create_projects=member.can_create_projects,
         joined_at=member.created_at,
     )
 
@@ -43,6 +44,7 @@ def _membership_to_organization_summary(
         slug=organization.slug,
         role=membership.role,
         is_active=organization.is_active,
+        can_create_projects=membership.can_create_projects,
     )
 
 

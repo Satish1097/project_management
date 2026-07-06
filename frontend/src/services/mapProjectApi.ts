@@ -48,7 +48,7 @@ export function mapProjectSummaryToUi(
     icon: resolveIcon(name),
     ...buildIssueCountLabels(issueCount),
     members: [],
-    isMember: true,
+    isMember: summary.is_member ?? false,
     recentActivity: summary.recent_activity,
   }
 }
@@ -69,6 +69,7 @@ export function mapProjectDetailToUi(
       board_type: detail.board_type,
       open_issue_count: issueCount,
       active_sprint_id: null,
+      is_member: true,
     },
     detail.description,
   )

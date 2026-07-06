@@ -84,16 +84,15 @@ export function ProjectShell() {
   const { projectId = '' } = useParams()
   const { projects, isLoading: projectsLoading } = useProjects()
   const projectFromList = projects.find((item) => item.id === projectId)
-  const projectFromRegistry = getProjectById(projectId)
-  const project = projectFromList ?? projectFromRegistry
+  const project = projectFromList
 
   useEffect(() => {
     projectSwitchTrace.projectShellRender(
       projectId,
       projectFromList?.name ?? null,
-      projectFromRegistry?.name ?? null,
+      null,
     )
-  }, [projectId, projectFromList?.name, projectFromRegistry?.name])
+  }, [projectId, projectFromList?.name])
 
   if (!project) {
     if (projectsLoading) {

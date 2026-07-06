@@ -1,5 +1,6 @@
 import pytest
 
+from apps.organizations.models import OrganizationMember
 from apps.projects.models import ProjectMember, ProjectRole
 
 PROJECT_PAYLOAD = {
@@ -7,7 +8,6 @@ PROJECT_PAYLOAD = {
     "slug": "hrms",
     "name": "HR Management System",
     "description": "",
-    "visibility": "organization",
 }
 
 
@@ -39,7 +39,28 @@ def test_create_project_org_owner_success(superuser_client, organization):
 
 
 @pytest.mark.django_db
-def test_create_project_org_member_success(org_member_client, organization):
+def test_create_project_org_member_forbidden(org_member_client, organization):
+    response = org_member_client.post(
+        f"/api/organizations/{organization.id}/projects",
+        PROJECT_PAYLOAD,
+        format="json",
+    )
+
+    assert response.status_code == 403
+    assert response.json()["success"] is False
+
+
+@pytest.mark.django_db
+def test_create_project_org_member_with_explicit_permission_success(
+    org_member_client,
+    organization,
+    user,
+):
+    OrganizationMember.objects.filter(
+        organization_id=organization.id,
+        user_id=user.id,
+    ).update(can_create_projects=True)
+
     response = org_member_client.post(
         f"/api/organizations/{organization.id}/projects",
         PROJECT_PAYLOAD,
@@ -78,6 +99,7 @@ def test_create_project_creator_auto_added_as_project_admin(
     assert response.status_code == 201
     project_data = response.json()["data"]["project"]
     assert project_data["lead_user_id"] == str(superuser.id)
+    assert project_data["visibility"] == "private"
     project_id = project_data["id"]
     membership = ProjectMember.objects.get(project_id=project_id, user_id=superuser.id)
     assert membership.role == ProjectRole.PROJECT_ADMIN
@@ -272,6 +294,34 @@ def test_list_organization_projects(superuser_client, organization, project):
     assert projects[0]["id"] == str(project.id)
     assert projects[0]["methodology"] == "scrum"
     assert projects[0]["board_type"] == "scrum"
+    assert projects[0]["is_member"] is True
+
+
+@pytest.mark.django_db
+def test_non_member_project_not_in_organization_project_list(org_member_client, organization, project):
+    response = org_member_client.get(
+        f"/api/organizations/{organization.id}/projects",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["projects"] == []
+
+
+@pytest.mark.django_db
+def test_non_member_cannot_open_project_detail(org_member_client, project):
+    response = org_member_client.get(f"/api/projects/{project.id}")
+
+    assert response.status_code == 403
+    assert response.json()["success"] is False
+
+
+@pytest.mark.django_db
+def test_non_member_cannot_access_project_reports(org_member_client, project):
+    summary_response = org_member_client.get(f"/api/projects/{project.id}/reports/summary")
+    workload_response = org_member_client.get(f"/api/projects/{project.id}/reports/workload")
+
+    assert summary_response.status_code == 403
+    assert workload_response.status_code == 403
 
 
 @pytest.mark.django_db

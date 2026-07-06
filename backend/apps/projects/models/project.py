@@ -50,7 +50,7 @@ class Project(BaseModel):
     visibility = models.CharField(
         max_length=20,
         choices=ProjectVisibility.choices,
-        default=ProjectVisibility.ORGANIZATION,
+        default=ProjectVisibility.PRIVATE,
     )
     archived_at = models.DateTimeField(null=True, blank=True)
     next_issue_number = models.PositiveIntegerField(default=0)

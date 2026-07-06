@@ -12,6 +12,11 @@ import { PasswordInput } from '@/components/ui/PasswordInput'
 import { ROUTES } from '@/constants/routes'
 import { ApiError } from '@/api/types'
 
+function isInvitationRedirect(path: string): boolean {
+  const [pathname, search = ''] = path.split('?')
+  return pathname === ROUTES.signup && new URLSearchParams(search).has('invite_token')
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -36,6 +41,10 @@ export function LoginPage() {
         password,
         rememberMe,
       })
+      if (isInvitationRedirect(redirectTo)) {
+        navigate(redirectTo, { replace: true })
+        return
+      }
       navigate(redirectTo, { replace: true })
     } catch (err) {
       if (err instanceof ApiError) {
@@ -139,13 +148,7 @@ export function LoginPage() {
       </div>
 
       <p className="text-center text-body text-devflow-text-secondary">
-        Don&apos;t have an account?{' '}
-        <Link
-          to={ROUTES.signup}
-          className="font-semibold text-devflow-primary hover:underline"
-        >
-          Sign up
-        </Link>
+        Don&apos;t have an account? Ask a workspace admin for an invitation.
       </p>
 
       <footer className="flex h-8 items-start justify-center gap-4 pt-2">

@@ -13,7 +13,7 @@ export type OrganizationDetail = {
 export type CreateOrganizationPayload = {
   name: string
   slug: string
-  owner_user_id: string
+  owner_user_id?: string
 }
 
 export type OrganizationMemberRecord = {

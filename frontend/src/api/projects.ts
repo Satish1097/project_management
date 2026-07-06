@@ -13,6 +13,7 @@ export type ProjectSummaryApi = {
   board_type: string
   open_issue_count: number
   active_sprint_id: string | null
+  is_member?: boolean
   recent_activity?: string
 }
 

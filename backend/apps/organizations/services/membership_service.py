@@ -27,6 +27,7 @@ def add_organization_member(
     user_id: UUID,
     added_by,
     role: str = OrganizationRole.MEMBER,
+    can_create_projects: bool = False,
 ) -> OrganizationMemberDTO:
     try:
         Organization.objects.get(pk=organization_id)
@@ -48,6 +49,7 @@ def add_organization_member(
         organization_id=organization_id,
         user_id=user_id,
         role=role,
+        can_create_projects=can_create_projects,
         added_by=added_by,
         created_by=added_by,
         updated_by=added_by,
@@ -67,6 +69,7 @@ def update_organization_member(
     organization_id: UUID,
     user_id: UUID,
     role: str,
+    can_create_projects: bool | None = None,
 ) -> OrganizationMemberDTO:
     try:
         organization = Organization.objects.get(pk=organization_id)
@@ -95,7 +98,11 @@ def update_organization_member(
             )
 
     member.role = role
-    member.save(update_fields=["role", "updated_at"])
+    update_fields = ["role", "updated_at"]
+    if can_create_projects is not None:
+        member.can_create_projects = can_create_projects
+        update_fields.append("can_create_projects")
+    member.save(update_fields=update_fields)
 
     if role == OrganizationRole.OWNER:
         organization.owner_id = user_id

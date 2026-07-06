@@ -8,8 +8,10 @@ import {
 } from 'lucide-react'
 import { ROUTES } from '@/constants/routes'
 import { useIssueDetail } from '@/contexts/IssueDetailContext'
+import { useProjects } from '@/contexts/ProjectsContext'
+import { projectOverviewPath } from '@/constants/routes'
 
-const results = [
+const staticResults = [
   {
     id: '1',
     type: 'issue',
@@ -23,13 +25,6 @@ const results = [
     key: 'DF-1085',
     title: 'Fix race condition in CI/CD pipeline',
     meta: 'Todo · Devops',
-  },
-  {
-    id: '3',
-    type: 'project',
-    key: '',
-    title: 'Infrastructure Modernization',
-    meta: '12 open issues',
   },
   {
     id: '4',
@@ -48,6 +43,15 @@ const typeIcons = {
 
 export function GlobalSearchPage() {
   const { openIssueDetail } = useIssueDetail()
+  const { projects } = useProjects()
+  const projectResults = projects.slice(0, 8).map((project) => ({
+    id: project.id,
+    type: 'project' as const,
+    key: project.key ?? '',
+    title: project.name,
+    meta: project.openIssuesLabel ?? project.issuesLabel,
+  }))
+  const results = [...projectResults, ...staticResults]
 
   return (
     <div className="relative min-h-screen bg-devflow-muted">
@@ -115,7 +119,7 @@ export function GlobalSearchPage() {
               return (
                 <Link
                   key={item.id}
-                  to={ROUTES.dashboard}
+                  to={item.type === 'project' ? projectOverviewPath(item.id) : ROUTES.dashboard}
                   className={className}
                 >
                   <div className="flex size-8 items-center justify-center rounded-lg bg-devflow-muted">

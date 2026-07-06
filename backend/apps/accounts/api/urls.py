@@ -2,6 +2,8 @@ from django.urls import path
 
 from apps.accounts.api.views import (
     ForgotPasswordView,
+    InvitationAcceptView,
+    InvitationValidateView,
     LoginView,
     LogoutView,
     MeContextView,
@@ -13,6 +15,16 @@ from apps.accounts.api.views import (
 
 urlpatterns = [
     path("auth/register", RegisterView.as_view(), name="auth-register"),
+    path(
+        "auth/invitations/validate",
+        InvitationValidateView.as_view(),
+        name="auth-invitations-validate",
+    ),
+    path(
+        "auth/invitations/accept",
+        InvitationAcceptView.as_view(),
+        name="auth-invitations-accept",
+    ),
     path("auth/login", LoginView.as_view(), name="auth-login"),
     path("auth/refresh", RefreshTokenView.as_view(), name="auth-refresh"),
     path("auth/logout", LogoutView.as_view(), name="auth-logout"),

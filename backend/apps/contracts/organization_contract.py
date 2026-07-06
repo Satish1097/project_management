@@ -22,6 +22,7 @@ class OrganizationMemberDTO:
     user_id: UUID
     role: str
     is_active: bool
+    can_create_projects: bool = False
     joined_at: Optional[datetime] = None
 
 
@@ -32,6 +33,7 @@ class OrganizationSummaryDTO:
     slug: str
     role: str
     is_active: bool
+    can_create_projects: bool = False
     project_count: int = 0
     member_count: int = 0
 

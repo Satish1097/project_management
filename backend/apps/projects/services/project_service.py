@@ -152,7 +152,7 @@ def create_project(
     slug: str,
     creator,
     description: str = "",
-    visibility: str = ProjectVisibility.ORGANIZATION,
+    visibility: str = ProjectVisibility.PRIVATE,
     methodology: str = ProjectMethodology.SCRUM,
     default_sprint_weeks: int | None = None,
 ) -> ProjectDTO:

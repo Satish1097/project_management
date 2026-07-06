@@ -17,6 +17,10 @@ class InvitationAlreadyUsedError(AccountsDomainError):
     """Invitation has already been consumed."""
 
 
+class PendingInvitationExistsError(AccountsDomainError):
+    """A pending invitation already exists for the same target."""
+
+
 class AccountAlreadyExistsError(AccountsDomainError):
     """An account already exists for the invitation email."""
 

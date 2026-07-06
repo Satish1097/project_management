@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { acceptInvitation, validateInvitation, type InvitationDetails } from '@/api/auth'
 import { ApiError } from '@/api/types'
 import { AppLogo } from '@/components/brand/AppLogo'
 import { BRANDING } from '@/constants/branding'
@@ -10,10 +11,12 @@ import {
   BoltIcon,
   GaugeIcon,
   LockIcon,
+  MailIcon,
   ShieldIcon,
   UserIcon,
 } from '@/components/ui/icons/AuthFieldIcons'
-import { ROUTES } from '@/constants/routes'
+import { ROUTES, projectBacklogPath } from '@/constants/routes'
+import { useAppContext } from '@/features/context/useAppContext'
 import { useAuth } from './AuthProvider'
 
 function EyeToggle({ visible, onToggle }: { visible: boolean; onToggle: () => void }) {
@@ -62,27 +65,83 @@ const FEATURES = [
   { icon: BoltIcon, label: 'Reliable' },
 ] as const
 
+function getInvitationRedirect(invitation: InvitationDetails | null): string {
+  const projectId = invitation?.metadata.project_id
+  return typeof projectId === 'string' ? projectBacklogPath(projectId) : ROUTES.dashboard
+}
+
 export function SignupPage() {
   const navigate = useNavigate()
-  const { register } = useAuth()
+  const { isAuthenticated, register, user } = useAuth()
+  const { refreshContext } = useAppContext()
   const [searchParams] = useSearchParams()
   const inviteToken = searchParams.get('invite_token') ?? ''
   const hasInviteToken = Boolean(inviteToken)
 
   const [passwordVisible, setPasswordVisible] = useState(false)
+  const [invitation, setInvitation] = useState<InvitationDetails | null>(null)
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(
-    hasInviteToken ? null : 'A valid invitation link is required to create an account.',
-  )
+  const [error, setError] = useState<string | null>(null)
+  const [isValidating, setIsValidating] = useState(hasInviteToken)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isAccepting, setIsAccepting] = useState(false)
+
+  const invitedEmail = invitation?.email ?? ''
+  const invitationBelongsToCurrentUser =
+    Boolean(invitedEmail && user?.email.toLowerCase() === invitedEmail.toLowerCase())
+  const loginRedirect = `${ROUTES.signup}?invite_token=${encodeURIComponent(inviteToken)}`
+  const canCreateAccount = hasInviteToken && invitation && !invitation.account_exists
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadInvitation() {
+      if (!hasInviteToken) {
+        setInvitation(null)
+        setIsValidating(false)
+        setError('A valid invitation link is required to create an account.')
+        return
+      }
+
+      setIsValidating(true)
+      setError(null)
+
+      try {
+        const result = await validateInvitation(inviteToken)
+        if (cancelled) return
+        setInvitation(result)
+      } catch (err) {
+        if (cancelled) return
+        setInvitation(null)
+        setError(
+          err instanceof ApiError ? formatApiError(err) : 'Unable to validate invitation.',
+        )
+      } finally {
+        if (!cancelled) {
+          setIsValidating(false)
+        }
+      }
+    }
+
+    void loadInvitation()
+
+    return () => {
+      cancelled = true
+    }
+  }, [hasInviteToken, inviteToken])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
 
-    if (!hasInviteToken) {
+    if (!hasInviteToken || !invitation) {
       setError('A valid invitation link is required to create an account.')
+      return
+    }
+
+    if (invitation?.account_exists) {
+      setError('This invitation belongs to an existing account. Sign in to accept it.')
       return
     }
 
@@ -94,7 +153,8 @@ export function SignupPage() {
         name: fullName.trim(),
         password,
       })
-      navigate(ROUTES.dashboard, { replace: true })
+      await refreshContext()
+      navigate(getInvitationRedirect(invitation), { replace: true })
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -103,6 +163,34 @@ export function SignupPage() {
       )
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  async function handleAcceptInvitation() {
+    setError(null)
+
+    if (!invitation) {
+      setError('A valid invitation link is required to continue.')
+      return
+    }
+
+    if (!invitationBelongsToCurrentUser) {
+      setError(`Sign in as ${invitedEmail} to accept this invitation.`)
+      return
+    }
+
+    setIsAccepting(true)
+
+    try {
+      await acceptInvitation(inviteToken)
+      await refreshContext()
+      navigate(getInvitationRedirect(invitation), { replace: true })
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? formatApiError(err) : 'Unable to accept invitation.',
+      )
+    } finally {
+      setIsAccepting(false)
     }
   }
 
@@ -121,83 +209,158 @@ export function SignupPage() {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1 text-center">
             <h2 className="text-section-title text-devflow-text">
-              Create your account
+              {!hasInviteToken
+                ? 'Invitation required'
+                : invitation?.account_exists
+                  ? 'Accept your invitation'
+                  : 'Create your account'}
             </h2>
             <p className="text-body text-devflow-text-secondary">
-              {hasInviteToken
-                ? BRANDING.signupTagline
-                : 'Open the invitation link from your email to continue.'}
+              {isValidating
+                ? 'Checking your invitation link...'
+                : hasInviteToken && invitation
+                  ? BRANDING.signupTagline
+                  : 'Ask a workspace admin for a valid invitation link.'}
             </p>
           </div>
 
-          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          {invitedEmail ? (
             <IconInput
-              label="Full Name"
-              name="fullName"
-              autoComplete="name"
-              placeholder="John Doe"
-              icon={<UserIcon />}
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-              disabled={!hasInviteToken || isSubmitting}
+              label="Invited Email"
+              name="email"
+              type="email"
+              icon={<MailIcon />}
+              value={invitedEmail}
+              readOnly
+              disabled
             />
-            <div className="flex w-full flex-col gap-1">
-              <label
-                htmlFor="signup-password"
-                className="text-label text-devflow-text-secondary"
+          ) : null}
+
+          {!hasInviteToken || (!isValidating && hasInviteToken && !invitation) ? (
+            <div className="flex flex-col gap-4">
+              {error ? (
+                <p className="text-caption text-red-600">{error}</p>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-1 py-2 text-section-title"
+                onClick={() => navigate(ROUTES.login)}
               >
-                Password
-              </label>
-              <div className="relative w-full">
-                <span className="pointer-events-none absolute left-3 top-1/2 flex -translate-y-1/2 items-center">
-                  <LockIcon />
-                </span>
-                <input
-                  id="signup-password"
-                  name="password"
-                  type={passwordVisible ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={!hasInviteToken || isSubmitting}
-                  className="w-full rounded-lg border border-devflow-border bg-devflow-surface pb-[11px] pl-[41px] pr-12 pt-[10px] text-input text-devflow-text outline-none transition-colors placeholder:text-devflow-text-muted/60 focus:border-devflow-primary focus:bg-devflow-card focus:ring-2 focus:ring-devflow-primary/20 disabled:opacity-60"
-                />
-                <EyeToggle
-                  visible={passwordVisible}
-                  onToggle={() => setPasswordVisible((v) => !v)}
-                />
-              </div>
+                Back to Sign In
+              </Button>
             </div>
+          ) : invitation?.account_exists ? (
+            <div className="flex flex-col gap-4">
+              <p className="text-body text-devflow-text-secondary">
+                This email already has an account. Sign in with the invited email to add
+                this workspace to your account.
+              </p>
 
-            {error ? (
-              <p className="text-caption text-red-600">{error}</p>
-            ) : null}
+              {error ? (
+                <p className="text-caption text-red-600">{error}</p>
+              ) : null}
 
-            <Button
-              type="submit"
-              className="gap-1 py-2 text-section-title"
-              disabled={!hasInviteToken || isSubmitting}
-            >
-              {isSubmitting ? 'Creating account…' : 'Create Account'}
-              {!isSubmitting ? <ArrowRightIcon className="size-3.5" /> : null}
-            </Button>
-          </form>
+              {isAuthenticated ? (
+                <Button
+                  type="button"
+                  className="gap-1 py-2 text-section-title"
+                  disabled={!invitationBelongsToCurrentUser || isAccepting}
+                  onClick={handleAcceptInvitation}
+                >
+                  {isAccepting ? 'Accepting invitation...' : 'Accept Invitation'}
+                  {!isAccepting ? <ArrowRightIcon className="size-3.5" /> : null}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  className="gap-1 py-2 text-section-title"
+                  onClick={() => navigate(ROUTES.login, { state: { from: loginRedirect } })}
+                >
+                  Sign in to accept
+                  <ArrowRightIcon className="size-3.5" />
+                </Button>
+              )}
+            </div>
+          ) : canCreateAccount ? (
+            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+              <IconInput
+                label="Full Name"
+                name="fullName"
+                autoComplete="name"
+                placeholder="John Doe"
+                icon={<UserIcon />}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                disabled={(hasInviteToken && !invitation) || isValidating || isSubmitting}
+              />
+              <div className="flex w-full flex-col gap-1">
+                <label
+                  htmlFor="signup-password"
+                  className="text-label text-devflow-text-secondary"
+                >
+                  Password
+                </label>
+                <div className="relative w-full">
+                  <span className="pointer-events-none absolute left-3 top-1/2 flex -translate-y-1/2 items-center">
+                    <LockIcon />
+                  </span>
+                  <input
+                    id="signup-password"
+                    name="password"
+                    type={passwordVisible ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={(hasInviteToken && !invitation) || isValidating || isSubmitting}
+                    className="w-full rounded-lg border border-devflow-border bg-devflow-surface pb-[11px] pl-[41px] pr-12 pt-[10px] text-input text-devflow-text outline-none transition-colors placeholder:text-devflow-text-muted/60 focus:border-devflow-primary focus:bg-devflow-card focus:ring-2 focus:ring-devflow-primary/20 disabled:opacity-60"
+                  />
+                  <EyeToggle
+                    visible={passwordVisible}
+                    onToggle={() => setPasswordVisible((v) => !v)}
+                  />
+                </div>
+              </div>
+
+              {error ? (
+                <p className="text-caption text-red-600">{error}</p>
+              ) : null}
+
+              <Button
+                type="submit"
+                className="gap-1 py-2 text-section-title"
+                disabled={(hasInviteToken && !invitation) || isValidating || isSubmitting}
+              >
+                {isSubmitting ? 'Creating account...' : 'Create Account'}
+                {!isSubmitting ? <ArrowRightIcon className="size-3.5" /> : null}
+              </Button>
+            </form>
+          ) : null}
+          {isValidating ? (
+            <p className="text-center text-caption text-devflow-text-muted">
+              Validating invitation...
+            </p>
+          ) : null}
 
           <div className="flex flex-col items-center gap-4 pt-2">
-            <p className="text-body text-devflow-text-secondary">
-              Already have an account?{' '}
-              <Link
-                to={ROUTES.login}
-                className="font-semibold text-devflow-primary hover:underline"
-              >
-                Sign in
-              </Link>
-            </p>
+            {!invitation?.account_exists ? (
+              <p className="text-body text-devflow-text-secondary">
+                Already have an account?{' '}
+                <Link
+                  to={ROUTES.login}
+                  state={hasInviteToken ? { from: loginRedirect } : undefined}
+                  className="font-semibold text-devflow-primary hover:underline"
+                >
+                  Sign in
+                </Link>
+              </p>
+            ) : null}
             <p className="max-w-[312px] text-center text-caption text-devflow-text-muted">
-              By signing up, you agree to our{' '}
+              {invitation?.account_exists ? 'By accepting' : 'By signing up'}, you agree
+              to our{' '}
               <button type="button" className="underline">
                 Terms of Service
               </button>{' '}

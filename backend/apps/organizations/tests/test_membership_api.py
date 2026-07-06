@@ -18,6 +18,24 @@ def test_add_organization_member_success(superuser_client, organization, other_u
     assert member["user_id"] == str(other_user.id)
     assert member["role"] == OrganizationRole.MEMBER
     assert member["is_active"] is True
+    assert member["can_create_projects"] is False
+
+
+@pytest.mark.django_db
+def test_update_member_can_create_projects_flag(superuser_client, organization, other_user):
+    superuser_client.post(
+        f"/api/organizations/{organization.id}/members",
+        {"user_id": str(other_user.id), "role": OrganizationRole.MEMBER},
+        format="json",
+    )
+    response = superuser_client.patch(
+        f"/api/organizations/{organization.id}/members/{other_user.id}",
+        {"role": OrganizationRole.MEMBER, "can_create_projects": True},
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["member"]["can_create_projects"] is True
 
 
 @pytest.mark.django_db

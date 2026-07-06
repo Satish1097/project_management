@@ -8,13 +8,11 @@ from uuid import UUID
 from django.db.models import Count, Q
 from django.utils import timezone
 
-from apps.contracts.organization_contract import is_organization_member
 from apps.contracts.project_contract import ProjectDTO, ProjectMemberDTO, ProjectSummaryDTO
 from apps.issues.models import Issue, Priority
 from apps.notifications.selectors import get_unread_notification_count
-from apps.organizations.models import OrganizationMember
 from apps.permissions.services import permission_service
-from apps.projects.models import Project, ProjectMember, ProjectMethodology, ProjectStatus, ProjectVisibility
+from apps.projects.models import Project, ProjectMember, ProjectMethodology, ProjectStatus
 from apps.sprints.models import Sprint, SprintStatus
 from apps.workflow.models import WorkflowStatusCategory
 
@@ -37,7 +35,7 @@ def _project_to_dto(project: Project) -> ProjectDTO:
     )
 
 
-def _project_to_summary_dto(project: Project) -> ProjectSummaryDTO:
+def _project_to_summary_dto(project: Project, *, is_member: bool = False) -> ProjectSummaryDTO:
     open_issue_count = (
         Issue.objects.filter(project_id=project.id)
         .exclude(status__category=WorkflowStatusCategory.DONE)
@@ -52,6 +50,7 @@ def _project_to_summary_dto(project: Project) -> ProjectSummaryDTO:
         methodology=project.methodology,
         board_type=project.board_type,
         open_issue_count=open_issue_count,
+        is_member=is_member,
     )
 
 
@@ -86,7 +85,6 @@ def select_projects_for_organization(
     organization_id: UUID,
     user_id: UUID,
 ) -> list[ProjectSummaryDTO]:
-    org_member = is_organization_member(user_id, organization_id)
     member_project_ids = set(
         ProjectMember.objects.filter(
             user_id=user_id,
@@ -99,13 +97,18 @@ def select_projects_for_organization(
         status=ProjectStatus.ACTIVE,
     ).order_by("name")
 
-    visible = []
-    for project in projects:
-        if project.id in member_project_ids:
-            visible.append(project)
-        elif project.visibility == ProjectVisibility.ORGANIZATION and org_member:
-            visible.append(project)
-    return [_project_to_summary_dto(project) for project in visible]
+    visible = [
+        project
+        for project in projects
+        if permission_service.can_view_project(user_id, project.id)
+    ]
+    return [
+        _project_to_summary_dto(
+            project,
+            is_member=project.id in member_project_ids,
+        )
+        for project in visible
+    ]
 
 
 def select_project_member(project_id: UUID, user_id: UUID) -> ProjectMemberDTO | None:
@@ -131,45 +134,23 @@ def select_list_project_members(project_id: UUID) -> list[ProjectMemberDTO]:
 
 
 def select_user_has_project_access(project_id: UUID, user_id: UUID) -> bool:
-    try:
-        project = Project.objects.get(pk=project_id)
-    except Project.DoesNotExist:
-        return False
-
-    if ProjectMember.objects.filter(project_id=project_id, user_id=user_id).exists():
-        return True
-
-    if (
-        project.visibility == ProjectVisibility.ORGANIZATION
-        and is_organization_member(user_id, project.organization_id)
-    ):
-        return True
-
-    return False
+    return ProjectMember.objects.filter(project_id=project_id, user_id=user_id).exists()
 
 
 def _select_visible_dashboard_project_ids(user_id: UUID) -> list[UUID]:
-    member_project_ids = ProjectMember.objects.filter(user_id=user_id).values_list(
+    candidate_project_ids = ProjectMember.objects.filter(user_id=user_id).values_list(
         "project_id",
         flat=True,
     )
-    organization_ids = OrganizationMember.objects.filter(
-        user_id=user_id,
-        is_active=True,
-    ).values_list("organization_id", flat=True)
-    candidate_project_ids = Project.objects.filter(
-        Q(id__in=member_project_ids)
-        | Q(
-            visibility=ProjectVisibility.ORGANIZATION,
-            organization_id__in=organization_ids,
-        ),
+    visible_project_ids = Project.objects.filter(
+        id__in=candidate_project_ids,
         status=ProjectStatus.ACTIVE,
         archived_at__isnull=True,
     ).values_list("id", flat=True)
 
     return [
         project_id
-        for project_id in candidate_project_ids
+        for project_id in visible_project_ids
         if permission_service.can_view_project(user_id, project_id)
     ]
 

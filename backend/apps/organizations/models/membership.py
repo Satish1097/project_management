@@ -28,6 +28,7 @@ class OrganizationMember(BaseModel):
         choices=OrganizationRole.choices,
     )
     is_active = models.BooleanField(default=True)
+    can_create_projects = models.BooleanField(default=False)
     added_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

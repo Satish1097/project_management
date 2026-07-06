@@ -14,6 +14,7 @@ export const ROUTES = {
 
   // Workspace
   dashboard: '/',
+  createWorkspace: '/workspace/create',
   myTasks: '/tasks',
   projects: '/projects',
   sprints: '/sprints',

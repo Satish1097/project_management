@@ -110,6 +110,7 @@ def _project_summary_to_data(dto: ProjectSummaryDTO) -> dict:
         "methodology": dto.methodology,
         "board_type": dto.board_type,
         "open_issue_count": dto.open_issue_count,
+        "is_member": dto.is_member,
         "recent_activity": select_project_recent_activity(dto.id),
     }
     if dto.methodology == ProjectMethodology.SCRUM:

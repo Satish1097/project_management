@@ -37,6 +37,7 @@ class ProjectSummaryDTO:
     board_type: str
     open_issue_count: int = 0
     active_sprint_id: Optional[UUID] = None
+    is_member: bool = False
 
 
 @dataclass(frozen=True)

@@ -460,6 +460,11 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
   const { projects, isLoading: projectsLoading } = useProjects()
   const isLoading = contextLoading || (Boolean(currentOrganization) && projectsLoading)
   const isSuperuser = user?.is_superuser === true
+  const canCreateProjects =
+    isSuperuser ||
+    currentOrganization?.role === 'owner' ||
+    currentOrganization?.role === 'admin' ||
+    currentOrganization?.can_create_projects === true
   const orgOptions = organizations.map((org) => ({ id: org.id, name: org.name }))
   const projectOptions = projects.map((project) => ({
     id: project.id,
@@ -596,7 +601,9 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
             }}
             onQueryChange={setProjectQuery}
             onSelect={handleProjectChange}
-            onCreate={currentOrganization ? openCreateProject : undefined}
+            onCreate={
+              currentOrganization && canCreateProjects ? openCreateProject : undefined
+            }
           />
         </div>
 
@@ -682,7 +689,7 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
             }}
             onQueryChange={setProjectQuery}
             onSelect={handleProjectChange}
-            onCreate={openCreateProject}
+            onCreate={canCreateProjects ? openCreateProject : undefined}
           />
         ) : (
           <ContextSelectorStatic

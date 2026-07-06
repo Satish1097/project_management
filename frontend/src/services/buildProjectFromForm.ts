@@ -27,7 +27,6 @@ export function buildProjectFromForm(values: CreateProjectFormValues): Project {
     progress: 0,
     recentActivity: 'Project created',
     members: [],
-    isMember: true,
     isFavorite: false,
   }
 }

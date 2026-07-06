@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { CreateIssueProvider } from '@/contexts/CreateIssueContext'
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext'
 import { useProjects } from '@/contexts/ProjectsContext'
 
 import { layout } from '@/constants/layout'
-import { parseProjectRoute, projectBacklogPath } from '@/constants/routes'
+import { parseProjectRoute, projectBacklogPath, ROUTES } from '@/constants/routes'
 
 import { cn } from '@/utils/cn'
 import { projectSwitchTrace } from '@/utils/projectSwitchTrace'
@@ -18,19 +18,11 @@ import {
 
   ContextLoadErrorState,
 
-  NoOrganizationState,
-
   NoProjectsOnboardingState,
-
-  SuperuserNoOrganizationState,
 
 } from '@/features/context/ContextEmptyState'
 
-import { setStoredOrganizationId } from '@/features/context/contextStorage'
-
 import { useAppContext } from '@/features/context/useAppContext'
-
-import { CreateOrganizationModal } from '@/features/onboarding/CreateOrganizationModal'
 
 import { CreateProjectDrawer } from '@/features/projects/CreateProjectDrawer'
 
@@ -46,8 +38,6 @@ function AppShellMain() {
 
   const {
 
-    user,
-
     isLoading: contextLoading,
 
     contextError,
@@ -56,32 +46,11 @@ function AppShellMain() {
 
     currentOrganization,
 
-    refreshContext,
-
   } = useAppContext()
 
   const { projects, isLoading: projectsLoading } = useProjects()
 
-  const [createOrgOpen, setCreateOrgOpen] = useState(false)
-
   const [createProjectOpen, setCreateProjectOpen] = useState(false)
-
-
-
-  const handleOrganizationCreated = useCallback(
-
-    async (organizationId: string) => {
-
-      setStoredOrganizationId(organizationId)
-
-      await refreshContext()
-
-    },
-
-    [refreshContext],
-
-  )
-
 
 
   const handleProjectCreated = useCallback(
@@ -116,43 +85,7 @@ function AppShellMain() {
 
   if (organizations.length === 0) {
 
-    if (user?.is_superuser) {
-
-      return (
-
-        <>
-
-          <SuperuserNoOrganizationState
-
-            onCreateOrganization={() => setCreateOrgOpen(true)}
-
-          />
-
-          {user ? (
-
-            <CreateOrganizationModal
-
-              open={createOrgOpen}
-
-              ownerUserId={user.id}
-
-              onClose={() => setCreateOrgOpen(false)}
-
-              onCreated={handleOrganizationCreated}
-
-            />
-
-          ) : null}
-
-        </>
-
-      )
-
-    }
-
-
-
-    return <NoOrganizationState />
+    return <Navigate to={ROUTES.createWorkspace} replace />
 
   }
 

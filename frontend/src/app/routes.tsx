@@ -57,6 +57,7 @@ import { SprintDetailPage } from '@/features/projects/SprintDetailPage'
 import { SprintListPage } from '@/features/projects/SprintListPage'
 import { SprintActivityPage } from '@/features/projects/SprintActivityPage'
 import { BoardLegacyRedirect } from '@/features/projects/BoardLegacyRedirect'
+import { CreateWorkspacePage } from '@/features/onboarding/CreateWorkspacePage'
 
 const { projectId: defaultProjectId, sprintId: defaultSprintId } =
   DEFAULT_BOARD_CONTEXT
@@ -96,6 +97,7 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      { path: ROUTES.createWorkspace, element: <CreateWorkspacePage /> },
       {
         element: <AppShell />,
         children: [

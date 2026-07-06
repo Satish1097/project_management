@@ -303,3 +303,17 @@ def test_viewer_cannot_assign(viewer_client, project_with_roles, user, create_te
     )
 
     assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_non_member_cannot_access_project_board_backlog_or_issues(org_member_client, project):
+    board_response = org_member_client.get(f"/api/projects/{project.id}/board")
+    backlog_response = org_member_client.get(f"/api/projects/{project.id}/backlog")
+    issues_response = org_member_client.get(
+        "/api/issues",
+        {"project": str(project.id)},
+    )
+
+    assert board_response.status_code == 403
+    assert backlog_response.status_code == 403
+    assert issues_response.status_code == 403
