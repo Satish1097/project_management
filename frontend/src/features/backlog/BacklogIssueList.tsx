@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { cn } from '@/utils/cn'
 
@@ -9,6 +9,7 @@ type BacklogIssueListProps = {
   items: string[]
   renderItem: (id: string, index: number) => ReactNode
   className?: string
+  layoutVersion?: number
   hasNext?: boolean
   loadingMore?: boolean
   onLoadMore?: () => void
@@ -18,18 +19,14 @@ export function BacklogIssueList({
   items,
   renderItem,
   className,
+  layoutVersion = 0,
   hasNext = false,
   loadingMore = false,
   onLoadMore,
 }: BacklogIssueListProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
-  const scrollMarginRef = useRef(0)
-
-  useEffect(() => {
-    if (!listRef.current) return
-    scrollMarginRef.current = listRef.current.offsetTop
-  }, [items.length])
+  const [scrollMargin, setScrollMargin] = useState(0)
 
   const handleLoadMore = useCallback(() => {
     if (!onLoadMore || !hasNext || loadingMore) return
@@ -58,9 +55,19 @@ export function BacklogIssueList({
     getScrollElement: () => document.documentElement,
     estimateSize: () => ESTIMATED_ROW_HEIGHT,
     overscan: 8,
-    scrollMargin: scrollMarginRef.current,
+    scrollMargin,
     enabled: items.length > VIRTUALIZE_THRESHOLD,
   })
+
+  useEffect(() => {
+    if (!listRef.current) return
+    const nextScrollMargin = listRef.current.offsetTop
+    setScrollMargin((prev) => (prev === nextScrollMargin ? prev : nextScrollMargin))
+  }, [items.length, layoutVersion])
+
+  useEffect(() => {
+    virtualizer.measure()
+  }, [items.length, layoutVersion, scrollMargin, virtualizer])
 
   const measureVirtualRow = useCallback(
     (node: HTMLDivElement | null) => {
@@ -113,7 +120,7 @@ export function BacklogIssueList({
                 top: 0,
                 left: 0,
                 width: '100%',
-                transform: `translateY(${virtualRow.start - scrollMarginRef.current}px)`,
+                transform: `translateY(${virtualRow.start - scrollMargin}px)`,
               }}
             >
               {renderItem(id, virtualRow.index)}

@@ -18,6 +18,7 @@ import { useOptimisticIssueActions } from '@/hooks/useOptimisticIssueActions'
 import { useProjectMethodology } from '@/hooks/useProjectMethodology'
 import { getProjectById } from '@/services/projectData'
 import { getIssueById } from '@/services/issuesRegistry'
+import { useIssues } from '@/contexts/IssuesContext'
 import { ApiError } from '@/api/types'
 import type { ProjectIssue } from '@/types/issues'
 
@@ -37,12 +38,14 @@ export function ProjectBacklogPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const project = getProjectById(projectId)
   const { recentlyCreatedSprintId } = useSprints()
+  const { issues } = useIssues()
 
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverSection, setDragOverSection] = useState<string | null>(null)
+  const [layoutVersion, setLayoutVersion] = useState(0)
   const [moveError, setMoveError] = useState<string | null>(null)
   const [enteringIds, setEnteringIds] = useState<Set<string>>(new Set())
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
@@ -216,6 +219,32 @@ export function ProjectBacklogPage() {
     }
   }, [debouncedQuery, sections, collapsedSections, initializeSection])
 
+  useEffect(() => {
+    const relocations = new Map<
+      string,
+      { issue: ProjectIssue; sourceSectionId: string; targetSectionId: string }
+    >()
+
+    for (const section of sections) {
+      for (const sectionIssue of section.issues) {
+        const issue = getIssueById(sectionIssue.id) ?? sectionIssue
+        const sourceSectionId = section.sectionId
+        const targetSectionId = resolveSectionIdForSprint(issue.sprintId)
+
+        if (sourceSectionId === targetSectionId) continue
+        if (relocations.has(issue.id)) continue
+
+        relocations.set(issue.id, { issue, sourceSectionId, targetSectionId })
+      }
+    }
+
+    if (relocations.size === 0) return
+
+    for (const { issue, sourceSectionId, targetSectionId } of relocations.values()) {
+      moveIssueBetweenSections(issue.id, sourceSectionId, targetSectionId, issue)
+    }
+  }, [issues, sections, moveIssueBetweenSections])
+
   const handleSectionVisible = useCallback(
     (sectionKey: string) => {
       if (collapsedSections.has(sectionKey)) return
@@ -253,6 +282,8 @@ export function ProjectBacklogPage() {
       }
       return next
     })
+    // Force backlog list virtualization to refresh offset/height after layout changes.
+    setLayoutVersion((prev) => prev + 1)
   }
 
   const handleDragOver = (sectionKey: string) => (event: React.DragEvent) => {
@@ -442,6 +473,7 @@ export function ProjectBacklogPage() {
                 ) : collapsed || section.issues.length === 0 ? null : (
                   <BacklogIssueList
                     items={section.issues.map((issue) => issue.id)}
+                    layoutVersion={layoutVersion}
                     hasNext={section.pagination.hasNext}
                     loadingMore={section.pagination.loading}
                     onLoadMore={() => loadMoreSection(section.sectionId)}
