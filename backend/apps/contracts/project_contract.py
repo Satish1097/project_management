@@ -20,6 +20,9 @@ class ProjectDTO:
     status: str
     lead_user_id: Optional[UUID]
     visibility: str
+    methodology: str
+    board_type: str
+    default_sprint_weeks: Optional[int] = None
     archived_at: Optional[datetime] = None
 
 
@@ -30,6 +33,8 @@ class ProjectSummaryDTO:
     slug: str
     name: str
     status: str
+    methodology: str
+    board_type: str
     open_issue_count: int = 0
     active_sprint_id: Optional[UUID] = None
 

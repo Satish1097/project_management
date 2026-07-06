@@ -46,8 +46,14 @@ from apps.sprints.selectors import get_project_sprint_by_id
 from apps.issues.services import attachment_service, comment_service, issue_service
 from apps.permissions.drf_permissions import Authenticated
 from apps.permissions.services import permission_service
-from apps.projects.exceptions import ProjectAccessDeniedError, ProjectNotFoundError
+from apps.projects.exceptions import (
+    ProjectAccessDeniedError,
+    ProjectMethodologyError,
+    ProjectNotFoundError,
+)
+from apps.projects.models import ProjectMethodology
 from apps.projects.selectors import select_project_by_id
+from apps.projects.services.project_service import require_scrum_project
 from apps.sprints.api.serializers import SprintSerializer
 from apps.workflow.api.serializers import WorkflowStatusSerializer
 from apps.workflow.services import transition_service
@@ -116,18 +122,33 @@ def _kanban_issue_sprint_data(issue) -> dict | None:
     return {"id": str(issue.sprint_id), "name": issue.sprint.name}
 
 
-def _kanban_issue_data(issue, status_data: dict) -> dict:
+def _project_is_scrum(project_id: UUID) -> bool:
+    project = select_project_by_id(project_id)
+    return project is not None and project.methodology == ProjectMethodology.SCRUM
+
+
+def _serialize_issue(issue) -> dict:
+    data = dict(IssueSerializer(issue).data)
+    if not _project_is_scrum(issue.project_id):
+        data.pop("sprint", None)
+    return data
+
+
+def _kanban_issue_data(issue, status_data: dict, *, include_sprint: bool = True) -> dict:
     data = dict(IssueSerializer(issue).data)
     status = dict(data.get("status") or {})
     status["slug"] = status_data["slug"]
     data["status"] = status
-    data["sprint"] = _kanban_issue_sprint_data(issue)
+    if include_sprint:
+        data["sprint"] = _kanban_issue_sprint_data(issue)
+    else:
+        data.pop("sprint", None)
     return data
 
 
 def _kanban_column_data(column: dict) -> dict:
     status = _kanban_status_data(column["status"])
-    return {
+    data = {
         "id": str(status["id"]),
         "status_id": str(status["id"]),
         "status_slug": status["slug"],
@@ -135,13 +156,19 @@ def _kanban_column_data(column: dict) -> dict:
         "status": status,
         "count": column.get("count", len(column.get("issues", []))),
     }
+    if "wip_count" in column:
+        data["wip_count"] = column["wip_count"]
+    if "wip_limit" in column:
+        data["wip_limit"] = column["wip_limit"]
+    return data
 
 
 def _kanban_board_data(project_id: UUID, board: dict) -> dict:
     columns = [_kanban_column_data(column) for column in board["columns"]]
     selected_sprint = _kanban_sprint_data(board["sprint"])
+    scope = board.get("scope")
 
-    return {
+    data = {
         "project_id": str(project_id),
         "selected_sprint": selected_sprint,
         "sprint": selected_sprint,
@@ -149,6 +176,12 @@ def _kanban_board_data(project_id: UUID, board: dict) -> dict:
         "columns": columns,
         "filters": get_kanban_board_filters(project_id),
     }
+    if scope is not None:
+        data["methodology"] = scope.methodology
+        data["has_active_sprint"] = (
+            scope.methodology == ProjectMethodology.KANBAN or not scope.is_empty
+        )
+    return data
 
 
 def _parse_board_filter_params(request, user_id: UUID) -> BoardFilterParams:
@@ -197,9 +230,12 @@ def _parse_board_pagination(request) -> tuple[int, int]:
     return page, page_size
 
 
-def _kanban_column_issues_data(column_page: dict) -> dict:
+def _kanban_column_issues_data(column_page: dict, *, include_sprint: bool = True) -> dict:
     status = _kanban_status_data(column_page["status"])
-    issues = [_kanban_issue_data(issue, status) for issue in column_page["issues"]]
+    issues = [
+        _kanban_issue_data(issue, status, include_sprint=include_sprint)
+        for issue in column_page["issues"]
+    ]
     return {
         "page": column_page["page"],
         "page_size": column_page["page_size"],
@@ -257,6 +293,10 @@ class IssueListCreateView(APIView):
         sprint_param = request.query_params.get("sprint")
         sprint_is_null = sprint_param is not None and sprint_param.lower() == "null"
         sprint_id = None if sprint_is_null else _parse_uuid(sprint_param)
+        if sprint_param is not None and not _project_is_scrum(project_id):
+            raise ProjectMethodologyError(
+                "Sprint filtering is not supported for Kanban projects."
+            )
 
         assignee_param = request.query_params.get("assignee")
         assignee_is_null = assignee_param is not None and assignee_param.lower() == "unassigned"
@@ -289,11 +329,11 @@ class IssueListCreateView(APIView):
         ):
             paginator = IssueListPagination()
             page = paginator.paginate_queryset(issues, request)
-            serialized = IssueSerializer(page, many=True).data
+            serialized = [_serialize_issue(issue) for issue in page]
             return paginator.get_paginated_response(serialized)
 
         return success_response(
-            data={"issues": IssueSerializer(issues, many=True).data},
+            data={"issues": [_serialize_issue(issue) for issue in issues]},
         )
 
     @extend_schema(request=IssueCreateSerializer, responses=IssueSerializer, tags=["issues"])
@@ -313,7 +353,7 @@ class IssueListCreateView(APIView):
             **_create_kwargs(serializer.validated_data),
         )
         return success_response(
-            data={"issue": IssueSerializer(issue).data},
+            data={"issue": _serialize_issue(issue)},
             status=201,
         )
 
@@ -327,7 +367,16 @@ class ProjectKanbanView(APIView):
         _require_issue_view(request.user.id, project_id)
 
         filters = _parse_board_filter_params(request, request.user.id)
-        board = get_project_board_metadata(project_id, filters=filters)
+        selected_sprint_id = _parse_uuid(request.query_params.get("sprint"))
+        if selected_sprint_id is not None and not _project_is_scrum(project_id):
+            raise ProjectMethodologyError(
+                "Sprint scoping is not supported for Kanban projects."
+            )
+        board = get_project_board_metadata(
+            project_id,
+            filters=filters,
+            selected_sprint_id=selected_sprint_id,
+        )
         return success_response(data={"board": _kanban_board_data(project_id, board)})
 
 
@@ -341,17 +390,22 @@ class ProjectBoardColumnView(APIView):
 
         filters = _parse_board_filter_params(request, request.user.id)
         page, page_size = _parse_board_pagination(request)
+        selected_sprint_id = _parse_uuid(request.query_params.get("sprint"))
         column_page = get_board_column_issues(
             project_id,
             column_id,
             filters=filters,
+            selected_sprint_id=selected_sprint_id,
             page=page,
             page_size=page_size,
         )
         if column_page is None:
             raise ValidationError({"column_id": f"Column '{column_id}' not found."})
 
-        return success_response(data=_kanban_column_issues_data(column_page))
+        include_sprint = _project_is_scrum(project_id)
+        return success_response(
+            data=_kanban_column_issues_data(column_page, include_sprint=include_sprint),
+        )
 
 
 class ProjectKanbanFiltersView(APIView):
@@ -373,6 +427,7 @@ class ProjectBacklogMetadataView(APIView):
     @extend_schema(tags=["issues"])
     def get(self, request, project_id: UUID):
         _require_project(project_id)
+        require_scrum_project(project_id)
         _require_issue_view(request.user.id, project_id)
 
         search = request.query_params.get("search") or None
@@ -386,6 +441,7 @@ class ProjectBacklogIssuesView(APIView):
     @extend_schema(tags=["issues"])
     def get(self, request, project_id: UUID):
         _require_project(project_id)
+        require_scrum_project(project_id)
         _require_issue_view(request.user.id, project_id)
 
         page, page_size = _parse_board_pagination(request)
@@ -406,6 +462,7 @@ class ProjectBacklogSprintIssuesView(APIView):
     @extend_schema(tags=["issues"])
     def get(self, request, project_id: UUID, sprint_id: UUID):
         _require_project(project_id)
+        require_scrum_project(project_id)
         if get_project_sprint_by_id(project_id, sprint_id) is None:
             raise SprintNotFoundError(
                 f"Sprint '{sprint_id}' not found in project '{project_id}'."
@@ -435,6 +492,7 @@ class SprintKanbanView(APIView):
             raise SprintNotFoundError(f"Sprint '{sprint_id}' not found.")
 
         project_id = board["sprint"].project_id
+        require_scrum_project(project_id)
         _require_issue_view(request.user.id, project_id)
         return success_response(data={"board": _kanban_board_data(project_id, board)})
 
@@ -445,6 +503,7 @@ class ProjectSprintKanbanView(APIView):
     @extend_schema(tags=["issues"])
     def get(self, request, project_id: UUID, sprint_id: UUID):
         _require_project(project_id)
+        require_scrum_project(project_id)
         if get_project_sprint_by_id(project_id, sprint_id) is None:
             raise SprintNotFoundError(
                 f"Sprint '{sprint_id}' not found in project '{project_id}'."
@@ -465,6 +524,7 @@ class ProjectSprintBoardColumnView(APIView):
     @extend_schema(tags=["issues"])
     def get(self, request, project_id: UUID, sprint_id: UUID, column_id: str):
         _require_project(project_id)
+        require_scrum_project(project_id)
         if get_project_sprint_by_id(project_id, sprint_id) is None:
             raise SprintNotFoundError(
                 f"Sprint '{sprint_id}' not found in project '{project_id}'."
@@ -485,7 +545,9 @@ class ProjectSprintBoardColumnView(APIView):
         if column_page is None:
             raise ValidationError({"column_id": f"Column '{column_id}' not found."})
 
-        return success_response(data=_kanban_column_issues_data(column_page))
+        return success_response(
+            data=_kanban_column_issues_data(column_page, include_sprint=True),
+        )
 
 
 class IssueDetailView(APIView):
@@ -495,7 +557,7 @@ class IssueDetailView(APIView):
     def get(self, request, issue_id: UUID):
         issue = _require_issue(issue_id)
         _require_issue_view(request.user.id, issue.project_id)
-        return success_response(data={"issue": IssueSerializer(issue).data})
+        return success_response(data={"issue": _serialize_issue(issue)})
 
     @extend_schema(request=IssueUpdateSerializer, responses=IssueSerializer, tags=["issues"])
     def patch(self, request, issue_id: UUID):
@@ -506,7 +568,7 @@ class IssueDetailView(APIView):
             issue_id=issue_id,
             **serializer.validated_data,
         )
-        return success_response(data={"issue": IssueSerializer(issue).data})
+        return success_response(data={"issue": _serialize_issue(issue)})
 
     @extend_schema(tags=["issues"])
     def delete(self, request, issue_id: UUID):
@@ -526,7 +588,7 @@ class IssueAssignSprintView(APIView):
             issue_id=issue_id,
             sprint_id=serializer.validated_data.get("sprint_id"),
         )
-        return success_response(data={"issue": IssueSerializer(issue).data})
+        return success_response(data={"issue": _serialize_issue(issue)})
 
 
 class IssueTransitionView(APIView):
@@ -541,7 +603,7 @@ class IssueTransitionView(APIView):
             issue_id,
             serializer.validated_data["to_status_id"],
         )
-        return success_response(data={"issue": IssueSerializer(issue).data})
+        return success_response(data={"issue": _serialize_issue(issue)})
 
 
 class IssueBulkAssignSprintView(APIView):
@@ -625,9 +687,12 @@ class IssueActivityListView(APIView):
         issue = _require_issue(issue_id)
         _require_issue_view(request.user.id, issue.project_id)
         activity = get_issue_activity(issue_id)
-        return success_response(
-            data={"activity": IssueActivitySerializer(activity, many=True).data}
-        )
+        serialized = IssueActivitySerializer(activity, many=True).data
+        if not _project_is_scrum(issue.project_id):
+            serialized = [
+                item for item in serialized if item["event_type"] != "sprint_changed"
+            ]
+        return success_response(data={"activity": serialized})
 
 
 class IssueSubtaskListCreateView(APIView):

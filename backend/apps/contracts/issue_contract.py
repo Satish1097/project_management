@@ -45,9 +45,17 @@ class IssueBoardColumnDTO:
 
 
 @dataclass(frozen=True)
+class BoardScopeDTO:
+    methodology: str
+    has_active_sprint: bool
+    selected_sprint_id: Optional[UUID] = None
+
+
+@dataclass(frozen=True)
 class IssueKanbanDTO:
     project_id: UUID
     columns: list[IssueBoardColumnDTO] = field(default_factory=list)
+    scope: Optional[BoardScopeDTO] = None
 
 
 def get_issue_by_id(issue_id: UUID) -> Optional[IssueDetailDTO]:
@@ -71,9 +79,14 @@ def get_backlog_issues(project_id: UUID) -> list[IssueSummaryDTO]:
 def get_kanban_board(
     project_id: UUID,
     sprint_id: Optional[UUID] = None,
+    *,
+    selected_sprint_id: Optional[UUID] = None,
 ) -> IssueKanbanDTO:
-    from apps.issues.selectors import get_project_kanban, get_sprint_kanban
+    from apps.issues.selectors import get_project_kanban, get_sprint_kanban, resolve_board_scope
+    from apps.projects.models import ProjectMethodology
     from apps.workflow.slug_utils import status_slug
+
+    scope_dto: Optional[BoardScopeDTO] = None
 
     if sprint_id is not None:
         board = get_sprint_kanban(sprint_id)
@@ -81,7 +94,15 @@ def get_kanban_board(
             return IssueKanbanDTO(project_id=project_id, columns=[])
         project_id = board["sprint"].project_id
     else:
-        board = get_project_kanban(project_id)
+        scope = resolve_board_scope(project_id, selected_sprint_id)
+        scope_dto = BoardScopeDTO(
+            methodology=scope.methodology,
+            has_active_sprint=(
+                scope.methodology == ProjectMethodology.KANBAN or not scope.is_empty
+            ),
+            selected_sprint_id=scope.sprint_id,
+        )
+        board = get_project_kanban(project_id, selected_sprint_id=selected_sprint_id)
 
     columns: list[IssueBoardColumnDTO] = []
     for column in board["columns"]:
@@ -97,7 +118,7 @@ def get_kanban_board(
                 priority=issue.priority,
                 status_slug=slug,
                 position=issue.position,
-                assignee_id=issue.assignee_id,
+                assignee_id=issue.get_primary_assignee_id(),
                 sprint_id=issue.sprint_id,
             )
             for issue in column["issues"]
@@ -110,7 +131,7 @@ def get_kanban_board(
             )
         )
 
-    return IssueKanbanDTO(project_id=project_id, columns=columns)
+    return IssueKanbanDTO(project_id=project_id, columns=columns, scope=scope_dto)
 
 
 def get_sprint_issues(sprint_id: UUID) -> list[IssueSummaryDTO]:

@@ -8,6 +8,7 @@ from apps.issues.selectors import select_sprint_activity_feed
 from apps.permissions.drf_permissions import Authenticated, CanManageSprint, CanPlanSprint, CanViewProject
 from apps.projects.exceptions import ProjectNotFoundError
 from apps.projects.selectors import select_project_by_id
+from apps.projects.services.project_service import require_scrum_project
 from apps.sprints.api.serializers import (
     SprintCompleteSerializer,
     SprintCreateSerializer,
@@ -93,6 +94,7 @@ class ProjectSprintListCreateView(APIView):
     @extend_schema(tags=["sprints"])
     def get(self, request, project_id: UUID):
         _require_project(project_id)
+        require_scrum_project(project_id)
         sprints = get_project_sprints_with_health(project_id)
         return success_response(data={"sprints": [_sprint_to_data(sprint, include_health=True) for sprint in sprints]})
 
@@ -121,6 +123,7 @@ class ProjectSprintDetailView(APIView):
     @extend_schema(tags=["sprints"])
     def get(self, request, project_id: UUID, sprint_id: UUID):
         _require_project(project_id)
+        require_scrum_project(project_id)
         _require_project_sprint(project_id=project_id, sprint_id=sprint_id)
         sprint = (
             _sprint_with_health(project_id, sprint_id)
@@ -207,6 +210,7 @@ class SprintActivityView(APIView):
     @extend_schema(tags=["sprints"])
     def get(self, request, project_id: UUID, sprint_id: UUID):
         _require_project(project_id)
+        require_scrum_project(project_id)
         _require_project_sprint(project_id=project_id, sprint_id=sprint_id)
         activities = select_sprint_activity_feed(
             request.user.id,

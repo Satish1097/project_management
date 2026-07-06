@@ -141,7 +141,7 @@ export function WorkspaceActivityPage() {
               emptyMessage="No activity found"
               emptyHelperText={
                 activeFilter === 'all'
-                  ? 'Activity will appear here when issues, comments, sprint changes, or status updates occur in this workspace.'
+                  ? 'Activity will appear here when issues, comments, or status updates occur in this workspace.'
                   : 'No activities match this filter yet.'
               }
               pagination={

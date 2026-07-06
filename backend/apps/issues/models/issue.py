@@ -59,10 +59,8 @@ class Issue(BaseModel):
         blank=True,
         related_name="issues",
     )
-    assignee = models.ForeignKey(
+    assignees = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
         blank=True,
         related_name="assigned_issues",
     )
@@ -99,6 +97,11 @@ class Issue(BaseModel):
         indexes = [
             models.Index(fields=["project", "status"]),
             models.Index(fields=["project", "sprint"]),
-            models.Index(fields=["project", "assignee"]),
             models.Index(fields=["project", "priority"]),
         ]
+
+    def get_primary_assignee_id(self):
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("assignees")
+        if prefetched is not None:
+            return prefetched[0].pk if prefetched else None
+        return self.assignees.values_list("pk", flat=True).first()

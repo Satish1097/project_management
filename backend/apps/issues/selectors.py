@@ -18,7 +18,15 @@ from apps.label.selectors import get_active_labels
 from apps.issues.models.activity import IssueActivityEventType
 from apps.permissions.services import permission_service
 from apps.issues.kanban_constants import DEFAULT_KANBAN_PAGE_SIZE, MAX_KANBAN_PAGE_SIZE
-from apps.sprints.selectors import get_project_sprints, get_sprint_by_id
+from apps.contracts.project_contract import get_project_by_id
+from apps.projects.models import ProjectMethodology
+from apps.sprints.models import SprintStatus
+from apps.sprints.selectors import (
+    get_active_sprint,
+    get_project_sprint_by_id,
+    get_project_sprints,
+    get_sprint_by_id,
+)
 from apps.workflow.models import WorkflowStatusCategory
 from apps.workflow.selectors import get_project_statuses
 from apps.workflow.slug_utils import status_slug
@@ -29,9 +37,8 @@ def _optimized_issue_queryset() -> QuerySet[Issue]:
         "project",
         "sprint",
         "status",
-        "assignee",
         "reporter",
-    ).prefetch_related("labels")
+    ).prefetch_related("labels", "assignees")
 
 
 def _optimized_comment_queryset() -> QuerySet[IssueComment]:
@@ -158,6 +165,10 @@ def get_dashboard_activity_queryset(
         _optimized_activity_queryset()
         .select_related("issue", "issue__project")
         .filter(issue__project_id__in=project_ids)
+        .exclude(
+            event_type=IssueActivityEventType.SPRINT_CHANGED,
+            issue__project__methodology=ProjectMethodology.KANBAN,
+        )
         .order_by("-created_at")
     )
     if event_filter and event_filter != "all":
@@ -195,12 +206,16 @@ def get_project_activity_queryset(user_id: UUID, project_id: UUID) -> QuerySet[I
     if not permission_service.can_view_project(user_id, project_id):
         return IssueActivity.objects.none()
 
-    return (
+    project = get_project_by_id(project_id)
+    queryset = (
         _optimized_activity_queryset()
         .select_related("issue", "issue__project")
         .filter(issue__project_id=project_id)
         .order_by("-created_at")
     )
+    if project is not None and project.methodology == ProjectMethodology.KANBAN:
+        queryset = queryset.exclude(event_type=IssueActivityEventType.SPRINT_CHANGED)
+    return queryset
 
 
 def select_project_activity_feed(
@@ -215,13 +230,16 @@ def select_project_activity_feed(
 
 def select_project_recent_activity(project_id: UUID) -> str | None:
     """Return a short human-friendly string describing the most recent activity for a project."""
-    activity = (
+    project = get_project_by_id(project_id)
+    queryset = (
         _optimized_activity_queryset()
         .select_related("actor", "issue")
         .filter(issue__project_id=project_id)
         .order_by("-created_at")
-        .first()
     )
+    if project is not None and project.methodology == ProjectMethodology.KANBAN:
+        queryset = queryset.exclude(event_type=IssueActivityEventType.SPRINT_CHANGED)
+    activity = queryset.first()
     if activity is None:
         return None
 
@@ -290,9 +308,9 @@ def get_project_issues(
     elif sprint_id is not None:
         qs = qs.filter(sprint_id=sprint_id)
     if assignee_is_null:
-        qs = qs.filter(assignee__isnull=True)
+        qs = qs.annotate(_assignee_count=Count("assignees")).filter(_assignee_count=0)
     elif assignee_id is not None:
-        qs = qs.filter(assignee_id=assignee_id)
+        qs = qs.filter(assignees__id=assignee_id)
     if status_id is not None:
         qs = qs.filter(status_id=status_id)
     if priority is not None:
@@ -413,6 +431,76 @@ def get_kanban_board_filters(project_id: UUID) -> dict:
 
 
 @dataclass(frozen=True)
+class BoardScope:
+    methodology: str
+    sprint_id: UUID | None
+    sprint: object | None
+    is_empty: bool
+
+
+def resolve_board_scope(
+    project_id: UUID,
+    selected_sprint_id: UUID | None = None,
+) -> BoardScope:
+    """
+    Resolve project-board issue scope from project methodology.
+
+    Kanban: all top-level project issues (no sprint).
+    Scrum: active sprint issues only; empty when no active sprint exists.
+    """
+    project = get_project_by_id(project_id)
+    if project is None:
+        return BoardScope(
+            methodology=ProjectMethodology.SCRUM,
+            sprint_id=None,
+            sprint=None,
+            is_empty=True,
+        )
+
+    if project.methodology == ProjectMethodology.KANBAN:
+        return BoardScope(
+            methodology=project.methodology,
+            sprint_id=None,
+            sprint=None,
+            is_empty=False,
+        )
+
+    if selected_sprint_id is not None:
+        sprint = get_project_sprint_by_id(project_id, selected_sprint_id)
+        if sprint is not None and sprint.status == SprintStatus.ACTIVE:
+            return BoardScope(
+                methodology=project.methodology,
+                sprint_id=sprint.id,
+                sprint=sprint,
+                is_empty=False,
+            )
+
+    active_sprint = get_active_sprint(project_id)
+    if active_sprint is None:
+        return BoardScope(
+            methodology=project.methodology,
+            sprint_id=None,
+            sprint=None,
+            is_empty=True,
+        )
+
+    return BoardScope(
+        methodology=project.methodology,
+        sprint_id=active_sprint.id,
+        sprint=active_sprint,
+        is_empty=False,
+    )
+
+
+def _issues_queryset_for_board_scope(project_id: UUID, scope: BoardScope) -> QuerySet[Issue]:
+    if scope.is_empty:
+        return _optimized_issue_queryset().filter(pk__in=[])
+    if scope.sprint_id is not None:
+        return get_sprint_issues(scope.sprint_id)
+    return get_project_issues(project_id)
+
+
+@dataclass(frozen=True)
 class BoardFilterParams:
     assignee_id: UUID | None = None
     assignee_is_null: bool = False
@@ -443,9 +531,9 @@ def _apply_due_date_filter(qs: QuerySet[Issue], due_date: str) -> QuerySet[Issue
 
 def _apply_board_filters(qs: QuerySet[Issue], filters: BoardFilterParams) -> QuerySet[Issue]:
     if filters.assignee_is_null:
-        qs = qs.filter(assignee__isnull=True)
+        qs = qs.annotate(_assignee_count=Count("assignees")).filter(_assignee_count=0)
     elif filters.assignee_id is not None:
-        qs = qs.filter(assignee_id=filters.assignee_id)
+        qs = qs.filter(assignees__id=filters.assignee_id)
     if filters.status_id is not None:
         qs = qs.filter(status_id=filters.status_id)
     if filters.priority is not None:
@@ -463,6 +551,7 @@ def _apply_board_filters(qs: QuerySet[Issue], filters: BoardFilterParams) -> Que
 
 
 def _board_base_queryset(project_id: UUID, sprint_id: UUID | None) -> QuerySet[Issue]:
+    """Sprint-scoped board queryset (sprint board routes)."""
     if sprint_id is not None:
         return get_sprint_issues(sprint_id)
     return get_project_issues(project_id)
@@ -492,26 +581,62 @@ def get_board_metadata(
     sprint_id: UUID | None = None,
     sprint=None,
     filters: BoardFilterParams | None = None,
+    board_scope: BoardScope | None = None,
 ) -> dict:
+    project = get_project_by_id(project_id)
+    is_kanban = project is not None and project.methodology == ProjectMethodology.KANBAN
+
     statuses = list(get_project_statuses(project_id))
-    qs = _board_base_queryset(project_id, sprint_id)
+    if board_scope is not None:
+        base_qs = _issues_queryset_for_board_scope(project_id, board_scope)
+        sprint = board_scope.sprint
+    else:
+        base_qs = _board_base_queryset(project_id, sprint_id)
+
+    gross_count_by_status = {
+        row["status_id"]: row["count"]
+        for row in base_qs.values("status_id").annotate(count=Count("id"))
+    }
+
+    filtered_qs = base_qs
     if filters:
-        qs = _apply_board_filters(qs, filters)
+        filtered_qs = _apply_board_filters(filtered_qs, filters)
 
     count_by_status = {
         row["status_id"]: row["count"]
-        for row in qs.values("status_id").annotate(count=Count("id"))
+        for row in filtered_qs.values("status_id").annotate(count=Count("id"))
     }
 
-    return {
-        "sprint": sprint,
-        "columns": [
+    columns = []
+    if is_kanban:
+        from apps.projects.services.board_config_service import resolve_kanban_column_configs
+
+        status_by_id = {status.id: status for status in statuses}
+        for config in resolve_kanban_column_configs(project_id):
+            if not config.is_enabled:
+                continue
+            status = status_by_id[config.status_id]
+            columns.append(
+                {
+                    "status": status,
+                    "count": count_by_status.get(status.id, 0),
+                    "wip_count": gross_count_by_status.get(status.id, 0),
+                    "wip_limit": config.wip_limit,
+                }
+            )
+    else:
+        columns = [
             {
                 "status": status,
                 "count": count_by_status.get(status.id, 0),
             }
             for status in statuses
-        ],
+        ]
+
+    return {
+        "sprint": sprint,
+        "scope": board_scope,
+        "columns": columns,
     }
 
 
@@ -519,8 +644,10 @@ def get_project_board_metadata(
     project_id: UUID,
     *,
     filters: BoardFilterParams | None = None,
+    selected_sprint_id: UUID | None = None,
 ) -> dict:
-    return get_board_metadata(project_id, sprint_id=None, sprint=None, filters=filters)
+    scope = resolve_board_scope(project_id, selected_sprint_id)
+    return get_board_metadata(project_id, filters=filters, board_scope=scope)
 
 
 def get_sprint_board_metadata(
@@ -544,6 +671,7 @@ def get_board_column_issues(
     column_id: str,
     *,
     sprint_id: UUID | None = None,
+    selected_sprint_id: UUID | None = None,
     filters: BoardFilterParams | None = None,
     page: int = 1,
     page_size: int = DEFAULT_KANBAN_PAGE_SIZE,
@@ -562,7 +690,11 @@ def get_board_column_issues(
             "issues": [],
         }
 
-    qs = _board_base_queryset(project_id, sprint_id).filter(status_id=status.id)
+    if sprint_id is not None:
+        qs = _board_base_queryset(project_id, sprint_id).filter(status_id=status.id)
+    else:
+        scope = resolve_board_scope(project_id, selected_sprint_id)
+        qs = _issues_queryset_for_board_scope(project_id, scope).filter(status_id=status.id)
 
     if filters:
         column_filters = BoardFilterParams(
@@ -613,9 +745,14 @@ def _build_kanban_board(project_id: UUID, issues: QuerySet[Issue], *, sprint=Non
     }
 
 
-def get_project_kanban(project_id: UUID) -> dict:
-    issues = get_project_issues(project_id)
-    return _build_kanban_board(project_id, issues, sprint=None)
+def get_project_kanban(
+    project_id: UUID,
+    *,
+    selected_sprint_id: UUID | None = None,
+) -> dict:
+    scope = resolve_board_scope(project_id, selected_sprint_id)
+    issues = _issues_queryset_for_board_scope(project_id, scope)
+    return _build_kanban_board(project_id, issues, sprint=scope.sprint)
 
 
 def get_sprint_kanban(sprint_id: UUID) -> dict | None:

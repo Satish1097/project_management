@@ -47,10 +47,10 @@ export function ProjectCard({
     <Link
       to={to}
       className={cn(
-        'group flex rounded-lg border border-devflow-border bg-devflow-card transition-all duration-200',
-        'hover:-translate-y-px hover:border-devflow-border/80 hover:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.08)]',
-        'active:translate-y-0 active:shadow-[0_1px_3px_rgba(0,0,0,0.06)]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-devflow-primary/30 focus-visible:ring-offset-1',
+        'group flex rounded-lg border border-devflow-border bg-devflow-card shadow-devflow-sm transition-all duration-200',
+        'hover:-translate-y-px hover:border-devflow-border/80 hover:shadow-devflow-md',
+        'active:translate-y-0 active:shadow-devflow-sm',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-devflow-primary/30 focus-visible:ring-offset-1 focus-visible:ring-offset-devflow-card',
         viewMode === 'list'
           ? 'flex-row items-center gap-4 p-4'
           : 'flex-col gap-3 p-4',

@@ -36,6 +36,19 @@ def project(organization, superuser):
 
 
 @pytest.fixture
+def kanban_project(organization, superuser):
+    return create_project(
+        organization=organization.id,
+        name="Kanban Delivery Board",
+        key="KANB",
+        slug="kanban-board",
+        creator=superuser,
+        visibility="organization",
+        methodology="kanban",
+    )
+
+
+@pytest.fixture
 def project_with_roles(project, superuser, user, other_user):
     add_project_member(
         project_id=project.id,
@@ -50,6 +63,17 @@ def project_with_roles(project, superuser, user, other_user):
         role=ProjectRole.VIEWER,
     )
     return project
+
+
+@pytest.fixture
+def kanban_project_with_manager(kanban_project, superuser, project_manager_user):
+    add_project_member(
+        project_id=kanban_project.id,
+        user_id=project_manager_user.id,
+        added_by=superuser,
+        role=ProjectRole.PROJECT_MANAGER,
+    )
+    return kanban_project
 
 
 @pytest.fixture

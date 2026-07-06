@@ -9,6 +9,8 @@ export type ProjectSummaryApi = {
   slug: string
   name: string
   status: string
+  methodology: string
+  board_type: string
   open_issue_count: number
   active_sprint_id: string | null
   recent_activity?: string
@@ -23,6 +25,9 @@ export type ProjectDetailApi = {
   description: string
   status: string
   visibility: string
+  methodology: string
+  board_type: string
+  default_sprint_weeks: number | null
   lead_user_id: string | null
   archived_at?: string
 }
@@ -32,6 +37,8 @@ export type CreateProjectPayload = {
   slug: string
   name: string
   description?: string
+  methodology?: 'scrum' | 'kanban'
+  default_sprint_weeks?: number | null
 }
 
 export type UpdateProjectPayload = {
@@ -57,7 +64,27 @@ export type ProjectReportSummaryApi = {
   total_issues: number
   open_issues: number
   done_issues: number
-  backlog_issues: number
+  backlog_issues?: number
+  todo_issues?: number
+}
+
+export type SprintHealthApi = {
+  sprint_id: string
+  sprint_name: string
+  sprint_status: string
+  start_date: string | null
+  end_date: string | null
+  capacity_points: number | null
+  committed_story_points: number
+  completed_story_points: number
+  remaining_story_points: number
+  total_issues: number
+  completed_issues: number
+  remaining_issues: number
+  in_progress_issues: number
+  progress_percentage: number
+  issue_count: number
+  completed_issue_count: number
 }
 
 function toApiError(error: unknown): ApiError {
@@ -114,6 +141,20 @@ export async function getProjectReportSummary(
   }
 }
 
+export async function getProjectSprintHealth(
+  projectId: string,
+): Promise<SprintHealthApi[]> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ sprint_health: SprintHealthApi[] }>>(
+      `/projects/${projectId}/reports/sprint-health`,
+    )
+    const items = data.data.sprint_health
+    return Array.isArray(items) ? items : []
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
 export async function createProject(
   organizationId: string,
   payload: CreateProjectPayload,
@@ -126,6 +167,10 @@ export async function createProject(
         slug: payload.slug.trim().toLowerCase(),
         name: payload.name.trim(),
         ...(payload.description !== undefined ? { description: payload.description } : {}),
+        ...(payload.methodology !== undefined ? { methodology: payload.methodology } : {}),
+        ...(payload.default_sprint_weeks !== undefined
+          ? { default_sprint_weeks: payload.default_sprint_weeks }
+          : {}),
       },
     )
     return data.data.project

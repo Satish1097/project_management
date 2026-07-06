@@ -3,6 +3,7 @@ import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { getProjectActivity, type ProjectActivityPageApi } from '@/api/projects'
 import { ActivityFeed } from '@/features/dashboard/ActivityFeed'
+import { useProjectMethodology } from '@/hooks/useProjectMethodology'
 import { getProjectById } from '@/services/projectData'
 
 const PAGE_SIZE = 10
@@ -11,6 +12,7 @@ export function ProjectActivityPage() {
   const { projectId = '' } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const project = getProjectById(projectId)
+  const { isKanban } = useProjectMethodology(projectId)
   const [activityPage, setActivityPage] = useState<ProjectActivityPageApi | null>(null)
   const [activityLoading, setActivityLoading] = useState(false)
   const [activityError, setActivityError] = useState<string | null>(null)
@@ -53,17 +55,26 @@ export function ProjectActivityPage() {
     return <Navigate to="/projects" replace />
   }
 
+  const visibleActivities =
+    activityPage?.results.filter(
+      (item) => !isKanban || item.event_type !== 'sprint_changed',
+    ) ?? null
+
   return (
     <main className="page-main p-4">
       <ActivityFeed
         variant="full"
         showProjectName={false}
-        activities={activityPage?.results ?? null}
+        activities={visibleActivities}
         isLoading={activityLoading}
         error={activityError}
         onRetry={loadActivity}
         emptyMessage="No activity recorded yet"
-        emptyHelperText="Activity will appear here when issues, comments, sprint changes, or status updates occur."
+        emptyHelperText={
+          isKanban
+            ? 'Activity will appear here when issues, comments, or status updates occur.'
+            : 'Activity will appear here when issues, comments, sprint changes, or status updates occur.'
+        }
         pagination={
           activityPage
             ? {

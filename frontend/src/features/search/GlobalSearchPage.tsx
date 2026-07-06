@@ -15,7 +15,7 @@ const results = [
     type: 'issue',
     key: 'DF-101',
     title: 'Implement OAuth2 Flow for external partners',
-    meta: 'In Progress · Sprint 42',
+    meta: 'In Progress · Mobile App',
   },
   {
     id: '2',

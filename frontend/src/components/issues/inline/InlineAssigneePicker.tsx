@@ -206,6 +206,13 @@ export function InlineAssigneePicker({
 
   }, [assigneeIds, value])
 
+  const displayAssigneeLabel = useMemo(() => {
+    if (displayAssignees[0]?.name === 'Unassigned') return 'Unassigned'
+    return displayAssignees
+      .map((item) => item.email || item.name)
+      .join(', ')
+  }, [displayAssignees])
+
 
 
   const options = useMemo(
@@ -308,7 +315,7 @@ export function InlineAssigneePicker({
 
       disabled={disabled}
 
-      fullWidth={cell}
+      fullWidth={cell || className?.includes('w-full')}
 
       searchable
 
@@ -332,11 +339,12 @@ export function InlineAssigneePicker({
 
               ? INLINE_CELL_TRIGGER
 
-              : 'inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-devflow-muted/60',
+              : 'inline-flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 hover:bg-devflow-muted/60',
 
             compact && !cell && 'px-1 py-0.5',
 
           )}
+          title={!compact && !cell ? displayAssigneeLabel : undefined}
 
         >
 
@@ -352,13 +360,13 @@ export function InlineAssigneePicker({
 
           {!compact && !cell ? (
 
-            <span className="max-w-[7rem] truncate text-caption text-devflow-text-secondary">
+            <span className="min-w-0 flex-1 truncate text-caption text-devflow-text-secondary">
 
               {displayAssignees[0]?.name === 'Unassigned'
 
                 ? 'Unassigned'
 
-                : displayAssignees.map((item) => item.name).join(', ')}
+                : displayAssigneeLabel}
 
             </span>
 

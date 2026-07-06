@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -60,6 +61,7 @@ import { getWorkflow, type WorkflowStatusApi } from '@/api/workflow'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { showToast } from '@/features/toast/toast'
 import { useIssues } from '@/contexts/IssuesContext'
+import { useProjectMethodology } from '@/hooks/useProjectMethodology'
 import {
   getIssueDetailExtras,
   updateIssueDetailExtras,
@@ -227,6 +229,39 @@ function memberIdFromAssignee(issue: ProjectIssue): string {
   return mockMembers.find((m) => m.name === issue.assignee.name)?.id ?? ''
 }
 
+function useAutoSizingTextarea(value: string) {
+  const ref = useRef<HTMLTextAreaElement | null>(null)
+  const [editing, setEditing] = useState(false)
+
+  useLayoutEffect(() => {
+    if (!editing) return
+    if (!ref.current) return
+    ref.current.style.height = 'auto'
+    ref.current.style.height = `${ref.current.scrollHeight}px`
+  }, [editing, value])
+
+  const handleInput = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
+    if (!editing) return
+    event.currentTarget.style.height = 'auto'
+    event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`
+  }, [editing])
+
+  const handleFocus = useCallback(() => {
+    setEditing(true)
+    if (!ref.current) return
+    ref.current.style.height = 'auto'
+    ref.current.style.height = `${ref.current.scrollHeight}px`
+  }, [])
+
+  const handleBlur = useCallback(() => {
+    setEditing(false)
+    if (!ref.current) return
+    ref.current.style.height = ''
+  }, [])
+
+  return { ref, handleInput, handleFocus, handleBlur }
+}
+
 export function IssueDetailDrawer({
   open,
   issue,
@@ -272,6 +307,9 @@ export function IssueDetailDrawer({
   const attachmentInputRef = useRef<HTMLInputElement | null>(null)
   const initialSnapshotRef = useRef('')
   const loadedWorkflowStatusRef = useRef<IssueWorkflowStatus | undefined>(undefined)
+  const descriptionTextarea = useAutoSizingTextarea(extras?.description ?? '')
+  const acceptanceTextarea = useAutoSizingTextarea(extras?.acceptanceCriteria ?? '')
+  const { isScrum } = useProjectMethodology(draft?.projectId ?? issue?.projectId)
 
   const persisted = useMemo(
     () => Boolean(draft?.id && isApiIssueId(draft.id)),
@@ -556,9 +594,13 @@ export function IssueDetailDrawer({
           description: extras.description.trim(),
           type: draft.issueType,
           priority: draft.priorityLevel ?? 'medium',
-          sprint: draft.sprintId,
+          ...(isScrum
+            ? {
+                sprint: draft.sprintId,
+                story_points: draft.storyPoints ?? null,
+              }
+            : {}),
           assignee: memberIdFromAssignee(draft) || null,
-          story_points: draft.storyPoints ?? null,
           due_date: draft.dueDate || null,
           estimate_hours: draft.estimateHours ?? null,
           labels: draft.labelIds ?? [],
@@ -596,6 +638,7 @@ export function IssueDetailDrawer({
     updateIssueViaApi,
     onIssueUpdated,
     loadIssueActivity,
+    isScrum,
   ])
 
   const patchDraft = useCallback((patch: Partial<ProjectIssue>) => {
@@ -984,7 +1027,9 @@ export function IssueDetailDrawer({
 
   const formattedActivity = useMemo(
     () =>
-      activity.map((item) => {
+      activity
+        .filter((item) => isScrum || item.event_type !== 'sprint_changed')
+        .map((item) => {
         const actorName = resolveActorName(item.actor)
         const action = ACTIVITY_MESSAGE_BY_EVENT_TYPE[item.event_type] ?? 'updated issue'
         const transition = TRANSITION_EVENT_TYPES.has(item.event_type)
@@ -1001,7 +1046,7 @@ export function IssueDetailDrawer({
           timestamp: formatActivityCreatedAt(item.created_at),
         }
       }),
-    [activity, formatTransitionValue, resolveActorName],
+    [activity, formatTransitionValue, isScrum, resolveActorName],
   )
 
   const handleAttachmentSelection = useCallback(
@@ -1084,31 +1129,31 @@ export function IssueDetailDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="drawer-panel-enter relative flex h-full w-full min-w-0 flex-col border-l border-devflow-border bg-devflow-card shadow-devflow-drawer sm:w-[90vw] md:w-[68vw] lg:w-[62vw] lg:max-w-[48rem]"
+        className="drawer-panel-enter relative flex h-full w-full min-w-0 flex-col border-l border-devflow-border bg-devflow-card shadow-devflow-drawer sm:w-[90vw] md:w-[68vw] lg:w-[62vw] lg:max-w-[46rem]"
       >
         <header className="sticky top-0 z-20 shrink-0 border-b border-devflow-border bg-devflow-card/95 backdrop-blur-sm">
-          <div className="px-5 pt-4 pb-3">
-            <div className="flex items-start justify-between gap-4">
-              <span className="font-mono text-caption font-medium tracking-wide text-devflow-text-muted">
+          <div className="px-4 pt-2.5 pb-2">
+            <div className="flex items-start justify-between gap-2.5">
+              <span className="font-mono text-[11px] font-medium tracking-wide text-devflow-text-muted">
                 {draft.key}
               </span>
               <div className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
                   title="Fullscreen (coming soon)"
-                  className="rounded-lg p-1.5 text-devflow-text-muted transition-colors hover:bg-devflow-surface"
+                  className="rounded-md p-1 text-devflow-text-muted transition-colors hover:bg-devflow-surface"
                   aria-label="Expand to fullscreen"
                   disabled
                 >
-                  <Maximize2 className="size-5" />
+                  <Maximize2 className="size-4" />
                 </button>
                 <button
                   type="button"
                   onClick={requestClose}
-                  className="rounded-lg p-1.5 text-devflow-text-secondary transition-colors hover:bg-devflow-surface"
+                  className="rounded-md p-1 text-devflow-text-secondary transition-colors hover:bg-devflow-surface"
                   aria-label="Close"
                 >
-                  <X className="size-5" />
+                  <X className="size-4" />
                 </button>
               </div>
             </div>
@@ -1117,11 +1162,14 @@ export function IssueDetailDrawer({
               id={titleId}
               value={draft.title}
               onChange={(e) => patchDraft({ title: e.target.value })}
-              className="mt-2 w-full bg-transparent text-page-title font-semibold leading-snug text-devflow-text outline-none placeholder:text-devflow-text-muted/50 focus:rounded-md focus:ring-2 focus:ring-devflow-primary/25"
+              className="mt-1.5 w-full bg-transparent text-[1.05rem] font-semibold leading-tight text-devflow-text outline-none placeholder:text-devflow-text-muted/50 focus:rounded-md focus:ring-2 focus:ring-devflow-primary/25"
               placeholder="Issue title"
             />
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center rounded-md border border-devflow-border/80 px-1.5 py-0.5 text-[11px] font-medium text-devflow-text-secondary">
+                {draft.issueType}
+              </span>
               <IssueStatusBadge status={statusForBadge} />
               <PriorityBadge priority={priorityForBadge(draft)} />
               {(draft.labels ?? [draft.label]).slice(0, 4).map((label) => (
@@ -1131,7 +1179,7 @@ export function IssueDetailDrawer({
           </div>
 
           <nav
-            className="flex gap-0.5 overflow-x-auto border-t border-devflow-border/80 px-3"
+            className="flex gap-0.5 overflow-x-auto border-t border-devflow-border/80 px-2.5"
             aria-label="Issue sections"
           >
             {TABS.map((item) => (
@@ -1140,7 +1188,7 @@ export function IssueDetailDrawer({
                 type="button"
                 onClick={() => setTab(item.id)}
                 className={cn(
-                  'shrink-0 border-b-2 px-3 py-2.5 text-btn transition-colors',
+                  'shrink-0 border-b-2 px-2.5 py-1.5 text-caption transition-colors',
                   tab === item.id
                     ? 'border-devflow-primary text-devflow-primary'
                     : 'border-transparent text-devflow-text-secondary hover:border-devflow-border hover:text-devflow-text',
@@ -1148,7 +1196,7 @@ export function IssueDetailDrawer({
               >
                 {item.label}
                 {item.id === 'comments' && extras.comments.length > 0 && (
-                  <span className="ml-1.5 rounded-full bg-devflow-pill px-1.5 text-caption">
+                  <span className="ml-1 rounded-full bg-devflow-pill px-1.5 text-[11px]">
                     {extras.comments.length}
                   </span>
                 )}
@@ -1158,11 +1206,11 @@ export function IssueDetailDrawer({
         </header>
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-5">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-3">
             {tab === 'details' && (
-              <div className="space-y-5">
-                <div className="rounded-xl border border-devflow-border bg-devflow-surface/80 p-4 lg:hidden">
-                  <p className="mb-3 text-caption-label font-semibold uppercase tracking-wider text-devflow-text-muted">
+              <div className="space-y-3.5">
+                <div className="rounded-lg border border-devflow-border bg-devflow-surface/80 p-3 lg:hidden">
+                  <p className="mb-2 text-caption-label font-semibold uppercase tracking-wider text-devflow-text-muted">
                     Properties
                   </p>
                   <MetadataPanel
@@ -1170,6 +1218,8 @@ export function IssueDetailDrawer({
                     extras={extras}
                     projectName={project?.name}
                     sprintName={sprint?.name}
+                    showSprint={isScrum}
+                    showStoryPoints={isScrum}
                     persistedStatus={persisted}
                     workflowStatuses={workflowStatuses}
                     statusLoading={workflowLoading}
@@ -1184,10 +1234,14 @@ export function IssueDetailDrawer({
                     Description
                   </label>
                   <textarea
+                    ref={descriptionTextarea.ref}
                     value={extras.description}
                     onChange={(e) => patchExtras({ description: e.target.value })}
-                    rows={5}
-                    className="mt-1.5 w-full resize-y rounded-lg border border-devflow-border bg-devflow-surface px-3 py-2 text-input text-devflow-text outline-none focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/20"
+                    onInput={descriptionTextarea.handleInput}
+                    onFocus={descriptionTextarea.handleFocus}
+                    onBlur={descriptionTextarea.handleBlur}
+                    rows={2}
+                    className="mt-1 w-full overflow-hidden rounded-md border border-devflow-border bg-devflow-surface px-2.5 py-1.5 text-input text-devflow-text outline-none focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/20"
                   />
                 </div>
                 <div>
@@ -1195,20 +1249,24 @@ export function IssueDetailDrawer({
                     Acceptance Criteria
                   </label>
                   <textarea
+                    ref={acceptanceTextarea.ref}
                     value={extras.acceptanceCriteria}
                     onChange={(e) =>
                       patchExtras({ acceptanceCriteria: e.target.value })
                     }
-                    rows={4}
-                    className="mt-1.5 w-full resize-y rounded-lg border border-devflow-border bg-devflow-surface px-3 py-2 text-input text-devflow-text outline-none focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/20"
+                    onInput={acceptanceTextarea.handleInput}
+                    onFocus={acceptanceTextarea.handleFocus}
+                    onBlur={acceptanceTextarea.handleBlur}
+                    rows={2}
+                    className="mt-1 w-full overflow-hidden rounded-md border border-devflow-border bg-devflow-surface px-2.5 py-1.5 text-input text-devflow-text outline-none focus:border-devflow-primary focus:ring-2 focus:ring-devflow-primary/20"
                   />
                 </div>
-                <div className="rounded-lg border border-devflow-border bg-devflow-surface p-4">
+                <div className="rounded-lg border border-devflow-border bg-devflow-surface p-3">
                   <h3 className="flex items-center gap-2 text-card-title text-devflow-text">
                     <MessageSquare className="size-4" />
                     Comments summary
                   </h3>
-                  <p className="mt-2 text-body text-devflow-text-secondary">
+                  <p className="mt-1.5 text-body text-devflow-text-secondary">
                     {extras.comments.length === 0
                       ? 'No comments yet.'
                       : `${extras.comments.length} comment${extras.comments.length === 1 ? '' : 's'} — latest from ${extras.comments[extras.comments.length - 1].author.name}`}
@@ -1216,7 +1274,7 @@ export function IssueDetailDrawer({
                   <button
                     type="button"
                     onClick={() => setTab('comments')}
-                    className="mt-2 text-btn text-devflow-primary hover:underline"
+                    className="mt-1.5 text-btn text-devflow-primary hover:underline"
                   >
                     View all comments
                   </button>
@@ -1574,12 +1632,12 @@ export function IssueDetailDrawer({
           {tab === 'details' && (
             <aside
               className={cn(
-                'hidden shrink-0 overflow-y-auto border-l-2 border-devflow-border bg-devflow-surface/90 lg:block lg:w-[17.5rem] xl:w-72',
+                'hidden shrink-0 overflow-y-auto border-l border-devflow-border bg-devflow-surface/90 lg:block lg:w-[16rem] xl:w-[16.5rem]',
                 'shadow-[-6px_0_16px_-8px_rgba(15,23,42,0.12)] dark:shadow-[-6px_0_16px_-8px_rgba(0,0,0,0.35)]',
               )}
             >
-              <div className="sticky top-0 p-4">
-                <p className="mb-4 text-caption-label font-semibold uppercase tracking-wider text-devflow-text-muted">
+              <div className="sticky top-0 p-3">
+                <p className="mb-2 text-caption-label font-semibold uppercase tracking-wider text-devflow-text-muted">
                   Properties
                 </p>
                 <MetadataPanel
@@ -1587,6 +1645,8 @@ export function IssueDetailDrawer({
                   extras={extras}
                   projectName={project?.name}
                   sprintName={sprint?.name}
+                  showSprint={isScrum}
+                  showStoryPoints={isScrum}
                   persistedStatus={persisted}
                   workflowStatuses={workflowStatuses}
                   statusLoading={workflowLoading}
@@ -1599,7 +1659,7 @@ export function IssueDetailDrawer({
           )}
         </div>
 
-        <footer className="sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-3 border-t border-devflow-border bg-devflow-card px-5 py-3 shadow-[0_-4px_12px_-4px_rgba(15,23,42,0.08)]">
+        <footer className="sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-2 border-t border-devflow-border bg-devflow-card px-4 py-2 shadow-[0_-4px_12px_-4px_rgba(15,23,42,0.08)]">
           <button
             type="button"
             onClick={() => void handleDelete()}
@@ -1622,7 +1682,7 @@ export function IssueDetailDrawer({
             <button
               type="button"
               onClick={requestClose}
-              className="rounded-lg border border-devflow-border px-4 py-2 text-btn text-devflow-text-secondary transition-colors hover:bg-devflow-surface"
+              className="rounded-md border border-devflow-border px-3 py-1.5 text-btn text-devflow-text-secondary transition-colors hover:bg-devflow-surface"
             >
               Cancel
             </button>
@@ -1630,7 +1690,7 @@ export function IssueDetailDrawer({
               type="button"
               onClick={() => void saveChanges()}
               disabled={!dirty || saving}
-              className="rounded-lg bg-devflow-primary px-4 py-2 text-btn font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-md bg-devflow-primary px-3 py-1.5 text-btn font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {saving ? 'Saving…' : 'Save Changes'}
             </button>
@@ -1646,6 +1706,8 @@ type MetadataPanelProps = {
   extras: IssueDetailExtras
   projectName?: string
   sprintName?: string
+  showSprint?: boolean
+  showStoryPoints?: boolean
   persistedStatus?: boolean
   workflowStatuses?: WorkflowStatusApi[]
   statusLoading?: boolean
@@ -1659,6 +1721,8 @@ function MetadataPanel({
   extras,
   projectName,
   sprintName,
+  showSprint = true,
+  showStoryPoints = true,
   persistedStatus = false,
   workflowStatuses = [],
   statusLoading = false,
@@ -1708,13 +1772,24 @@ function MetadataPanel({
       ? 'Loading workflow statuses…'
       : undefined
   const assigneeMembers = useAssigneeMembers(draft.projectId)
+  const dueDateInputRef = useRef<HTMLInputElement | null>(null)
+
+  const openDueDatePicker = useCallback(() => {
+    const input = dueDateInputRef.current
+    if (!input) return
+    input.focus()
+    if ('showPicker' in HTMLInputElement.prototype) {
+      ;(input as HTMLInputElement & { showPicker?: () => void }).showPicker?.()
+    }
+  }, [])
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <MetaField label="Assignee">
         <AssigneeField
           projectId={draft.projectId}
           value={assigneeId}
+          className="w-full"
           onChange={(userId) => {
             const member = userId
               ? assigneeMembers.find((item) => item.id === userId)
@@ -1730,7 +1805,7 @@ function MetadataPanel({
       </MetaField>
 
       <MetaField label="Reporter">
-        <div className="flex items-center gap-2.5 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2.5">
+        <div className="flex min-w-0 items-center gap-2 rounded-md border border-devflow-border bg-devflow-card px-2.5 py-1.5">
           <UserAvatar
             name={extras.reporter.name}
             color={extras.reporter.color}
@@ -1738,7 +1813,12 @@ function MetadataPanel({
             userId={extras.reporter.userId}
             projectId={draft.projectId}
           />
-          <span className="text-input text-devflow-text">{extras.reporter.name}</span>
+          <span
+            className="min-w-0 flex-1 truncate text-input leading-5 text-devflow-text"
+            title={extras.reporter.email || extras.reporter.name}
+          >
+            {extras.reporter.email || extras.reporter.name}
+          </span>
         </div>
       </MetaField>
 
@@ -1773,21 +1853,31 @@ function MetadataPanel({
         />
       </MetaField>
 
-      <MetaField label="Sprint">
-        <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2.5 text-input text-devflow-text">
-          <ChevronDown className="size-4 shrink-0 text-devflow-text-muted" />
-          <span className="truncate">{sprintName ?? 'Backlog'}</span>
-        </div>
-      </MetaField>
+      {showSprint ? (
+        <MetaField label="Sprint">
+          <div className="flex items-center gap-2 rounded-md border border-devflow-border bg-devflow-card px-2.5 py-1.5 text-input text-devflow-text">
+            <ChevronDown className="size-4 shrink-0 text-devflow-text-muted" />
+            <span className="truncate">{sprintName ?? 'Backlog'}</span>
+          </div>
+        </MetaField>
+      ) : null}
 
       <MetaField label="Due Date">
-        <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2.5">
-          <Calendar className="size-4 shrink-0 text-devflow-text-muted" />
+        <div className="flex items-center gap-2 rounded-md border border-devflow-border bg-devflow-card px-2.5 py-1.5">
+          <button
+            type="button"
+            onClick={openDueDatePicker}
+            aria-label="Open due date picker"
+            className="shrink-0 rounded text-devflow-text-muted transition-colors hover:text-devflow-text focus:outline-none focus:ring-2 focus:ring-devflow-primary/25"
+          >
+            <Calendar className="size-4" />
+          </button>
           <input
-            type="text"
+            ref={dueDateInputRef}
+            type="date"
             value={draft.dueDate ?? ''}
             onChange={(e) => onPatch({ dueDate: e.target.value })}
-            placeholder="Set due date"
+            onClick={openDueDatePicker}
             className="min-w-0 flex-1 bg-transparent text-input outline-none"
           />
         </div>
@@ -1805,36 +1895,38 @@ function MetadataPanel({
         />
       </MetaField>
 
-      <div className="border-t border-devflow-border/80 pt-3">
+      <div className="border-t border-devflow-border/80 pt-2">
         <MetaField label="Epic">
           <input
             value={extras.epic ?? ''}
             readOnly
-            className="w-full rounded-lg border border-devflow-border bg-devflow-card px-3 py-2.5 text-input text-devflow-text-secondary"
+            className="w-full rounded-md border border-devflow-border bg-devflow-card px-2.5 py-1.5 text-input text-devflow-text-secondary"
           />
         </MetaField>
 
-        <MetaField label="Story Points">
-          <select
-            value={String(draft.storyPoints ?? '')}
-            onChange={(e) =>
-              onPatch({
-                storyPoints: e.target.value ? Number(e.target.value) : undefined,
-              })
-            }
-            className="w-full rounded-lg border border-devflow-border bg-devflow-card px-3 py-2.5 text-input"
-          >
-            <option value="">—</option>
-            {STORY_POINT_OPTIONS.map((pt) => (
-              <option key={pt} value={pt}>
-                {pt}
-              </option>
-            ))}
-          </select>
-        </MetaField>
+        {showStoryPoints ? (
+          <MetaField label="Story Points">
+            <select
+              value={String(draft.storyPoints ?? '')}
+              onChange={(e) =>
+                onPatch({
+                  storyPoints: e.target.value ? Number(e.target.value) : undefined,
+                })
+              }
+              className="w-full rounded-md border border-devflow-border bg-devflow-card px-2.5 py-1.5 text-input"
+            >
+              <option value="">—</option>
+              {STORY_POINT_OPTIONS.map((pt) => (
+                <option key={pt} value={pt}>
+                  {pt}
+                </option>
+              ))}
+            </select>
+          </MetaField>
+        ) : null}
 
         <MetaField label="Project">
-          <span className="block rounded-lg border border-transparent px-1 py-0.5 text-input text-devflow-text-secondary">
+          <span className="block rounded-md border border-transparent px-1 py-0.5 text-input text-devflow-text-secondary">
             {projectName ?? '—'}
           </span>
         </MetaField>
@@ -1869,8 +1961,8 @@ function MetaField({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-devflow-border/50 bg-devflow-card/60 p-3">
-      <p className="mb-2 text-caption-label font-medium uppercase tracking-wider text-devflow-text-muted">
+    <div className="rounded-md border border-devflow-border/50 bg-devflow-card/60 px-2.5 py-2">
+      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-devflow-text-muted">
         {label}
       </p>
       <div className="[&_label]:sr-only [&_.text-label]:sr-only">

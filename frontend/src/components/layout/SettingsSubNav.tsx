@@ -1,22 +1,28 @@
-import { GitBranch, Plug, Settings, Tags, Users } from 'lucide-react'
+import { Columns3, GitBranch, Plug, Settings, Tags, Users } from 'lucide-react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import {
+  projectSettingsBoardPath,
   projectSettingsGeneralPath,
   projectSettingsIntegrationsPath,
   projectSettingsLabelsPath,
   projectSettingsMembersPath,
   projectSettingsStatusesPath,
 } from '@/constants/routes'
+import { useProjectMethodology } from '@/hooks/useProjectMethodology'
 import { cn } from '@/utils/cn'
 
 export function SettingsSubNav() {
   const { projectId = '' } = useParams()
   const { pathname } = useLocation()
+  const { isKanban } = useProjectMethodology(projectId)
 
   const items = [
     { label: 'General', icon: Settings, path: projectSettingsGeneralPath(projectId) },
     { label: 'Members', icon: Users, path: projectSettingsMembersPath(projectId) },
     { label: 'Statuses', icon: GitBranch, path: projectSettingsStatusesPath(projectId) },
+    ...(isKanban
+      ? [{ label: 'Board', icon: Columns3, path: projectSettingsBoardPath(projectId) }]
+      : []),
     { label: 'Labels', icon: Tags, path: projectSettingsLabelsPath(projectId) },
     {
       label: 'Integrations',

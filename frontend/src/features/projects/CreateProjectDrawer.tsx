@@ -150,11 +150,18 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
 
     setSubmitting(true)
     try {
+      const sprintWeeks =
+        values.methodology === 'scrum' && values.sprintDuration !== 'custom'
+          ? Number(values.sprintDuration)
+          : undefined
+
       const project = await createProject({
         key: values.key,
         slug: generateProjectSlug(values.name || values.key),
         name: values.name.trim(),
         description: values.description.trim(),
+        methodology: values.methodology,
+        ...(sprintWeeks !== undefined ? { default_sprint_weeks: sprintWeeks } : {}),
       })
       setSubmitting(false)
       onClose()

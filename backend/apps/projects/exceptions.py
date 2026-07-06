@@ -27,3 +27,14 @@ class ProjectMembershipError(ProjectsDomainError):
 
 class ProjectArchivedError(ProjectsDomainError):
     """Project is archived and read-only."""
+
+
+class ProjectMethodologyError(ProjectsDomainError):
+    """Operation is not supported for the project's methodology."""
+
+    code = "methodology_not_supported"
+
+    def __init__(self, message: str, *, code: str | None = None):
+        super().__init__(message)
+        if code is not None:
+            self.code = code

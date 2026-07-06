@@ -131,6 +131,10 @@ export function projectSettingsIntegrationsPath(projectId: string) {
   return `${projectSettingsPath(projectId)}/integrations`
 }
 
+export function projectSettingsBoardPath(projectId: string) {
+  return `${projectSettingsPath(projectId)}/board`
+}
+
 export function isProjectSettingsPath(pathname: string, projectId: string): boolean {
   return pathname.startsWith(`${projectSettingsPath(projectId)}/`)
 }

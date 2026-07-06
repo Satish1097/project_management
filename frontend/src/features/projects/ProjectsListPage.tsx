@@ -67,7 +67,7 @@ export function ProjectsListPage() {
             <div>
               <h1 className="text-page-title text-devflow-text">Projects</h1>
               <p className="mt-0.5 text-body text-devflow-text-secondary">
-                Select a project to view overview, sprints, and boards.
+                Select a project to view overview and boards.
               </p>
             </div>
             <button
@@ -99,7 +99,8 @@ export function ProjectsListPage() {
               }
             >
               {filteredProjects.map((project) => {
-                const activeSprint = getActiveSprint(project.id)
+                const activeSprint =
+                  project.methodology === 'scrum' ? getActiveSprint(project.id) : undefined
                 const membersState = membersByProject[project.id]
                 const { members: avatarMembers, extra: avatarExtra } =
                   projectMembersToAvatarGroup(membersState?.members ?? [])
@@ -164,7 +165,7 @@ function ProjectsEmptyState({ onCreate }: { onCreate: () => void }) {
       <FolderKanban className="mb-3 size-9 text-devflow-text-muted" />
       <p className="text-section-title text-devflow-text">No projects yet</p>
       <p className="mt-2 max-w-md text-body text-devflow-text-secondary">
-        Create your first project to start planning sprints and tracking work.
+        Create your first project to start tracking work on the board.
       </p>
       <button
         type="button"

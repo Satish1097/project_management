@@ -26,6 +26,7 @@ from apps.label.models import Label
 from apps.notifications.services import notification_service
 from apps.permissions.services import permission_service
 from apps.projects.models import Project, ProjectStatus
+from apps.projects.services.project_service import require_scrum_project
 from apps.sprints.exceptions import SprintNotFoundError
 from apps.sprints.models import Sprint
 from apps.workflow.exceptions import WorkflowStatusNotFoundError
@@ -209,6 +210,7 @@ class IssueService:
         _validate_parent_issue(project_id, type, parent_issue_id)
 
         if sprint_id is not None:
+            require_scrum_project(project_id)
             _validate_sprint(project_id, sprint_id)
 
         labels = _validate_label_ids(project_id, label_ids or [])
@@ -225,13 +227,14 @@ class IssueService:
                 priority=priority,
                 status_id=default_status.id,
                 sprint_id=sprint_id,
-                assignee_id=assignee_id,
                 reporter_id=user.id,
                 due_date=due_date,
                 estimate_hours=estimate_hours,
                 story_points=story_points,
                 parent_issue_id=parent_issue_id,
             )
+            if assignee_id is not None:
+                issue.assignees.add(assignee_id)
             if labels:
                 issue.labels.set(labels)
 
@@ -282,16 +285,18 @@ class IssueService:
 
         sprint_value = fields.get("sprint_id", fields.get("sprint"))
         if "sprint_id" in fields or "sprint" in fields:
+            require_scrum_project(issue.project_id)
             if sprint_value is not None:
                 _validate_sprint(issue.project_id, sprint_value)
             issue.sprint_id = sprint_value
             update_fields.append("sprint_id")
 
-        old_assignee_id = issue.assignee_id
+        old_assignee_id = issue.get_primary_assignee_id()
         assignee_value = fields.get("assignee_id", fields.get("assignee"))
         if "assignee_id" in fields or "assignee" in fields:
-            issue.assignee_id = assignee_value
-            update_fields.append("assignee_id")
+            issue.assignees.clear()
+            if assignee_value is not None:
+                issue.assignees.add(assignee_value)
 
         if "due_date" in fields:
             issue.due_date = fields["due_date"]
@@ -311,18 +316,18 @@ class IssueService:
 
         if (
             ("assignee_id" in fields or "assignee" in fields)
-            and old_assignee_id != issue.assignee_id
+            and old_assignee_id != assignee_value
         ):
             create_issue_activity(
                 issue_id=issue.id,
                 actor=user,
                 event_type=IssueActivityEventType.ASSIGNEE_CHANGED,
                 old_value=get_user_display_value(old_assignee_id),
-                new_value=get_user_display_value(issue.assignee_id),
+                new_value=get_user_display_value(assignee_value),
             )
-            if issue.assignee_id is not None and issue.assignee_id != user.id:
+            if assignee_value is not None and assignee_value != user.id:
                 notification_service.create_notification(
-                    user_id=issue.assignee_id,
+                    user_id=assignee_value,
                     actor_id=user.id,
                     event_type="assignee_changed",
                     title="Issue Assigned",
@@ -409,6 +414,7 @@ class IssueService:
     def assign_sprint(self, user, issue_id: UUID, sprint_id: UUID | None) -> Issue:
         issue = _get_issue_or_raise(issue_id)
         _reject_archived_project(issue.project)
+        require_scrum_project(issue.project_id)
 
         if not permission_service.can_edit_issue(user.id, issue.project_id):
             raise IssueError("Permission denied: cannot edit this issue.")
@@ -432,11 +438,11 @@ class IssueService:
             )
             if (
                 sprint_id is not None
-                and issue.assignee_id is not None
-                and issue.assignee_id != user.id
+                and issue.get_primary_assignee_id() is not None
+                and issue.get_primary_assignee_id() != user.id
             ):
                 notification_service.create_notification(
-                    user_id=issue.assignee_id,
+                    user_id=issue.get_primary_assignee_id(),
                     actor_id=user.id,
                     event_type="sprint_assigned",
                     title="Sprint Updated",
@@ -456,7 +462,9 @@ class IssueService:
         if not issue_ids:
             return 0
 
-        issues = list(Issue.objects.filter(pk__in=issue_ids).select_related("project", "sprint"))
+        issues = list(
+            Issue.objects.filter(pk__in=issue_ids).select_related("project", "sprint").prefetch_related("assignees")
+        )
         found_ids = {issue.id for issue in issues}
         missing = [issue_id for issue_id in issue_ids if issue_id not in found_ids]
         if missing:
@@ -467,6 +475,7 @@ class IssueService:
             raise IssueValidationError("All issues must belong to the same project.")
 
         project_id = next(iter(project_ids))
+        require_scrum_project(project_id)
         target_sprint_name = None
         if sprint_id is not None:
             target_sprint_name = _validate_sprint(project_id, sprint_id).name
@@ -489,13 +498,14 @@ class IssueService:
                     old_value=old_sprint_name,
                     new_value=target_sprint_name,
                 )
+                assignee_id = issue.get_primary_assignee_id()
                 if (
                     sprint_id is not None
-                    and issue.assignee_id is not None
-                    and issue.assignee_id != user.id
+                    and assignee_id is not None
+                    and assignee_id != user.id
                 ):
                     notification_service.create_notification(
-                        user_id=issue.assignee_id,
+                        user_id=assignee_id,
                         actor_id=user.id,
                         event_type="sprint_assigned",
                         title="Sprint Updated",

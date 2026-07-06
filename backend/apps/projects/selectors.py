@@ -14,7 +14,7 @@ from apps.issues.models import Issue, Priority
 from apps.notifications.selectors import get_unread_notification_count
 from apps.organizations.models import OrganizationMember
 from apps.permissions.services import permission_service
-from apps.projects.models import Project, ProjectMember, ProjectStatus, ProjectVisibility
+from apps.projects.models import Project, ProjectMember, ProjectMethodology, ProjectStatus, ProjectVisibility
 from apps.sprints.models import Sprint, SprintStatus
 from apps.workflow.models import WorkflowStatusCategory
 
@@ -30,6 +30,9 @@ def _project_to_dto(project: Project) -> ProjectDTO:
         status=project.status,
         visibility=project.visibility,
         lead_user_id=project.lead_user_id,
+        methodology=project.methodology,
+        board_type=project.board_type,
+        default_sprint_weeks=project.default_sprint_weeks,
         archived_at=project.archived_at,
     )
 
@@ -46,6 +49,8 @@ def _project_to_summary_dto(project: Project) -> ProjectSummaryDTO:
         slug=project.slug,
         name=project.name,
         status=project.status,
+        methodology=project.methodology,
+        board_type=project.board_type,
         open_issue_count=open_issue_count,
     )
 
@@ -171,6 +176,10 @@ def _select_visible_dashboard_project_ids(user_id: UUID) -> list[UUID]:
 
 def select_dashboard_summary(user_id: UUID) -> dict[str, int]:
     project_ids = _select_visible_dashboard_project_ids(user_id)
+    scrum_project_ids = Project.objects.filter(
+        id__in=project_ids,
+        methodology=ProjectMethodology.SCRUM,
+    ).values_list("id", flat=True)
     today = timezone.localdate()
 
     open_issues = Issue.objects.filter(
@@ -181,11 +190,11 @@ def select_dashboard_summary(user_id: UUID) -> dict[str, int]:
         "total_visible_projects": len(project_ids),
         "active_projects": len(project_ids),
         "active_sprints": Sprint.objects.filter(
-            project_id__in=project_ids,
+            project_id__in=scrum_project_ids,
             status=SprintStatus.ACTIVE,
         ).count(),
         "open_issues": open_issues.count(),
-        "assigned_to_me": open_issues.filter(assignee_id=user_id).count(),
+        "assigned_to_me": open_issues.filter(assignees__id=user_id).distinct().count(),
         "overdue_issues": open_issues.filter(due_date__lt=today).count(),
         "unread_notification_count": get_unread_notification_count(user_id),
     }
@@ -255,30 +264,30 @@ def _select_issue_counts_by_priority(project_id: UUID) -> list[dict]:
 
 
 def _assignee_name(row: dict) -> str | None:
-    if row["assignee_id"] is None:
+    if row["assignees__id"] is None:
         return None
 
-    first_name = row["assignee__profile__first_name"] or ""
-    last_name = row["assignee__profile__last_name"] or ""
+    first_name = row["assignees__profile__first_name"] or ""
+    last_name = row["assignees__profile__last_name"] or ""
     full_name = f"{first_name} {last_name}".strip()
-    return full_name or row["assignee__email"]
+    return full_name or row["assignees__email"]
 
 
 def _select_issue_counts_by_assignee(project_id: UUID) -> list[dict]:
     assignees = (
-        Issue.objects.filter(project_id=project_id)
+        Issue.objects.filter(project_id=project_id, assignees__isnull=False)
         .values(
-            "assignee_id",
-            "assignee__email",
-            "assignee__profile__first_name",
-            "assignee__profile__last_name",
+            "assignees__id",
+            "assignees__email",
+            "assignees__profile__first_name",
+            "assignees__profile__last_name",
         )
-        .annotate(count=Count("id"))
-        .order_by("assignee__email")
+        .annotate(count=Count("id", distinct=True))
+        .order_by("assignees__email")
     )
     return [
         {
-            "assignee_id": row["assignee_id"],
+            "assignee_id": row["assignees__id"],
             "assignee_name": _assignee_name(row),
             "count": row["count"],
         }
@@ -290,20 +299,32 @@ def select_project_report_summary(user_id: UUID, project_id: UUID) -> dict | Non
     if not permission_service.can_view_project(user_id, project_id):
         return None
 
+    project = select_project_by_id(project_id)
+    if project is None:
+        return None
+
     issues = Issue.objects.filter(project_id=project_id)
     done_issues = issues.filter(status__category=WorkflowStatusCategory.DONE)
     open_issues = issues.exclude(status__category=WorkflowStatusCategory.DONE)
 
-    return {
+    summary = {
         "total_issues": issues.count(),
         "open_issues": open_issues.count(),
         "done_issues": done_issues.count(),
-        "backlog_issues": issues.filter(
-            Q(sprint__isnull=True) | ~Q(sprint__status=SprintStatus.ACTIVE)
-        ).count(),
-        "active_sprint": _active_sprint_report(project_id),
-        "active_sprints": _active_sprints_report(project_id),
         "issue_counts_by_status": _select_issue_counts_by_status(project_id),
         "issue_counts_by_priority": _select_issue_counts_by_priority(project_id),
         "issue_counts_by_assignee": _select_issue_counts_by_assignee(project_id),
     }
+
+    if project.methodology == ProjectMethodology.KANBAN:
+        summary["todo_issues"] = issues.filter(
+            status__category=WorkflowStatusCategory.TODO,
+        ).count()
+        return summary
+
+    summary["backlog_issues"] = issues.filter(
+        Q(sprint__isnull=True) | ~Q(sprint__status=SprintStatus.ACTIVE)
+    ).count()
+    summary["active_sprint"] = _active_sprint_report(project_id)
+    summary["active_sprints"] = _active_sprints_report(project_id)
+    return summary

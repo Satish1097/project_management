@@ -6,11 +6,14 @@ import {
   projectBoardPath,
   projectOverviewPath,
   projectReleasesPath,
+  projectReportsPath,
   projectSettingsGeneralPath,
   projectSettingsPath,
   projectSprintsPath,
   projectTeamPath,
 } from '@/constants/routes'
+import { useProjectMethodology } from '@/hooks/useProjectMethodology'
+import type { ProjectMethodology } from '@/types/projects'
 import { cn } from '@/utils/cn'
 
 const navItems = [
@@ -19,16 +22,30 @@ const navItems = [
   { label: 'Board', segment: 'board' },
   { label: 'Sprints', segment: 'sprints' },
   { label: 'Activity', segment: 'activity' },
+  { label: 'Reports', segment: 'reports' },
   { label: 'Releases', segment: 'releases' },
   { label: 'Team', segment: 'team' },
   { label: 'Settings', segment: 'settings' },
 ] as const
 
+type NavSegment = (typeof navItems)[number]['segment']
+
+const SCRUM_ONLY_SEGMENTS = new Set<NavSegment>(['backlog', 'sprints'])
+
+function getNavItemsForMethodology(methodology: ProjectMethodology) {
+  if (methodology === 'kanban') {
+    return navItems.filter((item) => !SCRUM_ONLY_SEGMENTS.has(item.segment))
+  }
+  return navItems
+}
+
 export function ProjectNav() {
   const { projectId = '' } = useParams()
   const { pathname } = useLocation()
+  const { methodology } = useProjectMethodology(projectId)
+  const visibleNavItems = getNavItemsForMethodology(methodology)
 
-  const pathFor = (segment: (typeof navItems)[number]['segment']) => {
+  const pathFor = (segment: NavSegment) => {
     switch (segment) {
       case '':
         return projectOverviewPath(projectId)
@@ -44,12 +61,14 @@ export function ProjectNav() {
         return projectTeamPath(projectId)
       case 'releases':
         return projectReleasesPath(projectId)
+      case 'reports':
+        return projectReportsPath(projectId)
       case 'settings':
         return projectSettingsGeneralPath(projectId)
     }
   }
 
-  const isActive = (segment: (typeof navItems)[number]['segment']) => {
+  const isActive = (segment: NavSegment) => {
     const base = projectOverviewPath(projectId)
     if (segment === '') {
       return pathname === base
@@ -74,7 +93,7 @@ export function ProjectNav() {
       className="-mb-px flex items-center gap-0.5 overflow-x-auto border-t border-devflow-border/60 px-4"
       aria-label="Project navigation"
     >
-      {navItems.map(({ label, segment }) => (
+      {visibleNavItems.map(({ label, segment }) => (
         <Link
           key={label}
           to={pathFor(segment)}

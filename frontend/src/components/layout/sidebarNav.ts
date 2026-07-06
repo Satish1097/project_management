@@ -15,10 +15,12 @@ import {
   projectBacklogPath,
   projectBoardPath,
   projectOverviewPath,
+  projectPath,
   projectSettingsMembersPath,
   projectSettingsPath,
   projectSprintsPath,
 } from '@/constants/routes'
+import type { ProjectMethodology } from '@/types/projects'
 
 export type SidebarProjectNavId =
   | 'overview'
@@ -77,6 +79,48 @@ export const QUICK_ACTION_ITEMS: readonly SidebarNavActionItem[] = [
   { id: 'createIssue', label: 'Create Issue', icon: Plus },
   { id: 'createSprint', label: 'Create Sprint', icon: Plus },
 ] as const
+
+const SCRUM_ONLY_PROJECT_NAV_IDS = new Set<SidebarProjectNavId>([
+  'backlog',
+  'sprints',
+])
+
+const SCRUM_ONLY_QUICK_ACTION_IDS = new Set(['createSprint'])
+
+export function getProjectNavItemsForMethodology(
+  methodology: ProjectMethodology,
+): typeof PROJECT_NAV_ITEMS {
+  if (methodology === 'kanban') {
+    return PROJECT_NAV_ITEMS.filter(
+      (item) => !SCRUM_ONLY_PROJECT_NAV_IDS.has(item.id),
+    )
+  }
+  return PROJECT_NAV_ITEMS
+}
+
+export function getQuickActionItemsForMethodology(
+  methodology: ProjectMethodology,
+): typeof QUICK_ACTION_ITEMS {
+  if (methodology === 'kanban') {
+    return QUICK_ACTION_ITEMS.filter(
+      (item) => !SCRUM_ONLY_QUICK_ACTION_IDS.has(item.id),
+    )
+  }
+  return QUICK_ACTION_ITEMS
+}
+
+export function isScrumOnlyProjectPath(
+  pathname: string,
+  projectId: string,
+): boolean {
+  if (pathname.startsWith(projectBacklogPath(projectId))) {
+    return true
+  }
+  if (pathname === projectSprintsPath(projectId)) {
+    return true
+  }
+  return pathname.startsWith(`${projectPath(projectId)}/sprints/`)
+}
 
 export function projectNavPath(
   projectId: string,

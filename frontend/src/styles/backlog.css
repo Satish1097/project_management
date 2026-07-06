@@ -31,6 +31,15 @@
   }
 }
 
+@keyframes backlog-row-created-highlight {
+  0% {
+    background-color: color-mix(in srgb, var(--df-primary, #3b82f6) 22%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
 .backlog-row-enter {
   animation: backlog-row-enter 0.22s ease-out;
 }
@@ -42,6 +51,10 @@
 
 .backlog-row-selected {
   animation: backlog-selection-pulse 0.25s ease-out;
+}
+
+.backlog-row-created {
+  animation: backlog-row-created-highlight 1.2s ease-out;
 }
 
 .backlog-quick-create-row {

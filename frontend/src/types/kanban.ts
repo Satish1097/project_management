@@ -65,6 +65,8 @@ export type KanbanColumn = {
   title: string
   dotColor: string
   count: number
+  wipCount?: number
+  wipLimit?: number | null
   issues: KanbanIssue[]
   isDoneStatus?: boolean
 }

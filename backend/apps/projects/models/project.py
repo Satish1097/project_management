@@ -15,6 +15,16 @@ class ProjectVisibility(models.TextChoices):
     ORGANIZATION = "organization", "Organization"
 
 
+class ProjectMethodology(models.TextChoices):
+    SCRUM = "scrum", "Scrum"
+    KANBAN = "kanban", "Kanban"
+
+
+class BoardType(models.TextChoices):
+    SCRUM = "scrum", "Scrum Board"
+    KANBAN = "kanban", "Kanban Board"
+
+
 class Project(BaseModel):
     organization = models.ForeignKey(
         Organization,
@@ -44,6 +54,18 @@ class Project(BaseModel):
     )
     archived_at = models.DateTimeField(null=True, blank=True)
     next_issue_number = models.PositiveIntegerField(default=0)
+    methodology = models.CharField(
+        max_length=20,
+        choices=ProjectMethodology.choices,
+        default=ProjectMethodology.SCRUM,
+    )
+    board_type = models.CharField(
+        max_length=20,
+        choices=BoardType.choices,
+        default=BoardType.SCRUM,
+    )
+    default_sprint_weeks = models.PositiveSmallIntegerField(null=True, blank=True, default=2)
+    board_config = models.JSONField(default=dict, blank=True)
 
     class Meta:
         verbose_name = "project"

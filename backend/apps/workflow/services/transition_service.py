@@ -95,9 +95,10 @@ class TransitionService:
             old_value=previous_status_name,
             new_value=target_status.name,
         )
-        if issue.assignee_id is not None and issue.assignee_id != user.id:
+        assignee_id = issue.get_primary_assignee_id()
+        if assignee_id is not None and assignee_id != user.id:
             notification_service.create_notification(
-                user_id=issue.assignee_id,
+                user_id=assignee_id,
                 actor_id=user.id,
                 event_type="status_changed",
                 title="Status Updated",

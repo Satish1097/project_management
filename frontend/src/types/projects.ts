@@ -2,6 +2,9 @@ import type { ReactNode } from 'react'
 
 export type ProjectStatus = 'active' | 'planning' | 'at_risk' | 'archived'
 
+export type ProjectMethodology = 'scrum' | 'kanban'
+export type BoardType = 'scrum' | 'kanban'
+
 export type ProjectMember = {
   name: string
   color: string
@@ -19,6 +22,9 @@ export type Project = {
   name: string
   description: string
   status: ProjectStatus
+  methodology: ProjectMethodology
+  boardType: BoardType
+  defaultSprintWeeks?: number | null
   icon: 'mobile' | 'web' | 'api'
   issuesLabel: string
   issuesCritical?: boolean
