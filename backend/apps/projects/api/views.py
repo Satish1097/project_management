@@ -65,6 +65,19 @@ from apps.sprints.selectors import select_project_sprint_health
 
 
 def _project_to_data(dto: ProjectDTO) -> dict:
+    members = list_project_members(dto.id)
+    users = get_users_by_ids([member.user_id for member in members])
+    users_by_id = {user.id: user for user in users}
+    member_data = [_member_to_data(member, users_by_id) for member in members]
+    lead_data = (
+        next(
+            (member for member in member_data if member["user_id"] == str(dto.lead_user_id)),
+            None,
+        )
+        if dto.lead_user_id
+        else None
+    )
+
     data = {
         "id": str(dto.id),
         "organization_id": str(dto.organization_id),
@@ -77,6 +90,8 @@ def _project_to_data(dto: ProjectDTO) -> dict:
         "methodology": dto.methodology,
         "board_type": dto.board_type,
         "lead_user_id": str(dto.lead_user_id) if dto.lead_user_id else None,
+        "lead": lead_data,
+        "members": member_data,
     }
     if dto.methodology == ProjectMethodology.SCRUM:
         data["default_sprint_weeks"] = dto.default_sprint_weeks

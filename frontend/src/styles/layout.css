@@ -100,6 +100,10 @@
     min-height: unset;
   }
 
+  .sidebar-context-icon-trigger {
+    @apply border border-devflow-border bg-devflow-card;
+  }
+
   .sidebar-context-label {
     @apply mb-0.5 block text-[10px] font-semibold uppercase leading-none tracking-wider text-devflow-text-muted;
   }
@@ -153,8 +157,8 @@
   }
 
   .sidebar-context-create-btn {
-    @apply mt-0.5 w-full rounded-md border border-devflow-border bg-devflow-card py-1 text-center text-[12px] font-medium text-devflow-text transition-colors;
-    @apply hover:bg-devflow-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-devflow-primary/30 focus-visible:ring-offset-1 focus-visible:ring-offset-devflow-card;
+    @apply mt-3 flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[13px] font-medium text-devflow-text-secondary transition-colors;
+    @apply hover:bg-devflow-muted hover:text-devflow-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-devflow-primary/30 focus-visible:ring-inset;
   }
 
   .sidebar-context-selector--menu {
@@ -213,6 +217,53 @@
   .sidebar-workspace-menu-create {
     @apply flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[13px] font-medium text-devflow-primary transition-colors;
     @apply hover:bg-devflow-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-devflow-primary/30 focus-visible:ring-inset;
+  }
+
+  .sidebar-context-popover {
+    @apply fixed z-[1200] flex max-h-[70vh] w-64 flex-col overflow-hidden rounded-lg border border-devflow-border bg-devflow-card p-2 shadow-devflow-lg;
+  }
+
+  .sidebar-context-popover-title {
+    @apply truncate px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-devflow-text-muted;
+  }
+
+  .sidebar-context-popover-search {
+    @apply mb-2 flex items-center gap-1.5 rounded-md border border-devflow-border bg-devflow-surface px-2 py-1;
+  }
+
+  .sidebar-context-popover-search-input {
+    @apply w-full bg-transparent text-[13px] text-devflow-text outline-none placeholder:text-devflow-text-muted;
+  }
+
+  .sidebar-context-popover-list {
+    @apply min-h-0 flex-1 overflow-y-auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--df-scrollbar) transparent;
+  }
+
+  .sidebar-context-popover-footer {
+    @apply sticky bottom-0 bg-devflow-card;
+  }
+
+  .sidebar-context-popover-list::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sidebar-context-popover-list::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-context-popover-list::-webkit-scrollbar-thumb {
+    background: var(--df-scrollbar);
+    border-radius: 9999px;
+  }
+
+  .sidebar-context-popover-list::-webkit-scrollbar-thumb:hover {
+    background: var(--df-scrollbar-hover);
+  }
+
+  .sidebar-context-popover-empty {
+    @apply px-2.5 py-2 text-[13px] text-devflow-text-muted;
   }
 
   /* ─── Sidebar navigation ───────────────────────────────────────────────── */

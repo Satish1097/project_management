@@ -20,7 +20,6 @@ class ProjectCreateSerializer(serializers.Serializer):
     key = serializers.CharField(max_length=10)
     slug = serializers.SlugField(max_length=255)
     description = serializers.CharField(required=False, allow_blank=True, default="")
-    lead_user_id = serializers.UUIDField(required=False, allow_null=True, default=None)
     visibility = serializers.ChoiceField(
         choices=ProjectVisibility.choices,
         required=False,
@@ -73,6 +72,10 @@ class ProjectUpdateSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True)
     visibility = serializers.ChoiceField(choices=ProjectVisibility.choices, required=False)
     lead_user_id = serializers.UUIDField(required=False, allow_null=True)
+    member_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+    )
 
 
 class ProjectMemberSerializer(serializers.Serializer):

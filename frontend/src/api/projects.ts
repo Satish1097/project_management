@@ -29,6 +29,18 @@ export type ProjectDetailApi = {
   board_type: string
   default_sprint_weeks: number | null
   lead_user_id: string | null
+  lead?: {
+    user_id: string
+    email?: string
+    display_name?: string
+  } | null
+  members?: Array<{
+    user_id: string
+    role: string
+    email?: string
+    display_name?: string
+    joined_at?: string
+  }>
   archived_at?: string
 }
 
@@ -46,6 +58,7 @@ export type UpdateProjectPayload = {
   description?: string
   visibility?: string
   lead_user_id?: string | null
+  member_ids?: string[]
 }
 
 export type ProjectActivityPageApi = {

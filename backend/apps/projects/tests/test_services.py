@@ -33,6 +33,7 @@ def test_create_project_service_adds_creator_as_admin(superuser, organization):
         creator=superuser,
     )
 
+    assert project.lead_user_id == superuser.id
     membership = ProjectMember.objects.get(project_id=project.id, user_id=superuser.id)
     assert membership.role == ProjectRole.PROJECT_ADMIN
 

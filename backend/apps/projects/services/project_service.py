@@ -7,6 +7,7 @@ from apps.contracts.organization_contract import get_organization_by_id
 from apps.contracts.project_contract import ProjectDTO
 from apps.contracts.workflow_contract import seed_default_workflow
 from apps.organizations.exceptions import OrganizationNotFoundError
+from apps.organizations.models import OrganizationMember
 from apps.projects.exceptions import (
     ProjectArchivedError,
     ProjectKeyConflictError,
@@ -24,7 +25,7 @@ from apps.projects.models import (
     ProjectStatus,
     ProjectVisibility,
 )
-from apps.projects.selectors import select_project_by_id, select_project_member
+from apps.projects.selectors import select_project_by_id
 
 
 def _normalize_key(key: str) -> str:
@@ -81,6 +82,68 @@ def _resolve_methodology_fields(
     }
 
 
+def _unique_user_ids(user_ids: list[UUID] | None) -> list[UUID]:
+    if not user_ids:
+        return []
+    return list(dict.fromkeys(user_ids))
+
+
+def _validate_org_member_user_ids(*, organization_id: UUID, user_ids: list[UUID]) -> None:
+    if not user_ids:
+        return
+
+    valid_member_ids = set(
+        OrganizationMember.objects.filter(
+            organization_id=organization_id,
+            is_active=True,
+            user_id__in=user_ids,
+            user__is_active=True,
+        ).values_list("user_id", flat=True)
+    )
+    invalid_user_ids = [user_id for user_id in user_ids if user_id not in valid_member_ids]
+    if invalid_user_ids:
+        invalid = ", ".join(str(user_id) for user_id in invalid_user_ids)
+        raise ProjectMembershipError(
+            f"Selected users are not active organization members: {invalid}."
+        )
+
+
+def _sync_project_members(
+    *,
+    project: Project,
+    actor,
+    member_ids: list[UUID],
+) -> None:
+    target_member_ids = set(member_ids)
+    existing_members = list(ProjectMember.objects.filter(project=project))
+
+    # Keep current project admins even if not explicitly selected.
+    admin_member_ids = {
+        member.user_id
+        for member in existing_members
+        if member.role == ProjectRole.PROJECT_ADMIN
+    }
+    target_member_ids.update(admin_member_ids)
+
+    existing_ids = {member.user_id for member in existing_members}
+    new_member_ids = target_member_ids - existing_ids
+    for user_id in new_member_ids:
+        ProjectMember.objects.create(
+            project=project,
+            user_id=user_id,
+            role=ProjectRole.DEVELOPER,
+            created_by=actor,
+            updated_by=actor,
+        )
+
+    removable_member_ids = existing_ids - target_member_ids
+    if removable_member_ids:
+        ProjectMember.objects.filter(
+            project=project,
+            user_id__in=removable_member_ids,
+        ).exclude(role=ProjectRole.PROJECT_ADMIN).delete()
+
+
 def create_project(
     *,
     organization: UUID,
@@ -89,7 +152,6 @@ def create_project(
     slug: str,
     creator,
     description: str = "",
-    lead_user_id: UUID | None = None,
     visibility: str = ProjectVisibility.ORGANIZATION,
     methodology: str = ProjectMethodology.SCRUM,
     default_sprint_weeks: int | None = None,
@@ -110,9 +172,6 @@ def create_project(
             f"Project slug '{normalized_slug}' is already in use in this organization."
         )
 
-    if lead_user_id is not None and lead_user_id != creator.pk:
-        raise ProjectMembershipError("Lead user must be an existing project member.")
-
     methodology_fields = _resolve_methodology_fields(
         methodology=methodology,
         default_sprint_weeks=default_sprint_weeks,
@@ -127,7 +186,7 @@ def create_project(
             description=description,
             status=ProjectStatus.ACTIVE,
             visibility=visibility,
-            lead_user_id=lead_user_id,
+            lead_user_id=creator.pk,
             created_by=creator,
             updated_by=creator,
             **methodology_fields,
@@ -154,6 +213,7 @@ def update_project(
     description: str | None = None,
     visibility: str | None = None,
     lead_user_id=...,
+    member_ids=...,
 ) -> ProjectDTO:
     try:
         project = Project.objects.get(pk=project_id)
@@ -173,14 +233,33 @@ def update_project(
     if visibility is not None:
         project.visibility = visibility
         update_fields.append("visibility")
+    desired_member_ids = ...
+    if member_ids is not ...:
+        desired_member_ids = _unique_user_ids(member_ids)
     if lead_user_id is not ...:
-        if lead_user_id is not None and select_project_member(project_id, lead_user_id) is None:
-            raise ProjectMembershipError("Lead user must be an existing project member.")
+        if lead_user_id is not None:
+            _validate_org_member_user_ids(
+                organization_id=project.organization_id,
+                user_ids=[lead_user_id],
+            )
+            if desired_member_ids is not ... and lead_user_id not in desired_member_ids:
+                desired_member_ids.append(lead_user_id)
         project.lead_user_id = lead_user_id
         update_fields.append("lead_user")
 
-    project.updated_by = actor
-    project.save(update_fields=update_fields)
+    if desired_member_ids is not ...:
+        if actor.pk not in desired_member_ids:
+            desired_member_ids.append(actor.pk)
+        _validate_org_member_user_ids(
+            organization_id=project.organization_id,
+            user_ids=desired_member_ids,
+        )
+
+    with transaction.atomic():
+        project.updated_by = actor
+        project.save(update_fields=update_fields)
+        if desired_member_ids is not ...:
+            _sync_project_members(project=project, actor=actor, member_ids=desired_member_ids)
 
     dto = select_project_by_id(project.id)
     assert dto is not None

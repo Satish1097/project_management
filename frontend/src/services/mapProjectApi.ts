@@ -1,4 +1,5 @@
 import type { ProjectDetailApi, ProjectSummaryApi } from '@/api/projects'
+import { projectMembersToAvatarGroup } from '@/features/members/memberUtils'
 import type { BoardType, Project, ProjectMethodology, ProjectStatus } from '@/types/projects'
 
 function mapStatus(status: string): ProjectStatus {
@@ -74,5 +75,6 @@ export function mapProjectDetailToUi(
   return {
     ...mapped,
     defaultSprintWeeks: detail.default_sprint_weeks,
+    ...projectMembersToAvatarGroup(detail.members ?? []),
   }
 }
