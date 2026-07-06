@@ -1,0 +1,33 @@
+---
+globs: frontend/**/*
+alwaysApply: false
+---
+# HKPMS Frontend Rules
+
+## Architecture
+
+- **Project-first** navigation only; board/issue routes include `projectId` + `sprintId`.
+- Paths from `constants/routes.ts` — never hardcode `/projects/...` strings in features.
+- Extend registries + contexts; do not add parallel global state.
+
+## UI
+
+- **Do not redesign** unless asked — match existing DevFlow/HKPMS tokens (`theme.css`, `devflow-*`).
+- **Dark mode required** for new components.
+- **Drawers** for create/edit (`DrawerPanel`); **modals** for confirm/destructive only.
+- Reuse `components/ui` and `components/issues` before creating new primitives.
+
+## Issues & sprints
+
+- `sprintId: null` = backlog; sprint optional on create.
+- Use `buildIssueFromForm` / `resolveCreateIssueContext` for create defaults.
+- Sprint actions via `useSprintActions` — respect start/complete validation.
+
+## Code style
+
+- `@/` imports; functional components; `cn()` for classes.
+- Pages in `features/*/*Page.tsx`; keep shells in `components/layout/`.
+
+## Prompt shortcut
+
+When user says "follow memory" — read `.cursor/memory/frontend/` + `shared/` for this task.

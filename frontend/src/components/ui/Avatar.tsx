@@ -5,9 +5,10 @@ type AvatarProps = {
   color: string
   size?: number
   className?: string
+  showTooltip?: boolean
 }
 
-export function Avatar({ name, color, size = 24, className }: AvatarProps) {
+export function Avatar({ name, color, size = 24, className, showTooltip = true }: AvatarProps) {
   const initials = name
     .split(' ')
     .map((n) => n[0])
@@ -22,7 +23,7 @@ export function Avatar({ name, color, size = 24, className }: AvatarProps) {
         className,
       )}
       style={{ width: size, height: size, backgroundColor: color }}
-      title={name}
+      title={showTooltip ? name : undefined}
     >
       {initials}
     </div>

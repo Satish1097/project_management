@@ -1,8 +1,13 @@
 import { RouterProvider } from 'react-router-dom'
 import { router } from '@/app/routes'
 import { AuthProvider } from '@/features/auth/AuthProvider'
+import { AppContextProvider } from '@/features/context/AppContextProvider'
 import { NotificationProvider } from '@/features/notifications/NotificationProvider'
+import { ToastContainer } from '@/features/toast/toast'
 import { ThemeProvider } from '@/features/theme/ThemeProvider'
+import { ProjectsProvider } from '@/contexts/ProjectsContext'
+import { SprintsProvider } from '@/contexts/SprintsContext'
+import { IssuesProvider } from '@/contexts/IssuesContext'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 export default function App() {
@@ -11,9 +16,18 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <NotificationProvider>
-          <RouterProvider router={router} />
-        </NotificationProvider>
+        <AppContextProvider>
+          <NotificationProvider>
+            <ProjectsProvider>
+              <SprintsProvider>
+                <IssuesProvider>
+                  <RouterProvider router={router} />
+                  <ToastContainer />
+                </IssuesProvider>
+              </SprintsProvider>
+            </ProjectsProvider>
+          </NotificationProvider>
+        </AppContextProvider>
       </AuthProvider>
     </ThemeProvider>
   )

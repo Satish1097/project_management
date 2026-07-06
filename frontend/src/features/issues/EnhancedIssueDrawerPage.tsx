@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   Calendar,
   ChevronDown,
@@ -8,11 +8,11 @@ import {
   Paperclip,
   X,
 } from 'lucide-react'
-import { ROUTES } from '@/constants/routes'
+import { sprintIssueDetailPath } from '@/constants/routes'
 import { IssueStatusBadge } from '@/components/ui/IssueStatusBadge'
 import { LabelBadge } from '@/components/ui/LabelBadge'
 import { PriorityBadge } from '@/components/ui/PriorityBadge'
-import { Avatar } from '@/components/ui/Avatar'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 
 const subtasks = [
   { id: '1', title: 'Define OAuth scopes', done: true },
@@ -27,6 +27,7 @@ const linkedIssues = [
 ]
 
 export function EnhancedIssueDrawerPage() {
+  const { projectId = '', sprintId = '' } = useParams()
   const completed = subtasks.filter((t) => t.done).length
 
   return (
@@ -40,7 +41,7 @@ export function EnhancedIssueDrawerPage() {
               <PriorityBadge priority="high" />
             </div>
             <Link
-              to={ROUTES.issueDetail}
+              to={sprintIssueDetailPath(projectId, sprintId)}
               className="rounded-lg p-2 hover:bg-devflow-surface"
             >
               <X className="size-5" />
@@ -140,7 +141,7 @@ export function EnhancedIssueDrawerPage() {
                     Assignee
                   </p>
                   <div className="flex items-center gap-2 rounded-lg border border-devflow-border bg-devflow-card px-3 py-2">
-                    <Avatar name="Sarah Chen" color="#8b5cf6" size={24} />
+                    <UserAvatar name="Sarah Chen" color="#8b5cf6" size={24} />
                     <span className="text-input">Sarah Chen</span>
                   </div>
                 </div>

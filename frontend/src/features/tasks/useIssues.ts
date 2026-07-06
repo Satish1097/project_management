@@ -13,7 +13,7 @@ import {
   sortIssues,
   type AssigneeTab,
 } from './issueFilters'
-import { groupTasksByStatus } from './issueWorkflow'
+import { getWorkflowColumns, groupTasksByStatus } from './issueWorkflow'
 
 const defaultFilters: IssueFilters = {
   status: 'all',
@@ -34,9 +34,11 @@ export function useIssues() {
     return sortIssues(filtered, sortKey)
   }, [tasks, assigneeTab, filters, sortKey])
 
+  const workflowColumns = useMemo(() => getWorkflowColumns(), [])
+
   const tasksByStatus = useMemo(
-    () => groupTasksByStatus(visibleTasks),
-    [visibleTasks],
+    () => groupTasksByStatus(visibleTasks, workflowColumns),
+    [visibleTasks, workflowColumns],
   )
 
   const moveTaskToStatus = useCallback((taskId: string, status: TaskStatus) => {

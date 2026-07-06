@@ -1,92 +1,119 @@
-import { Link } from 'react-router-dom'
-import { Check } from 'lucide-react'
-import { ROUTES } from '@/constants/routes'
-import { Avatar } from '@/components/ui/Avatar'
-import { PriorityBadge } from '@/components/ui/PriorityBadge'
+import { useDraggable } from '@dnd-kit/core'
+import { useParams } from 'react-router-dom'
+import { useIssueDetail } from '@/contexts/IssueDetailContext'
+import { UserAvatar } from '@/components/ui/UserAvatar'
+import { LabelBadge } from '@/components/ui/LabelBadge'
+import { PriorityIndicator } from '@/components/ui/PriorityIndicator'
+import { SprintBadge } from '@/components/ui/SprintBadge'
 import type { KanbanIssue } from '@/types/kanban'
+import type { TaskPriority } from '@/types/tasks'
 import { cn } from '@/utils/cn'
 
 type TaskCardProps = {
   issue: KanbanIssue
   columnId: string
+  statusId?: string
+  isDragging?: boolean
+  isDragOverlay?: boolean
+  isTransitioning?: boolean
+  draggable?: boolean
+  showSprintBadge?: boolean
 }
 
-export function TaskCard({ issue, columnId }: TaskCardProps) {
-  const isDone = issue.done || columnId === 'done'
-  const inProgress = columnId === 'in_progress'
+function toTaskPriority(priority: KanbanIssue['priority']): TaskPriority {
+  return priority ?? 'none'
+}
 
-  const className = cn(
-    'flex flex-col gap-1.5 rounded-lg border p-3',
-    isDone
-      ? 'border-devflow-border bg-devflow-muted opacity-80'
-      : 'border-devflow-border bg-devflow-card shadow-devflow-sm',
-    inProgress && 'border-l-4 border-l-devflow-primary pl-5',
-  )
+export function TaskCard({
+  issue,
+  columnId,
+  statusId,
+  isDragging = false,
+  isDragOverlay = false,
+  isTransitioning = false,
+  draggable = true,
+  showSprintBadge = false,
+}: TaskCardProps) {
+  const { openIssueDetail } = useIssueDetail()
+  const { projectId = '' } = useParams()
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: issue.id,
+    data: { columnId, statusId: statusId ?? columnId, issue },
+    disabled: !draggable || isDragOverlay || isTransitioning,
+  })
+  const { role: _dragRole, tabIndex: _dragTabIndex, ...dragAttributes } = attributes
 
-  const content = (
-    <>
-      <div className="flex items-center justify-between">
-        <span
-          className={cn(
-            'font-mono text-caption font-medium tracking-[0.24px] text-devflow-text-muted',
-            isDone && 'line-through',
-          )}
-        >
-          {issue.key}
-        </span>
-        {isDone ? (
-          <Check className="size-3 text-devflow-success" strokeWidth={3} />
-        ) : (
-          issue.priority && <PriorityBadge priority={issue.priority} />
-        )}
+  const isDone = issue.done === true || columnId === 'done'
+  const isInProgress =
+    columnId === 'in_progress' ||
+    columnId === 'review' ||
+    columnId === 'in_review' ||
+    columnId === 'testing'
+  const labelVariant =
+    issue.label.toLowerCase().includes('critical') ? 'critical' : 'default'
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined
+
+  return (
+    <article
+      ref={isDragOverlay ? undefined : setNodeRef}
+      style={style}
+      {...(isDragOverlay || !draggable ? {} : dragAttributes)}
+      {...(isDragOverlay || !draggable ? {} : listeners)}
+      role="button"
+      tabIndex={0}
+      onClick={() => {
+        if (isDragging || isTransitioning) return
+        openIssueDetail({ issueId: issue.id })
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          if (isDragging || isTransitioning) return
+          openIssueDetail({ issueId: issue.id })
+        }
+      }}
+      className={cn(
+        'issue-card cursor-pointer',
+        isInProgress && 'issue-card--in-progress',
+        isDone && 'issue-card--done',
+        (isDragging || isTransitioning) && 'issue-card--dragging',
+        isDragOverlay && 'issue-card--ghost shadow-lg',
+      )}
+    >
+      <div className="issue-card__top">
+        <span className="issue-card__key">{issue.key}</span>
+        <PriorityIndicator priority={toTaskPriority(issue.priority)} />
       </div>
 
       <h3
         className={cn(
-          'text-card-title text-devflow-text',
-          isDone && 'text-devflow-text-secondary line-through',
+          'issue-card__title',
+          isDone && 'issue-card__title--done',
         )}
       >
         {issue.title}
       </h3>
 
-      <div className="flex items-center justify-between pt-2">
-        <span
-          className={cn(
-            'rounded-lg px-2 py-0.5 text-caption font-medium',
-            isDone
-              ? 'bg-devflow-pill text-devflow-text-secondary'
-              : 'bg-[var(--df-nav-tint)] text-devflow-nav-active-text-alt',
-          )}
-        >
-          {issue.label}
-        </span>
-        <Avatar name={issue.assignee.name} color={issue.assignee.color} />
+      <div className="issue-card__meta">
+        {showSprintBadge ? (
+          <SprintBadge name={issue.sprint?.name ?? null} />
+        ) : null}
+        <LabelBadge label={issue.label} variant={labelVariant} />
       </div>
 
-      {issue.progress !== undefined && (
-        <div className="flex items-center gap-4 pt-2">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-devflow-table-header">
-            <div
-              className="h-full rounded-full bg-devflow-primary"
-              style={{ width: `${issue.progress}%` }}
-            />
-          </div>
-          <span className="text-caption text-devflow-text-secondary">
-            {issue.progress}%
-          </span>
-        </div>
-      )}
-    </>
+      <div className="issue-card__footer">
+        <div className="issue-card__project" aria-hidden="true" />
+        <UserAvatar
+          name={issue.assignee.name}
+          color={issue.assignee.color}
+          size={20}
+          userId={issue.assigneeId ?? undefined}
+          projectId={projectId}
+        />
+      </div>
+    </article>
   )
-
-  if (issue.key === 'DF-101') {
-    return (
-      <Link to={ROUTES.issueDetail} className={cn('block', className)}>
-        {content}
-      </Link>
-    )
-  }
-
-  return <article className={className}>{content}</article>
 }

@@ -82,7 +82,9 @@ const statusOptions: { value: TaskStatus | 'all'; label: string }[] = [
   { value: 'backlog', label: 'Backlog' },
   { value: 'todo', label: 'Todo' },
   { value: 'in_progress', label: 'In Progress' },
-  { value: 'review', label: 'Review / Testing' },
+  { value: 'review', label: 'Review' },
+  { value: 'testing', label: 'Testing / QA' },
+  { value: 'blocked', label: 'Blocked' },
   { value: 'done', label: 'Done' },
 ]
 

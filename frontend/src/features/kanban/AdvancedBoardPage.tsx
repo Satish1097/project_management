@@ -1,11 +1,15 @@
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
-import { BRANDING } from '@/constants/branding'
 import { layout } from '@/constants/layout'
 import { cn } from '@/utils/cn'
-import { ROUTES } from '@/constants/routes'
+import { sprintBoardPath } from '@/constants/routes'
 import { KanbanColumn } from './KanbanColumn'
 import type { KanbanColumn as KanbanColumnType } from '@/types/kanban'
+import {
+  formatSprintStatus,
+  getProjectById,
+  getSprintById,
+} from '@/services/projectData'
 
 const advancedColumns: KanbanColumnType[] = [
   {
@@ -19,7 +23,10 @@ const advancedColumns: KanbanColumnType[] = [
         key: 'DF-201',
         title: 'Migrate auth service to OIDC',
         priority: 'high',
+        priorityLevel: 'high',
         label: 'Backend',
+        labels: ['backend'],
+        assigneeId: null,
         assignee: { name: 'Alex', color: '#6366f1' },
       },
     ],
@@ -35,7 +42,10 @@ const advancedColumns: KanbanColumnType[] = [
         key: 'DF-198',
         title: 'GraphQL schema versioning',
         priority: 'medium',
+        priorityLevel: 'medium',
         label: 'API',
+        labels: [],
+        assigneeId: null,
         assignee: { name: 'Sarah', color: '#8b5cf6' },
         progress: 90,
       },
@@ -52,7 +62,10 @@ const advancedColumns: KanbanColumnType[] = [
         key: 'DF-195',
         title: 'Kubernetes pod autoscaling rules',
         priority: 'high',
+        priorityLevel: 'high',
         label: 'Infra',
+        labels: [],
+        assigneeId: null,
         assignee: { name: 'Marcus', color: '#10b981' },
         progress: 45,
       },
@@ -69,6 +82,8 @@ const advancedColumns: KanbanColumnType[] = [
         key: 'DF-190',
         title: 'Redis cluster failover test',
         label: 'Reliability',
+        labels: [],
+        assigneeId: null,
         assignee: { name: 'Luna', color: '#ec4899' },
         done: true,
       },
@@ -84,18 +99,27 @@ const advancedColumns: KanbanColumnType[] = [
 ]
 
 export function AdvancedBoardPage() {
+  const { projectId = '', sprintId = '' } = useParams()
+  const project = getProjectById(projectId)
+  const sprint = getSprintById(projectId, sprintId)
+
+  if (!project || !sprint) {
+    return <Navigate to="/projects" replace />
+  }
+
   return (
     <div className="min-h-screen bg-devflow-surface">
       <header className={cn(layout.appHeader, 'bg-devflow-card')}>
-        <div className="flex items-center gap-4">
-          <span className="text-brand text-devflow-text">{BRANDING.appName}</span>
-          <span className="text-devflow-text-secondary">|</span>
-          <span className="font-medium text-devflow-text-secondary">
-            Advanced Engineering Board
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate font-semibold text-devflow-text">
+            {project.name}
+          </span>
+          <span className="truncate text-caption text-devflow-text-secondary">
+            {sprint.name} • {formatSprintStatus(sprint.status)}
           </span>
         </div>
         <Link
-          to={ROUTES.board}
+          to={sprintBoardPath(projectId, sprintId)}
           className="text-btn text-devflow-primary hover:underline"
         >
           Standard board
