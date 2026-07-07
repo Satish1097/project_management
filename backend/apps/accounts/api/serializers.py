@@ -3,13 +3,23 @@ from rest_framework import serializers
 
 
 class RegisterSerializer(serializers.Serializer):
-    invite_token = serializers.CharField(required=True, allow_blank=False)
+    invite_token = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_null=True)
     name = serializers.CharField(max_length=301)
     password = serializers.CharField(write_only=True, min_length=8)
 
     def validate_password(self, value):
         validate_password(value)
         return value
+
+    def validate(self, attrs):
+        invite_token = attrs.get("invite_token")
+        email = attrs.get("email")
+        if not invite_token and not email:
+            raise serializers.ValidationError(
+                {"email": "Email is required when signup is not via invitation."}
+            )
+        return attrs
 
 
 class InvitationTokenSerializer(serializers.Serializer):

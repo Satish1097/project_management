@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AppLogo } from '@/components/brand/AppLogo'
 import { BRANDING } from '@/constants/branding'
 import { Button } from '@/components/ui/Button'
@@ -12,7 +12,8 @@ import { PasswordInput } from '@/components/ui/PasswordInput'
 import { ROUTES } from '@/constants/routes'
 import { ApiError } from '@/api/types'
 
-function isInvitationRedirect(path: string): boolean {
+function isInvitationRedirect(path: unknown): boolean {
+  if (typeof path !== 'string') return false
   const [pathname, search = ''] = path.split('?')
   return pathname === ROUTES.signup && new URLSearchParams(search).has('invite_token')
 }
@@ -20,9 +21,12 @@ function isInvitationRedirect(path: string): boolean {
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const { login } = useAuth()
+  const inviteToken = searchParams.get('invite_token')
   const redirectTo =
-    (location.state as { from?: string } | null)?.from ?? ROUTES.dashboard
+    (location.state as { from?: string } | null)?.from ??
+    (inviteToken ? `${ROUTES.signup}?invite_token=${encodeURIComponent(inviteToken)}` : ROUTES.dashboard)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

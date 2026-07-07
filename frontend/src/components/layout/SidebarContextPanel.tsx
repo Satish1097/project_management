@@ -33,7 +33,7 @@ type SidebarContextPanelProps = {
   collapsed: boolean
 }
 
-type ContextOption = { id: string; name: string }
+type ContextOption = { id: string; name: string; role?: string }
 
 type ContextSelectorProps = {
   label: string
@@ -167,7 +167,79 @@ function ContextPopover({
       </label>
 
       <div className="sidebar-context-popover-list" role="listbox" aria-label={ariaLabel}>
-        {options.length > 0 ? (
+        {ariaLabel === 'Workspace' ? (
+          <>
+            {(() => {
+              const owned = options.filter((o) => o.role === 'owner')
+              const joined = options.filter((o) => o.role && o.role !== 'owner')
+              const renderOption = (option: ContextOption) => {
+                const isActive = option.id === selectedId
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    className={cn(
+                      'sidebar-workspace-menu-item',
+                      isActive && 'sidebar-workspace-menu-item--active',
+                    )}
+                    onClick={() => {
+                      onSelect(option.id)
+                      onClose()
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        'sidebar-workspace-menu-check',
+                        !isActive && 'sidebar-workspace-menu-check--empty',
+                      )}
+                      aria-hidden
+                    />
+                    <span className="truncate flex-1 text-left">{option.name}</span>
+                    {option.role && (
+                      <span
+                        className={cn(
+                          'ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium capitalize shrink-0',
+                          option.role === 'owner' &&
+                            'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+                          option.role === 'admin' &&
+                            'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+                          option.role === 'member' &&
+                            'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+                        )}
+                      >
+                        {option.role}
+                      </span>
+                    )}
+                  </button>
+                )
+              }
+
+              return (
+                <>
+                  {owned.length > 0 && (
+                    <div className="px-3 py-1.5 text-[11px] font-semibold text-devflow-text-muted uppercase tracking-wider">
+                      Owned Workspaces
+                    </div>
+                  )}
+                  {owned.map(renderOption)}
+
+                  {joined.length > 0 && (
+                    <div className="mt-2 px-3 py-1.5 text-[11px] font-semibold text-devflow-text-muted uppercase tracking-wider">
+                      Joined Workspaces
+                    </div>
+                  )}
+                  {joined.map(renderOption)}
+
+                  {options.length === 0 && (
+                    <p className="sidebar-context-popover-empty">{emptyLabel}</p>
+                  )}
+                </>
+              )
+            })()}
+          </>
+        ) : options.length > 0 ? (
           options.map((option) => {
             const isActive = option.id === selectedId
             return (
@@ -465,7 +537,11 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
     currentOrganization?.role === 'owner' ||
     currentOrganization?.role === 'admin' ||
     currentOrganization?.can_create_projects === true
-  const orgOptions = organizations.map((org) => ({ id: org.id, name: org.name }))
+  const orgOptions = organizations.map((org) => ({
+    id: org.id,
+    name: org.name,
+    role: org.role,
+  }))
   const projectOptions = projects.map((project) => ({
     id: project.id,
     name: project.name,
@@ -540,10 +616,10 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
     label: 'Workspace',
     value: currentOrganization?.id ?? '',
     open: openMenu === 'workspace',
-    options: orgOptions,
+    options: filteredWorkspaceOptions,
     query: workspaceQuery,
     placeholder: collapsed ? 'Workspace' : 'Select workspace',
-    createLabel: isSuperuser ? 'Create Workspace' : undefined,
+    createLabel: 'Create Workspace',
     onOpenChange: (open: boolean) => setOpenMenu(open ? 'workspace' : null),
     onQueryChange: setWorkspaceQuery,
     onClose: () => {
@@ -551,7 +627,7 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
       setWorkspaceQuery('')
     },
     onChange: setCurrentOrganization,
-    onCreate: isSuperuser ? () => setCreateOrgOpen(true) : undefined,
+    onCreate: () => setCreateOrgOpen(true),
     'aria-label': 'Workspace',
   }
 
@@ -617,10 +693,10 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
           query={workspaceQuery}
           emptyLabel="No workspaces found"
           searchPlaceholder="Search workspaces"
-          createLabel={isSuperuser ? 'Create Workspace' : undefined}
+          createLabel="Create Workspace"
           onQueryChange={setWorkspaceQuery}
           onSelect={setCurrentOrganization}
-          onCreate={isSuperuser ? () => setCreateOrgOpen(true) : undefined}
+          onCreate={() => setCreateOrgOpen(true)}
           onClose={() => {
             setOpenMenu(null)
             setWorkspaceQuery('')
@@ -633,7 +709,7 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
           onCreated={handleProjectCreated}
         />
 
-        {isSuperuser && user ? (
+        {user ? (
           <CreateOrganizationModal
             open={createOrgOpen}
             ownerUserId={user.id}
@@ -706,7 +782,7 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
         onCreated={handleProjectCreated}
       />
 
-      {isSuperuser && user ? (
+      {user ? (
         <CreateOrganizationModal
           open={createOrgOpen}
           ownerUserId={user.id}

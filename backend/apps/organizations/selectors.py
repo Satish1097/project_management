@@ -38,6 +38,8 @@ def _membership_to_organization_summary(
     membership: OrganizationMember,
 ) -> OrganizationSummaryDTO:
     organization = membership.organization
+    project_count = getattr(membership, "project_count_annotated", 0)
+    member_count = getattr(membership, "member_count_annotated", 0)
     return OrganizationSummaryDTO(
         id=organization.id,
         name=organization.name,
@@ -45,6 +47,8 @@ def _membership_to_organization_summary(
         role=membership.role,
         is_active=organization.is_active,
         can_create_projects=membership.can_create_projects,
+        project_count=project_count,
+        member_count=member_count,
     )
 
 
@@ -65,9 +69,26 @@ def select_organization_by_id(organization_id: UUID) -> OrganizationDTO | None:
 
 
 def select_organizations_for_user(user_id: UUID) -> list[OrganizationSummaryDTO]:
+    from django.db.models import Count, OuterRef, Subquery, Value
+    from django.db.models.functions import Coalesce
+    from apps.projects.models import Project
+    from apps.organizations.models import OrganizationMember as OrgMember
+
+    projects_subquery = Project.objects.filter(
+        organization_id=OuterRef("organization_id")
+    ).values("organization_id").annotate(cnt=Count("id")).values("cnt")
+
+    members_subquery = OrgMember.objects.filter(
+        organization_id=OuterRef("organization_id")
+    ).values("organization_id").annotate(cnt=Count("id")).values("cnt")
+
     memberships = (
         OrganizationMember.objects.filter(user_id=user_id, is_active=True)
         .select_related("organization")
+        .annotate(
+            project_count_annotated=Coalesce(Subquery(projects_subquery), Value(0)),
+            member_count_annotated=Coalesce(Subquery(members_subquery), Value(0)),
+        )
         .order_by("organization__name")
     )
     return [_membership_to_organization_summary(membership) for membership in memberships]

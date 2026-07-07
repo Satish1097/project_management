@@ -39,19 +39,27 @@ def register_user(
     email: str | None = None,
     invite_token: str | None = None,
 ) -> dict:
-    if not invite_token:
-        raise InvalidInvitationError("A valid invitation token is required to register.")
+    from django.utils.text import slugify
+    from apps.organizations.models import Organization
+    from apps.organizations.services.organization_service import create_organization
 
-    invitation = validate_invitation(invite_token)
-    account_email = invitation.email
+    if invite_token:
+        invitation = validate_invitation(invite_token)
+        account_email = invitation.email
+    else:
+        if not email:
+            raise ValueError("Email is required when signup is not via invitation.")
+        account_email = email
+        invitation = None
 
     normalized_email = account_email.strip().lower()
-    if select_user_by_email(normalized_email) is not None:
-        raise AccountAlreadyExistsError("An account already exists for this invitation.")
-
-    first_name, last_name = _split_name(name)
 
     with transaction.atomic():
+        if select_user_by_email(normalized_email) is not None:
+            raise AccountAlreadyExistsError("An account already exists for this email/invitation.")
+
+        first_name, last_name = _split_name(name)
+
         user = User.objects.create_user(email=normalized_email, password=password)
         UserProfile.objects.create(
             user=user,
@@ -59,7 +67,23 @@ def register_user(
             last_name=last_name,
         )
         UserPreference.objects.create(user=user)
-        consume_invitation_memberships(user=user, invitation=invitation)
+
+        if invitation:
+            consume_invitation_memberships(user=user, invitation=invitation)
+        else:
+            personal_slug = slugify(name.strip()) or "personal"
+            base_slug = personal_slug
+            counter = 1
+            while Organization.objects.filter(slug=personal_slug).exists():
+                personal_slug = f"{base_slug}-{counter}"
+                counter += 1
+
+            create_organization(
+                name=f"{name.strip()}'s Workspace",
+                slug=personal_slug,
+                owner_user_id=user.id,
+                creator=user,
+            )
 
     return {
         "user": select_me(user),

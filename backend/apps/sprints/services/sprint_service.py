@@ -196,3 +196,39 @@ class SprintService:
 
 
 sprint_service = SprintService()
+
+
+def create_sprint(
+    project_id,
+    name,
+    actor_id,
+    goal=None,
+    start_date=None,
+    end_date=None,
+    capacity_points=None,
+):
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.get(pk=actor_id)
+    return sprint_service.create_sprint(
+        user=user,
+        project_id=project_id,
+        name=name,
+        goal=goal,
+        start_date=start_date,
+        end_date=end_date,
+        capacity_points=capacity_points,
+    )
+
+
+def start_sprint(sprint_id, actor_id):
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.get(pk=actor_id)
+    return sprint_service.start_sprint(
+        user=user,
+        sprint_id=sprint_id,
+    )
+

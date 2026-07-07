@@ -84,7 +84,8 @@ export async function logout(refreshToken: string): Promise<void> {
 }
 
 export type RegisterPayload = {
-  invite_token: string
+  invite_token?: string
+  email?: string
   name: string
   password: string
 }

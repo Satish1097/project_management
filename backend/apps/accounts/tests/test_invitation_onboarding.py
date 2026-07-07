@@ -33,7 +33,7 @@ def project_invitation(db, project, superuser):
 
 
 @pytest.mark.django_db
-def test_public_registration_without_invitation_is_rejected(api_client):
+def test_public_registration_without_invitation_success(api_client):
     response = api_client.post(
         REGISTER_URL,
         {
@@ -44,11 +44,17 @@ def test_public_registration_without_invitation_is_rejected(api_client):
         format="json",
     )
 
-    assert response.status_code == 400
-    assert response.json()["success"] is False
-    assert User.objects.filter(email="selfserve@example.com").exists() is False
-    assert OrganizationMember.objects.exists() is False
-    assert ProjectMember.objects.exists() is False
+    assert response.status_code == 201
+    assert response.json()["success"] is True
+    user = User.objects.get(email="selfserve@example.com")
+    assert UserProfile.objects.filter(user=user).exists()
+    assert UserPreference.objects.filter(user=user).exists()
+
+    memberships = OrganizationMember.objects.filter(user=user)
+    assert memberships.count() == 1
+    membership = memberships.first()
+    assert membership.role == OrganizationRole.OWNER
+    assert membership.organization.name == "Self Serve's Workspace"
 
 
 @pytest.mark.django_db
@@ -189,3 +195,90 @@ def test_register_plain_invitation_still_works(api_client, invitation):
 
     invitation.refresh_from_db()
     assert invitation.used_at is not None
+
+
+@pytest.mark.django_db
+def test_invitation_cannot_be_accepted_twice(
+    authenticate,
+    project_invitation,
+    project,
+    other_user,
+):
+    project_invitation.email = other_user.email
+    project_invitation.save(update_fields=["email"])
+    client = authenticate(other_user)
+
+    # First acceptance
+    response = client.post(
+        ACCEPT_INVITATION_URL,
+        {"invite_token": project_invitation.token},
+        format="json",
+    )
+    assert response.status_code == 200
+
+    # Second acceptance should fail
+    response_second = client.post(
+        ACCEPT_INVITATION_URL,
+        {"invite_token": project_invitation.token},
+        format="json",
+    )
+    assert response_second.status_code == 400
+    assert response_second.json()["success"] is False
+
+
+@pytest.mark.django_db
+def test_joined_workspace_appears_in_workspace_list_and_context_after_acceptance(
+    authenticate,
+    project_invitation,
+    project,
+    other_user,
+):
+    project_invitation.email = other_user.email
+    project_invitation.save(update_fields=["email"])
+    client = authenticate(other_user)
+
+    # Before acceptance, they shouldn't see it in organizations
+    from apps.organizations.selectors import select_organizations_for_user
+    orgs_before = select_organizations_for_user(other_user.id)
+    assert not any(o.id == project.organization_id for o in orgs_before)
+
+    # Accept the invitation
+    response = client.post(
+        ACCEPT_INVITATION_URL,
+        {"invite_token": project_invitation.token},
+        format="json",
+    )
+    assert response.status_code == 200
+
+    # After acceptance, they should see it
+    orgs_after = select_organizations_for_user(other_user.id)
+    assert any(o.id == project.organization_id for o in orgs_after)
+
+    # Verify membership created exactly once
+    memberships_count = OrganizationMember.objects.filter(
+        organization_id=project.organization_id,
+        user_id=other_user.id,
+    ).count()
+    assert memberships_count == 1
+
+    # Verify context API (/api/me/context) returns the organization
+    context_response = client.get("/api/me/context")
+    assert context_response.status_code == 200
+    context_data = context_response.json()["data"]
+    org_ids_in_context = [org["id"] for org in context_data["organizations"]]
+    assert str(project.organization_id) in org_ids_in_context
+
+
+@pytest.mark.django_db
+def test_users_cannot_access_workspaces_they_are_not_members_of(
+    authenticate,
+    project_invitation,
+    project,
+    other_user,
+):
+    # other_user has not accepted the invitation yet, they should not have access
+    client = authenticate(other_user)
+    
+    # Try fetching organization details
+    response = client.get(f"/api/organizations/{project.organization_id}")
+    assert response.status_code == 403

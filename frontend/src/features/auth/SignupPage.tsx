@@ -18,6 +18,7 @@ import {
 import { ROUTES, projectBacklogPath } from '@/constants/routes'
 import { useAppContext } from '@/features/context/useAppContext'
 import { useAuth } from './AuthProvider'
+import { setStoredOrganizationId, setStoredProjectId } from '@/features/context/contextStorage'
 
 function EyeToggle({ visible, onToggle }: { visible: boolean; onToggle: () => void }) {
   return (
@@ -81,6 +82,7 @@ export function SignupPage() {
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [invitation, setInvitation] = useState<InvitationDetails | null>(null)
   const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isValidating, setIsValidating] = useState(hasInviteToken)
@@ -91,7 +93,7 @@ export function SignupPage() {
   const invitationBelongsToCurrentUser =
     Boolean(invitedEmail && user?.email.toLowerCase() === invitedEmail.toLowerCase())
   const loginRedirect = `${ROUTES.signup}?invite_token=${encodeURIComponent(inviteToken)}`
-  const canCreateAccount = hasInviteToken && invitation && !invitation.account_exists
+  const canCreateAccount = !hasInviteToken || (hasInviteToken && invitation && !invitation.account_exists)
 
   useEffect(() => {
     let cancelled = false
@@ -100,7 +102,7 @@ export function SignupPage() {
       if (!hasInviteToken) {
         setInvitation(null)
         setIsValidating(false)
-        setError('A valid invitation link is required to create an account.')
+        setError(null)
         return
       }
 
@@ -131,25 +133,38 @@ export function SignupPage() {
     }
   }, [hasInviteToken, inviteToken])
 
+  useEffect(() => {
+    if (isAuthenticated && invitation && invitationBelongsToCurrentUser && !isAccepting) {
+      void handleAcceptInvitation()
+    }
+  }, [isAuthenticated, invitation, invitationBelongsToCurrentUser, isAccepting])
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
 
-    if (!hasInviteToken || !invitation) {
-      setError('A valid invitation link is required to create an account.')
-      return
-    }
-
-    if (invitation?.account_exists) {
-      setError('This invitation belongs to an existing account. Sign in to accept it.')
-      return
+    if (hasInviteToken) {
+      if (!invitation) {
+        setError('A valid invitation link is required to create an account.')
+        return
+      }
+      if (invitation.account_exists) {
+        setError('This invitation belongs to an existing account. Sign in to accept it.')
+        return
+      }
+    } else {
+      if (!email.trim()) {
+        setError('Email is required.')
+        return
+      }
     }
 
     setIsSubmitting(true)
 
     try {
       await register({
-        invite_token: inviteToken,
+        invite_token: inviteToken || undefined,
+        email: !hasInviteToken ? email.trim() : undefined,
         name: fullName.trim(),
         password,
       })
@@ -183,6 +198,16 @@ export function SignupPage() {
 
     try {
       await acceptInvitation(inviteToken)
+
+      const orgId = invitation.metadata.organization_id
+      const projectId = invitation.metadata.project_id
+      if (typeof orgId === 'string') {
+        setStoredOrganizationId(orgId)
+      }
+      if (typeof projectId === 'string') {
+        setStoredProjectId(projectId)
+      }
+
       await refreshContext()
       navigate(getInvitationRedirect(invitation), { replace: true })
     } catch (err) {
@@ -210,7 +235,7 @@ export function SignupPage() {
           <div className="flex flex-col gap-1 text-center">
             <h2 className="text-section-title text-devflow-text">
               {!hasInviteToken
-                ? 'Invitation required'
+                ? 'Create your account'
                 : invitation?.account_exists
                   ? 'Accept your invitation'
                   : 'Create your account'}
@@ -218,7 +243,7 @@ export function SignupPage() {
             <p className="text-body text-devflow-text-secondary">
               {isValidating
                 ? 'Checking your invitation link...'
-                : hasInviteToken && invitation
+                : (hasInviteToken && invitation) || !hasInviteToken
                   ? BRANDING.signupTagline
                   : 'Ask a workspace admin for a valid invitation link.'}
             </p>
@@ -236,7 +261,7 @@ export function SignupPage() {
             />
           ) : null}
 
-          {!hasInviteToken || (!isValidating && hasInviteToken && !invitation) ? (
+          {(hasInviteToken && !isValidating && !invitation) ? (
             <div className="flex flex-col gap-4">
               {error ? (
                 <p className="text-caption text-red-600">{error}</p>
@@ -250,7 +275,7 @@ export function SignupPage() {
                 Back to Sign In
               </Button>
             </div>
-          ) : invitation?.account_exists ? (
+          ) : (hasInviteToken && invitation?.account_exists) ? (
             <div className="flex flex-col gap-4">
               <p className="text-body text-devflow-text-secondary">
                 This email already has an account. Sign in with the invited email to add
@@ -275,7 +300,12 @@ export function SignupPage() {
                 <Button
                   type="button"
                   className="gap-1 py-2 text-section-title"
-                  onClick={() => navigate(ROUTES.login, { state: { from: loginRedirect } })}
+                  onClick={() =>
+                    navigate(
+                      `${ROUTES.login}?invite_token=${encodeURIComponent(inviteToken)}`,
+                      { state: { from: loginRedirect } },
+                    )
+                  }
                 >
                   Sign in to accept
                   <ArrowRightIcon className="size-3.5" />
@@ -284,6 +314,20 @@ export function SignupPage() {
             </div>
           ) : canCreateAccount ? (
             <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+              {!hasInviteToken && (
+                <IconInput
+                  label="Email Address"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="name@example.com"
+                  icon={<MailIcon />}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isSubmitting}
+                />
+              )}
               <IconInput
                 label="Full Name"
                 name="fullName"
@@ -350,7 +394,11 @@ export function SignupPage() {
               <p className="text-body text-devflow-text-secondary">
                 Already have an account?{' '}
                 <Link
-                  to={ROUTES.login}
+                  to={
+                    hasInviteToken
+                      ? `${ROUTES.login}?invite_token=${encodeURIComponent(inviteToken)}`
+                      : ROUTES.login
+                  }
                   state={hasInviteToken ? { from: loginRedirect } : undefined}
                   className="font-semibold text-devflow-primary hover:underline"
                 >

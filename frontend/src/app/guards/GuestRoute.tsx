@@ -11,11 +11,17 @@ export function GuestRoute() {
   }
 
   if (isAuthenticated) {
-    const isInvitationSignup =
-      location.pathname === ROUTES.signup &&
-      new URLSearchParams(location.search).has('invite_token')
-    if (isInvitationSignup) {
-      return <Outlet />
+    const inviteToken = new URLSearchParams(location.search).get('invite_token')
+    if (inviteToken) {
+      if (location.pathname === ROUTES.signup) {
+        return <Outlet />
+      }
+      return (
+        <Navigate
+          to={`${ROUTES.signup}?invite_token=${encodeURIComponent(inviteToken)}`}
+          replace
+        />
+      )
     }
     return <Navigate to={ROUTES.dashboard} replace />
   }

@@ -539,3 +539,64 @@ class IssueService:
 
 
 issue_service = IssueService()
+
+
+def create_issue(
+    project_id,
+    title,
+    actor_id,
+    description=None,
+    issue_type="task",
+    priority="medium",
+    sprint_id=None,
+    assignee_id=None,
+    label_ids=None,
+    due_date=None,
+    estimate_hours=None,
+    story_points=None,
+    parent_issue_id=None,
+):
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.get(pk=actor_id)
+    return issue_service.create_issue(
+        user=user,
+        project_id=project_id,
+        title=title,
+        description=description,
+        type=issue_type,
+        priority=priority,
+        sprint_id=sprint_id,
+        assignee_id=assignee_id,
+        label_ids=label_ids,
+        due_date=due_date,
+        estimate_hours=estimate_hours,
+        story_points=story_points,
+        parent_issue_id=parent_issue_id,
+    )
+
+
+def assign_issue(issue_id, assignee_id, actor_id):
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.get(pk=actor_id)
+    return issue_service.update_issue(
+        user=user,
+        issue_id=issue_id,
+        assignee_id=assignee_id,
+    )
+
+
+def move_issue_to_sprint(issue_id, sprint_id, actor_id):
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.get(pk=actor_id)
+    return issue_service.assign_sprint(
+        user=user,
+        issue_id=issue_id,
+        sprint_id=sprint_id,
+    )
+
