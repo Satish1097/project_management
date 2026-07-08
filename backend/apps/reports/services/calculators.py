@@ -258,6 +258,8 @@ class VelocityCalculator:
 
     def calculate_velocity(self, sprint_data_list: list[dict]) -> dict:
         history = []
+        completed_velocity_rows = []
+
         for data in sprint_data_list:
             sprint = data["sprint"]
             if sprint.status == "cancelled":
@@ -265,57 +267,119 @@ class VelocityCalculator:
                     "sprint_id": str(sprint.id),
                     "sprint_name": sprint.name,
                     "status": "cancelled",
+                    "start_date": sprint.start_date.isoformat() if sprint.start_date else None,
+                    "end_date": sprint.end_date.isoformat() if sprint.end_date else None,
                     "committed_story_points": 0,
                     "completed_story_points": 0,
                     "commitment_percentage": 0.0,
-                    "completion_percentage": 0.0
+                    "completion_percentage": 0.0,
+                    "rolling_average": None,
                 })
                 continue
-                
+
             committed = self.shared_calc.get_committed_metrics(data["start_commitments"])
             completed = self.shared_calc.get_completed_metrics_from_snapshot(data["end_commitments"])
-            
+
             comm_sp = committed["committed_story_points"]
             comp_sp = completed["completed_story_points"]
             total_end_sp = completed["total_story_points_at_end"]
-            
+
             commitment_pct = round((comp_sp / comm_sp * 100), 2) if comm_sp > 0 else 0.0
             completion_pct = round((comp_sp / total_end_sp * 100), 2) if total_end_sp > 0 else 0.0
-            
-            history.append({
+
+            row = {
                 "sprint_id": str(sprint.id),
                 "sprint_name": sprint.name,
                 "status": sprint.status,
+                "start_date": sprint.start_date.isoformat() if sprint.start_date else None,
+                "end_date": sprint.end_date.isoformat() if sprint.end_date else None,
                 "committed_story_points": comm_sp,
                 "completed_story_points": comp_sp,
                 "commitment_percentage": commitment_pct,
                 "completion_percentage": completion_pct,
-            })
-            
-        valid_sprints = [h for h in history if h["status"] != "cancelled"]
-        rolling_window = valid_sprints[-DEFAULT_VELOCITY_ROLLING_WINDOW:]
-        
-        rolling_avg = 0.0
-        if rolling_window:
-            rolling_avg = round(sum(h["completed_story_points"] for h in rolling_window) / len(rolling_window), 2)
-            
-        avg = 0.0
-        if valid_sprints:
-            avg = round(sum(h["completed_story_points"] for h in valid_sprints) / len(valid_sprints), 2)
-            
-        trend = "stable"
-        if valid_sprints and len(valid_sprints) > 1:
-            latest = valid_sprints[-1]["completed_story_points"]
-            if latest > rolling_avg:
-                trend = "up"
-            elif latest < rolling_avg:
-                trend = "down"
-            
+                "rolling_average": None,
+            }
+
+            if sprint.status == "completed":
+                completed_velocity_rows.append(row)
+                rolling_window = completed_velocity_rows[-DEFAULT_VELOCITY_ROLLING_WINDOW:]
+                row["rolling_average"] = round(
+                    sum(h["completed_story_points"] for h in rolling_window) / len(rolling_window),
+                    2,
+                )
+
+            history.append(row)
+
+        rolling_window = completed_velocity_rows[-DEFAULT_VELOCITY_ROLLING_WINDOW:]
+        rolling_average_value = (
+            round(sum(h["completed_story_points"] for h in rolling_window) / len(rolling_window), 2)
+            if rolling_window else 0.0
+        )
+
+        average_velocity = (
+            round(
+                sum(h["completed_story_points"] for h in completed_velocity_rows)
+                / len(completed_velocity_rows),
+                2,
+            )
+            if completed_velocity_rows else 0.0
+        )
+
+        trend_direction = "stable"
+        previous_velocity = None
+        latest_velocity = None
+        delta = 0
+        delta_percentage = 0.0
+        if len(completed_velocity_rows) >= 2:
+            previous_velocity = completed_velocity_rows[-2]["completed_story_points"]
+            latest_velocity = completed_velocity_rows[-1]["completed_story_points"]
+            delta = latest_velocity - previous_velocity
+            delta_percentage = round((delta / previous_velocity * 100), 2) if previous_velocity else 0.0
+            if delta > 0:
+                trend_direction = "up"
+            elif delta < 0:
+                trend_direction = "down"
+        elif len(completed_velocity_rows) == 1:
+            latest_velocity = completed_velocity_rows[-1]["completed_story_points"]
+
+        total_committed = sum(h["committed_story_points"] for h in completed_velocity_rows)
+        total_completed = sum(h["completed_story_points"] for h in completed_velocity_rows)
+        avg_commitment_pct = (
+            round(sum(h["commitment_percentage"] for h in completed_velocity_rows) / len(completed_velocity_rows), 2)
+            if completed_velocity_rows else 0.0
+        )
+        avg_completion_pct = (
+            round(sum(h["completion_percentage"] for h in completed_velocity_rows) / len(completed_velocity_rows), 2)
+            if completed_velocity_rows else 0.0
+        )
+
         return {
-            "average_velocity": avg,
-            "rolling_average": rolling_avg,
-            "trend": trend,
-            "history": history,
+            "sprint_summary": {
+                "total_sprints": len(history),
+                "completed_sprints": len(completed_velocity_rows),
+                "cancelled_sprints": len([h for h in history if h["status"] == "cancelled"]),
+                "rolling_window": DEFAULT_VELOCITY_ROLLING_WINDOW,
+            },
+            "velocity_history": history,
+            "rolling_average": {
+                "window": DEFAULT_VELOCITY_ROLLING_WINDOW,
+                "value": rolling_average_value,
+                "sprint_count": len(rolling_window),
+            },
+            "trend": {
+                "direction": trend_direction,
+                "latest_velocity": latest_velocity,
+                "previous_velocity": previous_velocity,
+                "delta": delta,
+                "delta_percentage": delta_percentage,
+            },
+            "metrics": {
+                "average_velocity": average_velocity,
+                "total_committed_story_points": total_committed,
+                "total_completed_story_points": total_completed,
+                "average_commitment_percentage": avg_commitment_pct,
+                "average_completion_percentage": avg_completion_pct,
+            },
         }
 
 

@@ -136,7 +136,7 @@ class ReportService:
         sprints = list(get_project_sprints(project_id).exclude(status="planned"))
         if not sprints:
             return None
-        sprints.reverse()
+        sprints.sort(key=lambda sprint: (sprint.start_date or sprint.created_at.date(), sprint.created_at))
 
         # 2. Bulk fetch all snapshot data for these sprints
         sprints_data = get_velocity_data_for_sprints(sprints)
@@ -154,4 +154,3 @@ class ReportService:
 
 
 report_service = ReportService()
-

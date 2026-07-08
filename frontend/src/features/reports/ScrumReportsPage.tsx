@@ -11,6 +11,7 @@ import { ReportCard } from '@/features/reports/ReportCard'
 import { SprintHealthSection } from '@/features/reports/SprintHealthSection'
 import { BurndownChart } from '@/features/reports/components/BurndownChart'
 import { SprintReport } from '@/features/reports/components/SprintReport'
+import { VelocityReport } from '@/features/reports/components/VelocityReport'
 import { ReportsFilterProvider } from '@/features/reports/contexts/ReportsFilterContext'
 
 type TabType = 'burndown' | 'health' | 'sprint-report' | 'velocity'
@@ -72,7 +73,8 @@ function ScrumReportsPageContent() {
             title="Velocity"
             description="Story points completed across recent sprints."
             icon={Activity}
-            status="coming-soon"
+            status="available"
+            onClick={() => setActiveTab('velocity')}
             isActive={activeTab === 'velocity'}
           />
           <ReportCard
@@ -88,6 +90,8 @@ function ScrumReportsPageContent() {
         {activeTab === 'burndown' && <BurndownChart />}
 
         {activeTab === 'sprint-report' && <SprintReport />}
+
+        {activeTab === 'velocity' && <VelocityReport />}
 
         {activeTab === 'health' && (
           <SprintHealthSection

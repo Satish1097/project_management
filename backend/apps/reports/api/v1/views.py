@@ -7,6 +7,7 @@ from apps.permissions.drf_permissions import Authenticated, CanViewProject
 from apps.projects.services.project_service import require_scrum_project
 from apps.sprints.selectors import get_active_sprint, get_project_sprints
 from apps.reports.services.report_service import report_service
+from apps.reports.services.calculators import DEFAULT_VELOCITY_ROLLING_WINDOW
 from apps.projects.selectors import select_project_by_id
 from apps.projects.exceptions import ProjectNotFoundError
 
@@ -162,10 +163,32 @@ class VelocityReportView(APIView):
         if report_data is None:
             # Return empty if no sprints
             report_data = {
-                "average_velocity": 0.0,
-                "rolling_average": 0.0,
-                "trend": "stable",
-                "history": [],
+                "sprint_summary": {
+                    "total_sprints": 0,
+                    "completed_sprints": 0,
+                    "cancelled_sprints": 0,
+                    "rolling_window": DEFAULT_VELOCITY_ROLLING_WINDOW,
+                },
+                "velocity_history": [],
+                "rolling_average": {
+                    "window": DEFAULT_VELOCITY_ROLLING_WINDOW,
+                    "value": 0.0,
+                    "sprint_count": 0,
+                },
+                "trend": {
+                    "direction": "stable",
+                    "latest_velocity": None,
+                    "previous_velocity": None,
+                    "delta": 0,
+                    "delta_percentage": 0.0,
+                },
+                "metrics": {
+                    "average_velocity": 0.0,
+                    "total_committed_story_points": 0,
+                    "total_completed_story_points": 0,
+                    "average_commitment_percentage": 0.0,
+                    "average_completion_percentage": 0.0,
+                },
             }
 
         return success_response(data={"report": report_data})

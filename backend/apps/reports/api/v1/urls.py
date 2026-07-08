@@ -1,5 +1,9 @@
 from django.urls import path
-from apps.reports.api.v1.views import SprintBurndownReportView, SprintReportView
+from apps.reports.api.v1.views import (
+    SprintBurndownReportView,
+    SprintReportView,
+    VelocityReportView,
+)
 
 urlpatterns = [
     path(
@@ -12,5 +16,9 @@ urlpatterns = [
         SprintReportView.as_view(),
         name="project-report-sprint-report",
     ),
+    path(
+        "projects/<uuid:project_id>/reports/velocity",
+        VelocityReportView.as_view(),
+        name="project-report-velocity",
+    ),
 ]
-

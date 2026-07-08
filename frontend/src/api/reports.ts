@@ -107,3 +107,53 @@ export async function getSprintReport(
   return data.data.report
 }
 
+// Velocity Report
+
+export type VelocityHistoryItem = {
+  sprint_id: string
+  sprint_name: string
+  status: string
+  start_date: string | null
+  end_date: string | null
+  committed_story_points: number
+  completed_story_points: number
+  commitment_percentage: number
+  completion_percentage: number
+  rolling_average: number | null
+}
+
+export type VelocityReportApi = {
+  sprint_summary: {
+    total_sprints: number
+    completed_sprints: number
+    cancelled_sprints: number
+    rolling_window: number
+  }
+  velocity_history: VelocityHistoryItem[]
+  rolling_average: {
+    window: number
+    value: number
+    sprint_count: number
+  }
+  trend: {
+    direction: 'up' | 'down' | 'stable'
+    latest_velocity: number | null
+    previous_velocity: number | null
+    delta: number
+    delta_percentage: number
+  }
+  metrics: {
+    average_velocity: number
+    total_committed_story_points: number
+    total_completed_story_points: number
+    average_commitment_percentage: number
+    average_completion_percentage: number
+  }
+}
+
+export async function getVelocityReport(projectId: string): Promise<VelocityReportApi> {
+  const { data } = await apiClient.get<ApiResponse<{ report: VelocityReportApi }>>(
+    `/v1/projects/${projectId}/reports/velocity`,
+  )
+  return data.data.report
+}
