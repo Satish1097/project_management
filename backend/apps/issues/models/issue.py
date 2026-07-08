@@ -84,6 +84,7 @@ class Issue(BaseModel):
         blank=True,
         related_name="subtasks",
     )
+    completed_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
         verbose_name = "issue"
@@ -98,6 +99,12 @@ class Issue(BaseModel):
             models.Index(fields=["project", "status"]),
             models.Index(fields=["project", "sprint"]),
             models.Index(fields=["project", "priority"]),
+            # Supports throughput / cycle-time queries filtered by project and
+            # completion date range (e.g. "issues completed this sprint").
+            models.Index(
+                fields=["project", "completed_at"],
+                name="issues_project_completed_idx",
+            ),
         ]
 
     def get_primary_assignee_id(self):

@@ -4,6 +4,7 @@ Issue Core write services — create, update, sprint assignment.
 All authorization flows through PermissionService; no inline role checks.
 No transition or board logic in this module.
 """
+import logging
 from decimal import Decimal
 from uuid import UUID
 
@@ -32,6 +33,9 @@ from apps.sprints.models import Sprint
 from apps.workflow.exceptions import WorkflowStatusNotFoundError
 from apps.workflow.selectors import get_default_status, get_project_statuses
 from apps.workflow.slug_utils import status_slug
+from apps.reports.services.analytics_recorder import analytics_event_recorder
+
+logger = logging.getLogger(__name__)
 
 _FORBIDDEN_UPDATE_FIELDS = frozenset(
     {
@@ -238,7 +242,26 @@ class IssueService:
             if labels:
                 issue.labels.set(labels)
 
-        return get_issue_by_id(issue.pk) or issue
+        issue = get_issue_by_id(issue.pk) or issue
+
+        # Record the initial status history so dwell-time for the first status
+        # is computable. This is fire-and-forget: an analytics failure must not
+        # prevent issue creation from succeeding.
+        try:
+            analytics_event_recorder.record_status_transition(
+                issue=issue,
+                from_status=None,
+                to_status=issue.status,
+                transitioned_by=user,
+            )
+        except Exception:
+            logger.exception(
+                "Analytics: initial status history failed for issue %s. "
+                "Issue creation succeeded.",
+                issue.id,
+            )
+
+        return issue
 
     def update_issue(self, user, issue_id: UUID, **fields) -> Issue:
         issue = _get_issue_or_raise(issue_id)
@@ -292,6 +315,7 @@ class IssueService:
             update_fields.append("sprint_id")
 
         old_assignee_id = issue.get_primary_assignee_id()
+        old_story_points = issue.story_points
         assignee_value = fields.get("assignee_id", fields.get("assignee"))
         if "assignee_id" in fields or "assignee" in fields:
             issue.assignees.clear()
@@ -313,6 +337,21 @@ class IssueService:
         if update_fields:
             update_fields.append("updated_at")
             issue.save(update_fields=update_fields)
+
+        if old_story_points != issue.story_points:
+            try:
+                analytics_event_recorder.record_story_point_change(
+                    issue=issue,
+                    previous_story_points=old_story_points,
+                    new_story_points=issue.story_points,
+                    changed_by=user,
+                )
+            except Exception:
+                logger.exception(
+                    "Analytics: story-point history failed for issue %s. "
+                    "Update succeeded.",
+                    issue.id,
+                )
 
         if (
             ("assignee_id" in fields or "assignee" in fields)

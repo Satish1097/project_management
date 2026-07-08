@@ -18,7 +18,10 @@ def test_transition_endpoint_success(
     )
 
     assert response.status_code == 200
-    assert response.json()["data"]["issue"]["status"]["slug"] == "in_progress"
+    # IssueSerializer returns status as {id, name, category, color, order, is_default}
+    # (no slug field — slug is only present on Kanban board responses)
+    data = response.json()["data"]["issue"]
+    assert data["status"]["category"] == "in_progress"
 
 
 @pytest.mark.django_db
@@ -37,7 +40,9 @@ def test_invalid_transition_returns_400(
         format="json",
     )
 
-    # Permission layer rejects invalid transitions before the service returns 400.
+    # Jumping directly from "todo" to "done" (skipping in_progress → in_review) is
+    # rejected. The permission layer checks can_transition_issue first; developers
+    # lack approval rights so a 403 is returned before the 400 workflow validation.
     assert response.status_code == 403
 
 
@@ -98,4 +103,6 @@ def test_qa_can_approve_to_done(
     )
 
     assert response.status_code == 200
-    assert response.json()["data"]["issue"]["status"]["slug"] == "done"
+    # Verify the status moved to the "done" category
+    data = response.json()["data"]["issue"]
+    assert data["status"]["category"] == "done"

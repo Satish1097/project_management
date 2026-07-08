@@ -5,6 +5,7 @@ Scope:
 - create/update/start/pause/resume/complete sprint lifecycle
 - no issue/workflow/analytics integration
 """
+import logging
 from uuid import UUID
 
 from django.db import transaction
@@ -19,6 +20,9 @@ from apps.sprints.exceptions import (
 )
 from apps.sprints.models import Sprint, SprintStatus
 from apps.sprints.selectors import get_sprint_by_id
+from apps.reports.services.analytics_recorder import analytics_event_recorder
+
+logger = logging.getLogger(__name__)
 
 
 def _get_sprint_or_raise(sprint_id: UUID) -> Sprint:
@@ -108,6 +112,18 @@ class SprintService:
         # active sprint in the project. Multiple active sprints may coexist.
         sprint.status = SprintStatus.ACTIVE
         sprint.save(update_fields=["status", "updated_at"])
+
+        # Record start snapshot — fire-and-forget so an analytics failure
+        # does not block the sprint from being activated.
+        try:
+            analytics_event_recorder.record_sprint_snapshot(sprint, "start")
+        except Exception:
+            logger.exception(
+                "Analytics: start snapshot failed for sprint %s. "
+                "Sprint is now ACTIVE.",
+                sprint.id,
+            )
+
         return sprint
 
     def pause_sprint(self, user, sprint_id: UUID) -> Sprint:
@@ -181,6 +197,17 @@ class SprintService:
             from apps.issues.services.issue_service import issue_service
 
             with transaction.atomic():
+                # Snapshot is inside the atomic block so it rolls back if
+                # issue reassignment or sprint status save fails (no orphan).
+                try:
+                    analytics_event_recorder.record_sprint_snapshot(sprint, "end")
+                except Exception:
+                    logger.exception(
+                        "Analytics: end snapshot failed for sprint %s. "
+                        "Sprint completion will still proceed.",
+                        sprint.id,
+                    )
+
                 issue_service.bulk_assign_sprint(
                     user,
                     incomplete_issue_ids,
@@ -189,8 +216,18 @@ class SprintService:
                 sprint.status = SprintStatus.COMPLETED
                 sprint.save(update_fields=["status", "updated_at"])
         else:
-            sprint.status = SprintStatus.COMPLETED
-            sprint.save(update_fields=["status", "updated_at"])
+            with transaction.atomic():
+                try:
+                    analytics_event_recorder.record_sprint_snapshot(sprint, "end")
+                except Exception:
+                    logger.exception(
+                        "Analytics: end snapshot failed for sprint %s. "
+                        "Sprint completion will still proceed.",
+                        sprint.id,
+                    )
+
+                sprint.status = SprintStatus.COMPLETED
+                sprint.save(update_fields=["status", "updated_at"])
 
         return sprint
 

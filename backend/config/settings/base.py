@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "apps.comments",
     "apps.activities",
     "apps.common",
+    "apps.reports.apps.ReportsConfig",
 ]
 
 MIDDLEWARE = [
@@ -132,6 +133,16 @@ CORS_ALLOWED_ORIGINS = [
 
 # Redis
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "protocol": 2,
+        }
+    }
+}
 
 # Celery
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)

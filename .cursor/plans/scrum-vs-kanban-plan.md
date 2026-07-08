@@ -627,8 +627,16 @@ Phase 3 — Board Behaviour
 Phase 5 — Backlog
     Scrum-only backlog; optional ranking slice
         ↓
-Phase 6 — Reports
-    Methodology-specific report pages and endpoints
+Phase 6 — Reports (Sub-phases)
+    Phase 6A: Analytics Infrastructure (Schema & Models)
+        ↓
+    Phase 6B: Data Collection (Observers & recorders)
+        ↓
+    Phase 6C: Backend Reports (Metrics engine, selectors, caching, versioned APIs)
+        ↓
+    Phase 6D: Frontend Reports (Dashboard shell, Recharts, filters, exports)
+        ↓
+    Phase 6E: Advanced Analytics (Future placeholder; forecasting & predictive metrics)
         ↓
 Phase 7 — Kanban Metrics (WIP Limits)
     Per-column WIP limits and transition enforcement
@@ -946,84 +954,202 @@ Legend: ✓ = supported · ✗ = not applicable / hidden · ○ = partial, place
 - WIP limits
 - Swimlanes
 - Full issue ranking UI (unless slice 5b explicitly approved)
-- Kanban backlog view (remains blocked/redirected)
+- Kanban backlog view
 
-**Files by Phase:**
+## Phase 6 — Reports (Sub-phases)
 
-| Category | Files |
-|----------|-------|
-| **Backend** | `backend/apps/issues/selectors.py` (backlog queries), `backend/apps/issues/api/views.py` (backlog views), optional `backend/apps/issues/models/issue.py` + migration (`rank` field — slice 5b) |
-| **Frontend** | `frontend/src/features/backlog/ProjectBacklogPage.tsx`, `frontend/src/features/backlog/hooks/useProjectBacklog.ts`, backlog section utils |
-| **Shared** | None |
-| **Tests** | `backend/apps/issues/tests/` (backlog endpoints), backlog integration tests |
+**Objective:** Implement a production-grade reporting and analytics engine by decoupling statistics tracking from business logic, establishing structured history schemas, introducing a stateless intermediate Metrics Layer, caching time-series queries, exposing versioned domain APIs, and rendering interactive charting.
 
-**Dependencies:** Phase 1, Phase 2 (nav), Phase 4 (API guards).
+### 6.1 Scope Gating (Freeze Scope)
 
-**Estimated complexity:** Medium (High if ranking added).
+#### In-Scope for Phase 6:
+* Extending the database schema to support immutable historical logging and snapshot capabilities (migrations, models, and backfill script).
+* Data collection observers integrated into `TransitionService`, `IssueService`, and `SprintService`.
+* A dedicated `backend/apps/reports/` app with a stateless Metrics Engine (`calculators.py`), DB Selectors (`selectors.py`), Report Services (`services/report_service.py`), and Cache Invalidation (`signals.py`).
+* Versioned REST API endpoints `/api/v1/projects/{projectId}/reports/...`.
+* Frontend implementation of responsive Recharts visualizations with robust loading, empty, and error state handling.
 
-**Definition of Done:**
-
-- ✓ Backlog API returns 404 or documented empty response for Kanban
-- ✓ Scrum backlog lists unsprinted issues and sprint sections unchanged
-- ✓ Drag issue from backlog to sprint works (Scrum)
-- ✓ Bulk assign sprint works (Scrum)
-- ✓ `?sprint=` query expands correct section (Scrum)
-- ✓ (Slice 5b) `rank` field + reorder API persists manual backlog order
-- ✓ Phase 5 tests passing
-
-**Expected result:**
-
-- Backlog API returns 404 or empty for Kanban with documented behaviour
-- Scrum backlog unchanged functionally
-- **Slice 5b (optional):** `rank` field + reorder API for manual backlog ordering
+#### Out-of-Scope (Strictly Gated):
+* `PermissionService` redesign or changes (use existing permission helper functions).
+* Refactoring of workflows, transition authority, or board scope logic.
+* Standardizing or cleaning up issue contracts, serializers, or unrelated models.
+* Refactoring existing selectors outside of the Reports module.
+* Modifying legacy test suites unrelated to reports.
+* Board view or board settings page modifications.
+* WIP limit column configurations (belongs to Phase 7).
 
 ---
 
-## Phase 6 — Reports
+### 6.2 Metrics-Driven Architecture
 
-**Objective:** Replace reports placeholder with methodology-specific report pages.
+Every component built during Phase 6 must adhere to the following data pipeline and strict responsibility boundaries:
 
-**NOT IMPLEMENTING:**
+```mermaid
+flowchart TD
+    DB[(Database\nSnapshots & History)] --> Selectors[DB Selectors\nRaw Query Helpers]
+    Selectors --> Calculators[Metrics Calculators\nStateless Calculations]
+    Calculators --> Services[Report Services\nOrchestration & Cache]
+    Services --> APIs[Versioned REST APIs\nSerialization & Auth]
+    APIs --> Frontend[Frontend UI\nRecharts Mapping & Display]
+```
 
-- WIP limits
-- Board behaviour changes
-- Backlog ranking
-- Full lead-time analytics
-- Epic reports
-- Export/PDF report generation
-- Workspace-level cross-project reports redesign
-- Perfect burndown accuracy (MVP time-series acceptable)
+* **Selectors (`selectors.py`)**: Responsible ONLY for fetching and pre-aggregating raw data from database tables (avoiding N+1 queries using `select_related` and `prefetch_related`). They must contain ZERO business logic or metrics formulas.
+* **Metrics Calculators (`calculators.py`)**: Reusable, stateless classes that contain 100% of the mathematical logic and business formulas. They map raw selector query outputs to domain metric metrics. They must NEVER execute database queries.
+* **Report Services (`services/report_service.py`)**: Orchestrates data loading via selectors, feeds it to calculators, and handles Redis caching (reading/writing to the cache).
+* **Versioned REST APIs (`views.py`)**: Thin serialization layers. They perform user authentication checks, project methodology validation (rejecting requests on Kanban projects), parse request params, call report services, and return DTOs. Math or metrics computations inside controllers or views are strictly FORBIDDEN.
+* **Frontend (`Recharts`)**: Fetches raw domain DTOs, performs visual mapping, and renders widgets.
 
-**Files by Phase:**
+---
 
-| Category | Files |
-|----------|-------|
-| **Backend** | `backend/apps/projects/selectors.py`, `backend/apps/projects/api/views.py`, `backend/apps/projects/api/urls.py`, new burndown time-series endpoint (Scrum), new CFD data endpoint (Kanban) |
-| **Frontend** | new `frontend/src/features/reports/ProjectReportsPage.tsx`, `ScrumReportsPage`, `KanbanReportsPage`, `frontend/src/components/layout/ProjectNav.tsx`, `frontend/src/app/routes.tsx`, `frontend/src/features/dashboard/SprintBurndownChart` (align with real data) |
-| **Shared** | None |
-| **Tests** | `backend/apps/projects/tests/` (report endpoints), reports page integration tests |
+### 6.3 Reusable Metrics Calculators
 
-**Dependencies:** Phase 1, Phase 2.
+To prevent business logic duplication, all calculations are centralized in stateless calculator classes:
+1. `BurndownCalculator`: Calculates daily timeline progress (story points and issue counts) vs. ideal line.
+2. `VelocityCalculator`: Calculates committed vs. completed metrics across sprints and determines average velocity.
+3. `SprintHealthCalculator`: Computes sprint statistics (completion, scope growth, burn rate, predicted carry-over).
+4. `SprintReportCalculator`: Audits sprint content to classify completed, incomplete, added, and removed issues.
+5. `CycleTimeCalculator`: Computes time delta from status histories between start and end categories.
+6. `LeadTimeCalculator`: Computes time delta from issue creation to done category.
+7. `ThroughputCalculator`: Counts completed issues grouped by time intervals.
+8. `CumulativeFlowCalculator`: Accumulates count of issues in status categories day-by-day.
 
-**Estimated complexity:** High.
+---
 
-**Definition of Done:**
+### 6.4 Report Business Rules & Formulas
 
-- ✓ Reports tab visible in project nav for both methodologies
-- ✓ `/projects/:id/reports` renders real content (replaces placeholder)
-- ✓ Scrum: sprint health (existing API) + burndown chart UI + velocity MVP or placeholder
-- ✓ Kanban: summary stats + CFD MVP
-- ✓ `reports/summary` backlog definition aligned with methodology
-- ✓ Overview KPIs load without regression
-- ✓ Empty states when insufficient data
-- ✓ Phase 6 tests passing
+#### 6.4.1 Burndown Report
+* **Baseline**: Sum of story points (or issue counts) from the `SprintSnapshot` of type `start`. If missing (fallback), reconstruct by querying the sprint's current issue set and back-dating status and point values.
+* **Timeline Dates**: List of dates from `sprint.start_date` to `max(sprint.end_date, today, completed_at)`.
+* **Ideal Line**:
+  * Day 0: `ideal_points = committed_points`
+  * Day $i$ of $N$ days: `ideal_points = committed_points * (1 - i / N)` (rounded to 2 decimal places).
+* **Actual Remaining for Day $D$**:
+  * Check the set of issues ever associated with the sprint.
+  * Determine status category of issue on Day $D$ at 23:59:59 UTC using `IssueStatusHistory`.
+  * Determine story point value of issue on Day $D$ at 23:59:59 UTC using `StoryPointHistory`.
+  * An issue is remaining if its category is not `DONE` on Day $D$.
+  * Actual remaining is the sum of points of all remaining issues.
+* **Scope Changes**: If an issue is added after start, it increases the actual line dynamically from the addition date. If removed, its points are subtracted from the actual line from the removal date.
+* **Reopened Issues**: If an issue transitions from `DONE` back to an active status, it is added back to the actual remaining line on the reopening date.
 
-**Expected result:**
+#### 6.4.2 Velocity Report
+* **Committed Points**: Sum of `committed_story_points` in `SprintIssueCommitment` for the sprint start snapshot.
+* **Completed Points**: Sum of story points of sprint issues that are in status category `DONE` at the time of sprint completion (or end snapshot creation).
+* **Cancelled Sprints**: Excluded from velocity reports and averages.
+* **Planned Sprints**: Ignored. Only completed sprints are counted.
+* **Average Velocity**: Sum of completed story points of the last $N$ completed sprints divided by $N$. Sprints with zero committed and completed points are recorded, but excluded from the average velocity denominator to avoid distorting metrics.
 
-- Scrum: sprint health (existing API) + burndown chart UI + velocity placeholder or MVP
-- Kanban: summary stats + CFD MVP
-- Reports tab visible in project nav
-- `/projects/:id/reports` renders real content
+#### 6.4.3 Sprint Report
+* **Completed Issues**: Issues in the sprint whose status category is `DONE` at sprint completion.
+* **Incomplete Issues**: Issues in the sprint whose status category is NOT `DONE` at sprint completion.
+* **Added Issues**: Issues currently in the sprint that were NOT in the sprint start snapshot.
+* **Removed Issues**: Issues present in the sprint start snapshot that were unassigned from the sprint before completion.
+* **Carry-over**: Incomplete issues remaining at sprint completion that are returned to the backlog or moved to a planned sprint.
+
+#### 6.4.4 Sprint Health
+* **Completion %**: `(completed_story_points / total_sprint_points_at_current_time) * 100` (or issue count completion ratio).
+* **Scope Growth**: `((current_total_story_points - committed_story_points) / committed_story_points) * 100` (returns 0 if committed points is 0).
+* **Burn Rate**: Total story points completed / days elapsed since start.
+* **Remaining Work**: Count and points of active (non-DONE) issues.
+* **Blocked Issues**: Count of active issues in the sprint that have been in their current status for more than 5 days, or explicitly flagged as blocked (in a future block field).
+* **Carry-over Prediction**: Predicted points that will remain incomplete at completion. Formula: `max(0, current_remaining_points - (burn_rate * remaining_days))`.
+
+---
+
+### 6.5 Historical Data Policy
+
+To guarantee the accuracy of retrospective analysis and prevent current actions from changing past metrics, we establish the following data retention rules:
+
+| Report | Policy | Rationale |
+|---|---|---|
+| **Burndown** | **Fully Historical** | Relies on `SprintSnapshot` (point-in-time baseline) and append-only event logs (`IssueStatusHistory`, `StoryPointHistory`). Historical charts are reconstructed based on timestamps. |
+| **Sprint Report** | **Fully Historical** | Uses start and end snapshots. Future edits to issue states do not affect the recorded states in the historical snapshot. |
+| **Velocity** | **Fully Historical** | Driven entirely by snapshots captured at sprint activation and sprint completion. |
+| **Sprint Health** | **Partially Historical** | Real-time calculation for `active` sprints. For completed sprints, it locks and displays metrics saved during the `end` snapshot. |
+| **Cycle/Lead Time** | **Fully Historical** | Built entirely from timestamps recorded in `IssueStatusHistory`. |
+| **Cumulative Flow** | **Fully Historical** | Computes day-by-day running category totals using history. |
+
+---
+
+### 6.6 API Contract (Raw Metrics Only)
+
+API responses must return raw structured domain data objects instead of presentation configurations.
+
+#### Example Burndown DTO Response:
+```json
+{
+  "sprint_id": "893c52a0-47b2-4d1e-8422-7ad2eb08779b",
+  "sprint_name": "Sprint 3",
+  "committed_points": 25,
+  "committed_issues": 5,
+  "data_points": [
+    {
+      "date": "2026-07-01",
+      "remaining_points": 25,
+      "remaining_issues": 5,
+      "ideal_points": 25.0,
+      "ideal_issues": 5.0
+    },
+    {
+      "date": "2026-07-02",
+      "remaining_points": 20,
+      "remaining_issues": 4,
+      "ideal_points": 22.5,
+      "ideal_issues": 4.5
+    }
+  ]
+}
+```
+
+---
+
+### 6.7 Frontend Responsibilities
+
+The React client is the sole authority for presentation logic:
+* **Recharts Rendering**: Renders SVG chart elements (Area, Line, Bar, Scatter) with custom responsiveness.
+* **Theme Styling**: Applies CSS variables and tailwind utility colors matching the DevFlow theme system.
+* **Legends & Tooltips**: Generates interactive details and indicators on hover.
+* **Loading/Empty/Error States**: Shows skeleton screens during API requests, displays visual placeholders when a sprint has no issues, and alerts on network errors.
+* **Export Actions**: Handles browser-side CSV/JSON compilation and download triggers.
+
+---
+
+### 6.8 Caching Architecture (Redis)
+
+To satisfy the performance budget, time-series calculations are cached in Redis:
+
+| Cache Key Pattern | TTL | Invalidation Triggers |
+|---|---|---|
+| `reports:proj:{pid}:burndown:{sid}` | 1 Hour (Active)\n30 Days (Completed) | Status changes (`IssueStatusHistory` created),\nStory point sizing updates (`StoryPointHistory` created),\nSprint issue assignment edits (`sprint_id` change). |
+| `reports:proj:{pid}:sprint-report:{sid}` | 1 Hour (Active)\n30 Days (Completed) | Status changes,\nSizing updates,\nSprint assignment modifications. |
+| `reports:proj:{pid}:velocity` | 1 Hour | Starting a sprint,\nCompleting a sprint,\nUpdating story points of committed issues. |
+| `reports:proj:{pid}:sprint-health:{sid}` | 15 Mins (Active)\n30 Days (Completed) | Status changes,\nSizing updates,\nSprint assignment modifications. |
+
+---
+
+### 6.9 Sub-Phase Dependencies
+
+We will implement the Reports module incrementally, moving to the next sub-phase only when the current sub-phase's tests pass:
+
+```
+6A Analytics Infrastructure (Database migrations, models, backfill)
+  └── 6B Data Collection (Service hooks, observers integration, signals)
+        └── 6C Metrics Engine (Stateless calculators, select queries)
+              └── 6D Report APIs (Versioned endpoints, DTO, caching)
+                    └── 6E Frontend Reports (Recharts widgets, filter context)
+                          └── 6F Advanced Analytics (Readiness checks)
+```
+
+---
+
+### 6.10 Acceptance Criteria
+
+Each sub-phase is complete only when meeting these metrics:
+1. **Architecture Compliance**: No database query execution inside calculators or views; no chart formatting inside the API layer.
+2. **Test Coverage**: 100% test coverage for calculator math, API authentication, and caching invalidation.
+3. **No Duplicated Calculations**: All reports reuse calculators.
+4. **Performance Budget**: Cached API responses load in < 100ms; non-cached responses load in < 200ms with zero N+1 database queries.
+5. **UI Aesthetics**: Visual charts match DevFlow dark/light modes, display skeleton loading states, and handle empty states gracefully.
 
 ---
 
@@ -1126,23 +1252,34 @@ flowchart LR
   P3[Phase 3\nBoard behaviour]
   P4[Phase 4\nSprint restrictions]
   P5[Phase 5\nBacklog]
-  P6[Phase 6\nReports]
+  P6A[Phase 6A\nAnalytics Infra]
+  P6B[Phase 6B\nData Collection]
+  P6C[Phase 6C\nBackend Reports]
+  P6D[Phase 6D\nFrontend Reports]
+  P6E[Phase 6E\nAdvanced Analytics]
   P7[Phase 7\nKanban WIP]
   P8[Phase 8\nCleanup]
 
   P1 --> P2
   P1 --> P3
   P1 --> P4
-  P1 --> P6
   P2 --> P5
   P4 --> P5
   P3 --> P7
   P1 --> P7
-  P2 --> P6
+  
+  P1 --> P6A
+  P2 --> P6A
+  P6A --> P6B
+  P6B --> P6C
+  P6C --> P6D
+  P6D --> P6E
+  
   P3 --> P8
   P4 --> P8
   P5 --> P8
-  P6 --> P8
+  P6D --> P8
+  P6E --> P8
   P7 --> P8
 ```
 
@@ -1223,14 +1360,40 @@ flowchart LR
 - [ ] `?sprint=` query expands correct section (scrum)
 - [ ] (If ranking) Reorder backlog persists order across refresh
 
-## Phase 6 — Reports
+## Phase 6 — Reports (Sub-phases)
 
-- [ ] Reports tab visible in project nav
-- [ ] Scrum project shows sprint health, burndown, velocity sections
-- [ ] Kanban project shows CFD / control chart or documented MVP
-- [ ] Reports respect project permissions (viewer can read)
-- [ ] Overview KPIs still load without regression
-- [ ] Empty states when insufficient data
+### Phase 6A — Analytics Infrastructure
+- [ ] Models `IssueStatusHistory`, `StoryPointHistory`, `SprintSnapshot`, and `SprintIssueCommitment` migrations apply cleanly.
+- [ ] `completed_at` field added to `Issue`.
+- [ ] Data migration correctly backfills `completed_at` and initial status histories from existing activity logs.
+- [ ] `IssueActivityEventType` extended to support story point and estimate update options.
+
+### Phase 6B — Data Collection
+- [ ] `AnalyticsEventRecorder` service handles events cleanly and dynamically.
+- [ ] Issue workflow transitions set `completed_at` and create status history intervals in `IssueStatusHistory`.
+- [ ] Sizing adjustments log values into `StoryPointHistory`.
+- [ ] Sprint updates (starting/completing) record issue state snapshots.
+- [ ] Validation tests confirm data is correctly accumulated without interfering with standard database writes.
+
+### Phase 6C — Backend Reports
+- [ ] `apps/reports` package created.
+- [ ] Reusable calculator classes mapping calculations to domain metrics created and verified.
+- [ ] Versioned URL pathways `/api/v1/...` active and guarded.
+- [ ] Query selectors generate correct metrics without N+1 SQL sweeps.
+- [ ] API endpoints return domain DTO values (not presentation chart formats).
+- [ ] Redis caching correctly registers entries and invalidates on triggers.
+
+### Phase 6D — Frontend Reports
+- [ ] `recharts` package added and bundled.
+- [ ] Mapping components translate raw API DTO parameters into chart components.
+- [ ] Navigation gates tab configurations by methodology.
+- [ ] Filter context coordinates dates, assignees, and metrics across active tabs.
+- [ ] Visual panels render Area, Stacked Area, Double-Bar, and Scatter charts accurately.
+- [ ] Data exports work for active reporting queries.
+- [ ] Skeletons and illustrations handle loading/empty states cleanly.
+
+### Phase 6E — Advanced Analytics
+- [ ] Extensibility validations confirm Monte Carlo calculations and AI insights can be integrated without schema revisions.
 
 ## Phase 7 — Kanban WIP Limits
 
@@ -1296,3 +1459,75 @@ When implementing any phase of the Scrum/Kanban refactor, future Cursor prompts 
 |------|--------|
 | 2026-07-04 | Initial plan created from codebase analysis |
 | 2026-07-04 | Added Migration Strategy, Feature Matrix, Implementation Order, per-phase Out of Scope, Definition of Done, and Files by Phase |
+| 2026-07-07 | Updated Phase 6 description to include intermediate Metrics Layer, versioned APIs (/api/v1/), Metrics calculator reuse policy, and Phase 6E Advanced Analytics extensibility. |
+| 2026-07-07 | Documented Reports Implementation Guardrails (Section 9) detailing architectural constraints, definition of done, testing requirements, performance budget, backward compatibility, documentation, and final validation rules. |
+
+---
+
+# 9. Reports Implementation Guardrails
+
+The following guardrails govern the implementation of the Reports module (Phase 6). No shortcuts or architectural deviations are permitted without explicit approval.
+
+## 9.1 Architectural Constraints
+The following decisions are fixed and must not change during implementation:
+* **Dedicated Reports Module**: Create `backend/apps/reports/` separate from existing modules.
+* **Decoupled Recording**: Mutation operations must never block on analytics recording. `AnalyticsEventRecorder` runs as an observer layer.
+* **Metrics Engine**: Reusable, stateless calculator classes are the single source of truth for metrics calculations.
+* **Separation of Concerns**: Endpoints expose domain metric arrays; frontend is responsible for presentation and mapping to visual chart structures.
+* **Redis Caching**: Caching invalidates accurately on data transitions, resizing, and sprint starts/ends.
+* **API Versioning**: Expose endpoints via `/api/v1/projects/{projectId}/reports/...`.
+
+## 9.2 Definition of Done
+Each phase is complete only when the following criteria are met:
+
+### Phase 6A (Analytics Infrastructure)
+* Database migrations apply cleanly and are backward compatible.
+* Existing project and issue datasets are preserved.
+* A data migration script successfully backfills `completed_at` and initial status histories.
+* Automated verification tests run and pass.
+
+### Phase 6B (Data Collection)
+* Workflow status changes record to `IssueStatusHistory` exactly once per transition.
+* Sizing changes write to `StoryPointHistory`.
+* Starting/completing sprints triggers snapshots in `SprintSnapshot` and `SprintIssueCommitment`.
+* No duplicate or orphaned history logs are generated.
+
+### Phase 6C (Backend Reports)
+* Every API endpoint behaves statelessly and is independently testable.
+* Calculators inside the Metrics Engine contain 100% of calculation rules (no duplication).
+* Caching invalidation functions correctly on mutation hooks.
+* Aggregation queries avoid N+1 scans.
+
+### Phase 6D (Frontend Reports)
+* Responsive charts render live, structured API data.
+* Search filters propagate via React Context.
+* Skeletons, empty states, and errors are handled cleanly.
+* Data export (CSV/JSON) functions correctly.
+
+## 9.3 Coding Standards
+* **Single Responsibility Principle (SRP)**: Maintain isolation between selectors (DB queries), calculators (formulas), and API views (mapping).
+* **Strict Dryness**: Duplicated calculations are not allowed.
+* **Strong Typing**: Use typed DTO structures in the backend and TypeScript interfaces in the frontend.
+* **Docstrings**: Document class responsibilities and mathematical logic cleanly.
+
+## 9.4 Testing Requirements
+Every phase requires:
+* **Unit Tests**: Test math calculations and state changes in isolation.
+* **Integration Tests**: Verify endpoint security, caching, and DTO mappings.
+* **Regression Tests**: Assert existing Kanban/Scrum boards and backlogs function without errors.
+
+## 9.5 Performance Budget
+* **Summary endpoints**: < 200ms response latency.
+* **Cached endpoints**: < 100ms response latency.
+* **DB Queries**: Zero N+1 query patterns.
+* **Memory footprint**: Static memory usage on large datasets.
+
+## 9.6 Backward Compatibility
+Existing projects, workflows, permissions, and issues must remain fully functional. Database migrations must use nullable columns or sensible defaults to avoid locking tables.
+
+## 9.7 Documentation
+Every phase must update backend/frontend code comments, API specs, and the checklist.
+
+## 9.8 Final Validation
+Validate that all reports show accurate time-series, velocity, and CFD calculations under varied team filters and dates before declaring Phase 6 complete.
+

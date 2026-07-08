@@ -9,6 +9,8 @@ type ReportCardProps = {
   icon: LucideIcon
   status: 'available' | 'coming-soon'
   to?: string
+  onClick?: () => void
+  isActive?: boolean
 }
 
 export function ReportCard({
@@ -17,6 +19,8 @@ export function ReportCard({
   icon: Icon,
   status,
   to,
+  onClick,
+  isActive,
 }: ReportCardProps) {
   const isAvailable = status === 'available'
   const isLink = isAvailable && to != null
@@ -62,6 +66,23 @@ export function ReportCard({
     )
   }
 
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className={cn(
+          isAvailable ? layout.uiCard : layout.uiCardMuted,
+          'w-full text-left transition-all hover:border-devflow-primary/40 hover:bg-devflow-surface/40',
+          isActive && 'border-devflow-primary ring-1 ring-devflow-primary/20',
+          !isAvailable && 'opacity-90 cursor-not-allowed',
+        )}
+        disabled={!isAvailable}
+      >
+        {content}
+      </button>
+    )
+  }
+
   return (
     <div
       className={cn(
@@ -74,3 +95,4 @@ export function ReportCard({
     </div>
   )
 }
+

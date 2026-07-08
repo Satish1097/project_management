@@ -138,8 +138,34 @@ class PermissionService:
         self,
         user_id: UUID,
         project_id: UUID,
+        from_status_slug: str | None = None,
+        to_status_slug: str | None = None,
     ) -> bool:
-        return user_has_project_access(user_id, project_id)
+        if not user_has_project_access(user_id, project_id):
+            return False
+
+        # If no status parameters are passed, general access is sufficient.
+        if from_status_slug is None and to_status_slug is None:
+            return True
+
+        role = get_project_role(user_id, project_id)
+        if role in ("project_admin", "project_manager"):
+            return True
+
+        if role == "viewer":
+            return False
+
+        # Reopen (done -> anything else) is restricted to Project Manager and Project Admin.
+        if from_status_slug == "done":
+            return False
+
+        # Transitioning to "done" (approval) is restricted to QA, Project Manager, and Project Admin.
+        if to_status_slug == "done":
+            return role == "qa"
+
+        # Developer and QA roles are allowed to perform any other workflow transition.
+        return role in ("developer", "qa")
+
 
 
 

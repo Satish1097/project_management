@@ -861,3 +861,75 @@ def get_backlog_section_issues(
 
 def select_backlog_issues(project_id: UUID) -> list[Issue]:
     return list(get_backlog_issues(project_id).order_by("-created_at"))
+
+
+def select_issue_by_id(issue_id: UUID):
+    issue = get_issue_by_id(issue_id)
+    if issue is None:
+        return None
+    from decimal import Decimal
+    from apps.contracts.issue_contract import IssueDetailDTO
+    return IssueDetailDTO(
+        id=issue.id,
+        project_id=issue.project_id,
+        key=issue.key,
+        title=issue.title,
+        issue_type=issue.type,
+        priority=issue.priority,
+        status_slug=status_slug(name=issue.status.name, category=issue.status.category),
+        position=Decimal(0),
+        assignee_id=issue.get_primary_assignee_id(),
+        sprint_id=issue.sprint_id,
+        description=issue.description,
+        reporter_id=issue.reporter_id,
+        created_at=issue.created_at,
+        updated_at=issue.updated_at,
+        story_points=issue.story_points,
+        due_date=issue.due_date,
+        labels=[label.name for label in issue.labels.all()],
+        parent_issue_id=issue.parent_issue_id,
+    )
+
+
+def select_issues_for_project(project_id: UUID) -> list:
+    from decimal import Decimal
+    from apps.contracts.issue_contract import IssueSummaryDTO
+    issues = get_project_issues(project_id)
+    return [
+        IssueSummaryDTO(
+            id=issue.id,
+            project_id=issue.project_id,
+            key=issue.key,
+            title=issue.title,
+            issue_type=issue.type,
+            priority=issue.priority,
+            status_slug=status_slug(name=issue.status.name, category=issue.status.category),
+            position=Decimal(0),
+            assignee_id=issue.get_primary_assignee_id(),
+            sprint_id=issue.sprint_id,
+        )
+        for issue in issues
+    ]
+
+
+def select_sprint_issues(sprint_id: UUID) -> list:
+    from decimal import Decimal
+    from apps.contracts.issue_contract import IssueSummaryDTO
+    issues = get_sprint_issues(sprint_id)
+    return [
+        IssueSummaryDTO(
+            id=issue.id,
+            project_id=issue.project_id,
+            key=issue.key,
+            title=issue.title,
+            issue_type=issue.type,
+            priority=issue.priority,
+            status_slug=status_slug(name=issue.status.name, category=issue.status.category),
+            position=Decimal(0),
+            assignee_id=issue.get_primary_assignee_id(),
+            sprint_id=issue.sprint_id,
+        )
+        for issue in issues
+    ]
+
+

@@ -1,5 +1,7 @@
 from uuid import UUID
 
+import logging
+
 from apps.issues.exceptions import IssueNotFoundError
 from apps.issues.models import IssueActivityEventType
 from apps.issues.selectors import get_issue_by_id
@@ -14,6 +16,9 @@ from apps.workflow.exceptions import (
 from apps.workflow.models import WorkflowStatus, WorkflowTransition
 from apps.workflow.selectors import get_status_by_id
 from apps.workflow.slug_utils import status_slug
+from apps.reports.services.analytics_recorder import analytics_event_recorder
+
+logger = logging.getLogger(__name__)
 
 KANBAN_DIRECT_TRANSITIONS = frozenset(
     {
@@ -68,10 +73,16 @@ class TransitionService:
                 "Target status must belong to the same project as the issue."
             )
 
-        if not permission_service.can_transition_issue(user.id, issue.project_id):
+        if not permission_service.can_transition_issue(
+            user.id,
+            issue.project_id,
+            _status_slug(issue.status),
+            _status_slug(target_status),
+        ):
             raise ForbiddenWorkflowTransitionError(
                 "Permission denied: cannot transition this issue."
             )
+
 
         if issue.status_id == target_status.id:
             raise InvalidWorkflowTransitionError("Self-transition is not allowed.")
@@ -85,9 +96,26 @@ class TransitionService:
                 "Transition is not defined for this project workflow."
             )
 
+        from_status = issue.status
         previous_status_name = issue.status.name
         issue.status = target_status
         issue.save(update_fields=["status", "updated_at"])
+        try:
+            analytics_event_recorder.record_status_transition(
+                issue=issue,
+                from_status=from_status,
+                to_status=target_status,
+                transitioned_by=user,
+            )
+        except Exception:
+            logger.exception(
+                "Analytics recording failed for status transition on issue %s "
+                "(%s → %s). Business operation succeeded.",
+                issue.id,
+                from_status.name if from_status else "None",
+                target_status.name,
+            )
+
         create_issue_activity(
             issue_id=issue.id,
             actor=user,

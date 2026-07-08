@@ -9,9 +9,15 @@ import {
 import { getProjectSprintHealth, type SprintHealthApi } from '@/api/projects'
 import { ReportCard } from '@/features/reports/ReportCard'
 import { SprintHealthSection } from '@/features/reports/SprintHealthSection'
+import { BurndownChart } from '@/features/reports/components/BurndownChart'
+import { SprintReport } from '@/features/reports/components/SprintReport'
+import { ReportsFilterProvider } from '@/features/reports/contexts/ReportsFilterContext'
 
-export function ScrumReportsPage() {
+type TabType = 'burndown' | 'health' | 'sprint-report' | 'velocity'
+
+function ScrumReportsPageContent() {
   const { projectId = '' } = useParams()
+  const [activeTab, setActiveTab] = useState<TabType>('burndown')
   const [sprintHealth, setSprintHealth] = useState<SprintHealthApi[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -50,34 +56,56 @@ export function ScrumReportsPage() {
             title="Burndown"
             description="Track remaining work over the course of a sprint."
             icon={TrendingDown}
-            status="coming-soon"
+            status="available"
+            onClick={() => setActiveTab('burndown')}
+            isActive={activeTab === 'burndown'}
           />
           <ReportCard
             title="Sprint Report"
             description="Committed vs completed work for finished sprints."
             icon={BarChart3}
-            status="coming-soon"
+            status="available"
+            onClick={() => setActiveTab('sprint-report')}
+            isActive={activeTab === 'sprint-report'}
           />
           <ReportCard
             title="Velocity"
             description="Story points completed across recent sprints."
             icon={Activity}
             status="coming-soon"
+            isActive={activeTab === 'velocity'}
           />
           <ReportCard
             title="Sprint Health"
             description="Active sprint progress, story points, and issue counts."
             icon={LineChart}
             status="available"
+            onClick={() => setActiveTab('health')}
+            isActive={activeTab === 'health'}
           />
         </div>
 
-        <SprintHealthSection
-          items={sprintHealth}
-          loading={loading}
-          error={error}
-        />
+        {activeTab === 'burndown' && <BurndownChart />}
+
+        {activeTab === 'sprint-report' && <SprintReport />}
+
+        {activeTab === 'health' && (
+          <SprintHealthSection
+            items={sprintHealth}
+            loading={loading}
+            error={error}
+          />
+        )}
       </div>
     </main>
   )
 }
+
+export function ScrumReportsPage() {
+  return (
+    <ReportsFilterProvider>
+      <ScrumReportsPageContent />
+    </ReportsFilterProvider>
+  )
+}
+
