@@ -123,6 +123,8 @@ export type KanbanBoardColumnApi = {
   status_name?: string
   name?: string
   count: number
+  wip_count?: number
+  wip_limit?: number | null
   status?: KanbanWorkflowStatusApi
   /** @deprecated Issues are loaded per-column via board column endpoint */
   issues?: IssueApi[]
@@ -184,6 +186,8 @@ export type KanbanBoardFiltersApi = {
 
 export type KanbanBoardApi = {
   project_id: string
+  methodology?: 'scrum' | 'kanban'
+  has_active_sprint?: boolean
   selected_sprint?: KanbanSprintApi | null
   sprint?: KanbanSprintApi | null
   workflow_columns?: KanbanWorkflowStatusApi[]

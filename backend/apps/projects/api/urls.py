@@ -6,6 +6,7 @@ from apps.projects.api.views import (
     OrganizationProjectListCreateView,
     ProjectActivityView,
     ProjectArchiveView,
+    ProjectBoardConfigView,
     ProjectDetailView,
     ProjectInviteView,
     ProjectMemberDetailView,
@@ -22,6 +23,11 @@ urlpatterns = [
         name="organization-project-list-create",
     ),
     path("projects/<uuid:project_id>", ProjectDetailView.as_view(), name="project-detail"),
+    path(
+        "projects/<uuid:project_id>/board-config",
+        ProjectBoardConfigView.as_view(),
+        name="project-board-config",
+    ),
     path(
         "projects/<uuid:project_id>/activity",
         ProjectActivityView.as_view(),

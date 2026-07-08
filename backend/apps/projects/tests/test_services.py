@@ -4,6 +4,8 @@ import pytest
 
 from apps.contracts.workflow_contract import get_status_by_slug
 from apps.issues.models import Issue
+from apps.organizations.models import OrganizationRole
+from apps.organizations.services.membership_service import add_organization_member
 from apps.projects.exceptions import (
     ProjectKeyConflictError,
     ProjectMembershipError,
@@ -33,6 +35,7 @@ def test_create_project_service_adds_creator_as_admin(superuser, organization):
         creator=superuser,
     )
 
+    assert project.lead_user_id == superuser.id
     membership = ProjectMember.objects.get(project_id=project.id, user_id=superuser.id)
     assert membership.role == ProjectRole.PROJECT_ADMIN
 
@@ -115,6 +118,25 @@ def test_select_projects_for_organization(superuser, organization, project):
 
     assert len(results) == 1
     assert results[0].id == project.id
+
+
+@pytest.mark.django_db
+def test_select_projects_for_organization_excludes_non_project_members(
+    superuser,
+    organization,
+    project,
+    other_user,
+):
+    add_organization_member(
+        organization_id=organization.id,
+        user_id=other_user.id,
+        added_by=superuser,
+        role=OrganizationRole.MEMBER,
+    )
+
+    results = select_projects_for_organization(organization.id, other_user.id)
+
+    assert results == []
 
 
 @pytest.mark.django_db
@@ -298,3 +320,56 @@ def test_select_project_role_lookup(superuser, project, other_user):
 @pytest.mark.django_db
 def test_select_project_by_id_not_found():
     assert select_project_by_id(uuid.uuid4()) is None
+
+
+@pytest.mark.django_db
+def test_create_project_scrum_methodology_defaults(superuser, organization):
+    project = create_project(
+        organization=organization.id,
+        name="Scrum Defaults",
+        key="SCRM",
+        slug="scrum-defaults",
+        creator=superuser,
+        methodology="scrum",
+    )
+
+    dto = select_project_by_id(project.id)
+    assert dto is not None
+    assert dto.methodology == "scrum"
+    assert dto.board_type == "scrum"
+    assert dto.default_sprint_weeks == 2
+
+
+@pytest.mark.django_db
+def test_create_project_kanban_methodology(superuser, organization):
+    project = create_project(
+        organization=organization.id,
+        name="Kanban Flow",
+        key="KNBN",
+        slug="kanban-flow",
+        creator=superuser,
+        methodology="kanban",
+    )
+
+    dto = select_project_by_id(project.id)
+    assert dto is not None
+    assert dto.methodology == "kanban"
+    assert dto.board_type == "kanban"
+    assert dto.default_sprint_weeks is None
+
+
+@pytest.mark.django_db
+def test_create_project_scrum_custom_sprint_weeks(superuser, organization):
+    project = create_project(
+        organization=organization.id,
+        name="Scrum Four Week",
+        key="SC4W",
+        slug="scrum-four-week",
+        creator=superuser,
+        methodology="scrum",
+        default_sprint_weeks=4,
+    )
+
+    dto = select_project_by_id(project.id)
+    assert dto is not None
+    assert dto.default_sprint_weeks == 4

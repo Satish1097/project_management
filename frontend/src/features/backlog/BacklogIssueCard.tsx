@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import {
   BookOpen,
   Bug,
   CheckSquare,
+  ExternalLink,
   GitBranch,
   GripVertical,
   Layers,
   Lightbulb,
+  Pencil,
   Sparkles,
 } from 'lucide-react'
 import { useIssueDetail } from '@/contexts/IssueDetailContext'
@@ -54,6 +57,7 @@ type BacklogIssueCardProps = {
   draggable?: boolean
   isEntering?: boolean
   isExiting?: boolean
+  isHighlighted?: boolean
 }
 
 export function BacklogIssueCard({
@@ -66,12 +70,14 @@ export function BacklogIssueCard({
   draggable = true,
   isEntering = false,
   isExiting = false,
+  isHighlighted = false,
 }: BacklogIssueCardProps) {
   const { openIssueDetail } = useIssueDetail()
   const { pendingIds, assignUser, setTitle, setPriority, setLabels, assignSprint } =
     useOptimisticIssueActions(projectId)
   const isPending = pendingIds.has(issue.id)
   const issueType = issue.issueType ?? 'task'
+  const [editRequestVersion, setEditRequestVersion] = useState(0)
 
   return (
     <div
@@ -80,6 +86,7 @@ export function BacklogIssueCard({
         'text-[13px] transition-colors hover:bg-devflow-muted/25',
         isEntering && 'backlog-row-enter',
         isExiting && 'backlog-row-exit',
+        isHighlighted && 'backlog-row-created',
         isPending && 'opacity-60',
         selected && 'bg-[var(--df-nav-tint)]/12 hover:bg-[var(--df-nav-tint)]/16 backlog-row-selected',
       )}
@@ -117,15 +124,36 @@ export function BacklogIssueCard({
       </button>
 
       <div
-        className="min-w-0 flex-1 basis-[12rem]"
+        className="min-w-0 flex flex-1 basis-[12rem] items-center gap-1"
         onClick={(event) => event.stopPropagation()}
       >
         <InlineSummaryEditor
           value={issue.title}
           disabled={isPending}
+          autoFocus={false}
+          activateOnClick={false}
+          enableDoubleClickEdit
+          editRequestVersion={editRequestVersion}
           onSave={(title) => setTitle(issue.id, title)}
           onOpenDetail={() => openIssueDetail({ issueId: issue.id })}
+          className="w-auto max-w-full"
         />
+        <button
+          type="button"
+          onClick={() => setEditRequestVersion((prev) => prev + 1)}
+          className={cn(
+            'h-6 w-6 shrink-0 rounded p-1 text-devflow-text-muted',
+            'pointer-events-none opacity-0 transition-opacity duration-150 ease-out',
+            'hover:bg-devflow-muted/50 hover:text-devflow-text',
+            'group-hover:pointer-events-auto group-hover:opacity-100',
+            'group-focus-within:pointer-events-auto group-focus-within:opacity-100',
+            'focus-visible:pointer-events-auto focus-visible:opacity-100',
+          )}
+          aria-label={`Edit ${issue.key}`}
+          title="Edit issue title"
+        >
+          <Pencil className="size-3.5" />
+        </button>
       </div>
 
       <div
@@ -171,6 +199,18 @@ export function BacklogIssueCard({
             void assignSprint(issue.id, sprintId)
           }}
         />
+      </div>
+
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={() => openIssueDetail({ issueId: issue.id })}
+          className="rounded p-1 text-devflow-text-muted opacity-0 transition hover:bg-devflow-muted/50 hover:text-devflow-text group-hover:opacity-100 focus-visible:opacity-100"
+          aria-label={`Open ${issue.key}`}
+          title="Open issue"
+        >
+          <ExternalLink className="size-3.5" />
+        </button>
       </div>
     </div>
   )

@@ -71,12 +71,28 @@ class TestOrganizationPermissions:
         )
 
         assert permission_service.can_create_project(superuser.id, organization.id) is True
+        assert permission_service.can_create_project(user.id, organization.id) is False
+
+    def test_can_create_project_member_with_explicit_permission(
+        self,
+        superuser,
+        organization,
+        user,
+    ):
+        add_organization_member(
+            organization_id=organization.id,
+            user_id=user.id,
+            added_by=superuser,
+            role=OrganizationRole.MEMBER,
+            can_create_projects=True,
+        )
+
         assert permission_service.can_create_project(user.id, organization.id) is True
 
 
 @pytest.mark.django_db
 class TestProjectPermissions:
-    def test_can_view_project_organization_visibility(
+    def test_can_view_project_requires_project_membership(
         self,
         superuser,
         organization,
@@ -98,8 +114,17 @@ class TestProjectPermissions:
             role=OrganizationRole.MEMBER,
         )
 
-        assert permission_service.can_view_project(user.id, project.id) is True
+        assert permission_service.can_view_project(user.id, project.id) is False
         assert permission_service.can_view_project(other_user.id, project.id) is False
+
+        add_project_member(
+            project_id=project.id,
+            user_id=user.id,
+            added_by=superuser,
+            role=ProjectRole.VIEWER,
+        )
+
+        assert permission_service.can_view_project(user.id, project.id) is True
 
     def test_can_view_project_private_member_only(
         self,

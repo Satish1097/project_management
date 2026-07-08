@@ -87,7 +87,6 @@ export const demoProjects: Project[] = [
       { name: 'Sarah', color: '#ec4899' },
     ],
     extraMembers: 3,
-    isMember: true,
     isFavorite: true,
   },
   {
@@ -103,7 +102,6 @@ export const demoProjects: Project[] = [
     recentActivity: 'Luna published hero section preview',
     members: [{ name: 'Luna', color: '#14b8a6' }],
     extraMembers: 2,
-    isMember: true,
     isFavorite: true,
   },
   {
@@ -123,7 +121,6 @@ export const demoProjects: Project[] = [
       { name: 'Riley', color: '#0ea5e9' },
     ],
     extraMembers: 1,
-    isMember: true,
   },
   {
     id: '4',
@@ -140,7 +137,6 @@ export const demoProjects: Project[] = [
       { name: 'Marcus', color: '#f59e0b' },
       { name: 'Alex', color: '#6366f1' },
     ],
-    isMember: true,
   },
   {
     id: '5',
@@ -158,7 +154,6 @@ export const demoProjects: Project[] = [
       { name: 'Riley', color: '#0ea5e9' },
     ],
     extraMembers: 4,
-    isMember: true,
     isFavorite: true,
   },
 ]

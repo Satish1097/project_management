@@ -21,7 +21,7 @@ def test_me_get_authenticated_returns_correct_dto(authenticated_client, user):
     body = response.json()
     assert body["success"] is True
     data = body["data"]
-    assert set(data.keys()) == {"id", "email", "display_name", "avatar", "timezone"}
+    assert set(data.keys()) == {"id", "email", "display_name", "avatar", "timezone", "is_superuser"}
     assert data["email"] == user.email
     assert data["display_name"] == "Existing User"
     assert data["id"] == str(user.id)

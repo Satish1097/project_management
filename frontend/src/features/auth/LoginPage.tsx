@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AppLogo } from '@/components/brand/AppLogo'
 import { BRANDING } from '@/constants/branding'
 import { Button } from '@/components/ui/Button'
@@ -12,12 +12,21 @@ import { PasswordInput } from '@/components/ui/PasswordInput'
 import { ROUTES } from '@/constants/routes'
 import { ApiError } from '@/api/types'
 
+function isInvitationRedirect(path: unknown): boolean {
+  if (typeof path !== 'string') return false
+  const [pathname, search = ''] = path.split('?')
+  return pathname === ROUTES.signup && new URLSearchParams(search).has('invite_token')
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const { login } = useAuth()
+  const inviteToken = searchParams.get('invite_token')
   const redirectTo =
-    (location.state as { from?: string } | null)?.from ?? ROUTES.dashboard
+    (location.state as { from?: string } | null)?.from ??
+    (inviteToken ? `${ROUTES.signup}?invite_token=${encodeURIComponent(inviteToken)}` : ROUTES.dashboard)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -36,6 +45,10 @@ export function LoginPage() {
         password,
         rememberMe,
       })
+      if (isInvitationRedirect(redirectTo)) {
+        navigate(redirectTo, { replace: true })
+        return
+      }
       navigate(redirectTo, { replace: true })
     } catch (err) {
       if (err instanceof ApiError) {
@@ -139,13 +152,7 @@ export function LoginPage() {
       </div>
 
       <p className="text-center text-body text-devflow-text-secondary">
-        Don&apos;t have an account?{' '}
-        <Link
-          to={ROUTES.signup}
-          className="font-semibold text-devflow-primary hover:underline"
-        >
-          Sign up
-        </Link>
+        Don&apos;t have an account? Ask a workspace admin for an invitation.
       </p>
 
       <footer className="flex h-8 items-start justify-center gap-4 pt-2">

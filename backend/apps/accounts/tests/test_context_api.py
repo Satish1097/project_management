@@ -3,6 +3,8 @@ import pytest
 from apps.accounts.models import User, UserPreference, UserProfile
 from apps.organizations.services import create_organization
 from apps.organizations.services.membership_service import add_organization_member
+from apps.projects.models import ProjectRole
+from apps.projects.services.membership_service import add_project_member
 from apps.projects.services import create_project
 
 CONTEXT_URL = "/api/me/context"
@@ -66,8 +68,18 @@ def test_context_returns_user_organizations_and_projects(authenticated_client, u
     assert data["organizations"][0]["id"] == str(organization.id)
 
     assert "projects" in data
-    assert len(data["projects"]) == 1
-    assert data["projects"][0]["id"] == str(project.id)
+    assert data["projects"] == []
+
+    add_project_member(
+        project_id=project.id,
+        user_id=user.id,
+        added_by=superuser,
+        role=ProjectRole.DEVELOPER,
+    )
+    second_response = authenticated_client.get(CONTEXT_URL)
+    second_projects = second_response.json()["data"]["projects"]
+    assert len(second_projects) == 1
+    assert second_projects[0]["id"] == str(project.id)
 
 
 @pytest.mark.django_db

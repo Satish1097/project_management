@@ -11,12 +11,14 @@ import {
 } from '@/features/kanban/boardFilterParams'
 import { KanbanBoardView } from '@/features/kanban/KanbanBoardView'
 import { DEFAULT_KANBAN_FILTERS } from '@/features/kanban/kanbanFilters'
+import { ScrumBoardEmptyState } from '@/features/kanban/ScrumBoardEmptyState'
 import { useBoardFilterMetadata } from '@/features/kanban/useBoardFilterMetadata'
 import { useBoardViewMode } from '@/features/kanban/useBoardViewMode'
 import { useProjectIssueList } from '@/features/kanban/useProjectIssueList'
 import { useProjectKanban } from '@/features/kanban/useProjectKanban'
 import { IssueListView } from '@/features/tasks/IssueListView'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
+import { useProjectMethodology } from '@/hooks/useProjectMethodology'
 import { getProjectById, getSprintById } from '@/services/projectData'
 import { mapIssueDetailToUi } from '@/services/mapIssueApi'
 import { upsertApiIssue } from '@/services/issuesRegistry'
@@ -30,6 +32,7 @@ export function ProjectKanbanPage() {
   }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const project = getProjectById(projectId)
+  const { isScrum, isKanban } = useProjectMethodology(projectId)
   const sprint = sprintId ? getSprintById(projectId, sprintId) : undefined
   const { loading: sprintsLoading } = useLoadProjectSprints(projectId)
   const boardReady = !sprintId || (!sprintsLoading && !!sprint)
@@ -52,13 +55,14 @@ export function ProjectKanbanPage() {
     loading: boardLoading,
     error: boardError,
     totalIssues,
+    hasActiveSprint,
     refreshBoard,
     loadMoreColumn,
     moveIssueBetweenColumns,
     rollbackIssueMove,
   } = useProjectKanban(projectId, {
     sprintId,
-    enabled: boardReady && !isListView,
+    enabled: boardReady,
     filters,
     filterMetadata,
     searchParams,
@@ -150,8 +154,13 @@ export function ProjectKanbanPage() {
 
   const loading = isListView ? listLoading : boardLoading
   const error = isListView ? listError : boardError
+  const showScrumNoActiveSprint =
+    isScrum && !sprintId && !hasActiveSprint && !boardLoading
   const showListEmpty =
-    isListView && !listLoading && (listPagination?.totalCount ?? 0) === 0
+    isListView && !listLoading && !showScrumNoActiveSprint && (listPagination?.totalCount ?? 0) === 0
+  const showBoardFilterEmpty =
+    !isListView && !boardLoading && !showScrumNoActiveSprint && totalIssues === 0
+  const showSprintOnBoard = isScrum && !sprintId
   const emptyHint = sprintId
     ? 'Add issues to this sprint or adjust filters to see them here.'
     : 'Adjust assignee, status, priority, or label filters to see issues.'
@@ -189,12 +198,14 @@ export function ProjectKanbanPage() {
         </div>
 
         {isListView ? (
-          listLoading && listTasks.length === 0 ? (
+          listLoading && listTasks.length === 0 && !showScrumNoActiveSprint ? (
             <div className="issue-board-empty">
               <p className="issue-board-empty__title">
                 {sprintId ? 'Loading sprint issues…' : 'Loading issues…'}
               </p>
             </div>
+          ) : showScrumNoActiveSprint ? (
+            <ScrumBoardEmptyState projectId={projectId} />
           ) : showListEmpty ? (
             <div className="issue-board-empty">
               <p className="issue-board-empty__title">No issues match filters</p>
@@ -203,7 +214,7 @@ export function ProjectKanbanPage() {
           ) : (
             <IssueListView
               tasks={listTasks}
-              showSprintColumn={!sprintId}
+              showSprintColumn={showSprintOnBoard}
               pagination={
                 listPagination
                   ? {
@@ -214,13 +225,15 @@ export function ProjectKanbanPage() {
               }
             />
           )
-        ) : boardLoading && columns.length === 0 && totalIssues === 0 ? (
+        ) : boardLoading && columns.length === 0 && totalIssues === 0 && !showScrumNoActiveSprint ? (
           <div className="issue-board-empty">
             <p className="issue-board-empty__title">
               {sprintId ? 'Loading sprint board…' : 'Loading board…'}
             </p>
           </div>
-        ) : !boardLoading && totalIssues === 0 ? (
+        ) : showScrumNoActiveSprint ? (
+          <ScrumBoardEmptyState projectId={projectId} />
+        ) : showBoardFilterEmpty ? (
           <div className="issue-board-empty">
             <p className="issue-board-empty__title">No issues match filters</p>
             <p className="issue-board-empty__hint">{emptyHint}</p>
@@ -231,7 +244,8 @@ export function ProjectKanbanPage() {
             columns={columns}
             onTransitionIssue={handleTransitionIssue}
             transitioningIssueId={transitioningIssueId}
-            showSprintBadge={!sprintId}
+            showSprintBadge={showSprintOnBoard}
+            showWipIndicators={isKanban && !sprintId}
             onLoadMoreColumn={loadMoreColumn}
           />
         )}

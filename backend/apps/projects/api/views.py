@@ -2,6 +2,7 @@ from uuid import UUID
 
 from drf_spectacular.utils import extend_schema
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
 
 from apps.accounts.services.invitation_onboarding_service import invite_to_project
 from apps.contracts.identity_contract import get_users_by_ids
@@ -33,6 +34,7 @@ from apps.permissions.drf_permissions import (
 )
 from apps.permissions.services import permission_service
 from apps.projects.api.serializers import (
+    KanbanBoardConfigUpdateSerializer,
     ProjectCreateSerializer,
     ProjectInviteSerializer,
     ProjectMemberSerializer,
@@ -40,6 +42,7 @@ from apps.projects.api.serializers import (
     ProjectUpdateSerializer,
 )
 from apps.projects.exceptions import ProjectAccessDeniedError, ProjectNotFoundError
+from apps.projects.models import ProjectMethodology
 from apps.projects.selectors import (
     select_dashboard_summary,
     select_project_by_id,
@@ -53,10 +56,28 @@ from apps.projects.services import (
     update_project,
     update_project_member,
 )
+from apps.projects.services.board_config_service import (
+    get_kanban_board_config,
+    update_kanban_board_config,
+)
+from apps.projects.services.project_service import require_kanban_project, require_scrum_project
 from apps.sprints.selectors import select_project_sprint_health
 
 
 def _project_to_data(dto: ProjectDTO) -> dict:
+    members = list_project_members(dto.id)
+    users = get_users_by_ids([member.user_id for member in members])
+    users_by_id = {user.id: user for user in users}
+    member_data = [_member_to_data(member, users_by_id) for member in members]
+    lead_data = (
+        next(
+            (member for member in member_data if member["user_id"] == str(dto.lead_user_id)),
+            None,
+        )
+        if dto.lead_user_id
+        else None
+    )
+
     data = {
         "id": str(dto.id),
         "organization_id": str(dto.organization_id),
@@ -66,24 +87,37 @@ def _project_to_data(dto: ProjectDTO) -> dict:
         "description": dto.description,
         "status": dto.status,
         "visibility": dto.visibility,
+        "methodology": dto.methodology,
+        "board_type": dto.board_type,
         "lead_user_id": str(dto.lead_user_id) if dto.lead_user_id else None,
+        "lead": lead_data,
+        "members": member_data,
     }
+    if dto.methodology == ProjectMethodology.SCRUM:
+        data["default_sprint_weeks"] = dto.default_sprint_weeks
     if dto.archived_at is not None:
         data["archived_at"] = dto.archived_at.isoformat()
     return data
 
 
 def _project_summary_to_data(dto: ProjectSummaryDTO) -> dict:
-    return {
+    data = {
         "id": str(dto.id),
         "key": dto.key,
         "slug": dto.slug,
         "name": dto.name,
         "status": dto.status,
+        "methodology": dto.methodology,
+        "board_type": dto.board_type,
         "open_issue_count": dto.open_issue_count,
-        "active_sprint_id": str(dto.active_sprint_id) if dto.active_sprint_id else None,
+        "is_member": dto.is_member,
         "recent_activity": select_project_recent_activity(dto.id),
     }
+    if dto.methodology == ProjectMethodology.SCRUM:
+        data["active_sprint_id"] = (
+            str(dto.active_sprint_id) if dto.active_sprint_id else None
+        )
+    return data
 
 
 def _member_to_data(dto, users_by_id: dict | None = None) -> dict:
@@ -250,6 +284,7 @@ class ProjectSprintHealthReportView(APIView):
 
     @extend_schema(tags=["project-reports"])
     def get(self, request, project_id):
+        require_scrum_project(project_id)
         sprint_health = select_project_sprint_health(request.user.id, project_id)
         if sprint_health is None:
             raise ProjectAccessDeniedError("You do not have access to this project.")
@@ -350,3 +385,62 @@ class ProjectMemberDetailView(APIView):
             raise ProjectNotFoundError(f"Project '{project_id}' does not exist.")
         remove_project_member(project_id=project_id, user_id=user_id)
         return success_response(message="Member removed successfully.")
+
+
+def _board_config_column_data(config) -> dict:
+    return {
+        "status_id": str(config.status_id),
+        "status_name": config.status_name,
+        "status_slug": config.status_slug,
+        "wip_limit": config.wip_limit,
+        "is_enabled": config.is_enabled,
+        "display_order": config.display_order,
+    }
+
+
+class ProjectBoardConfigView(APIView):
+    permission_classes = [Authenticated]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [Authenticated(), CanViewProject()]
+        return [Authenticated(), CanEditProject()]
+
+    @extend_schema(tags=["projects"])
+    def get(self, request, project_id: UUID):
+        if select_project_by_id(project_id) is None:
+            raise ProjectNotFoundError(f"Project '{project_id}' does not exist.")
+        require_kanban_project(project_id)
+        columns = get_kanban_board_config(project_id)
+        return success_response(
+            data={
+                "board_config": {
+                    "columns": [_board_config_column_data(column) for column in columns],
+                }
+            }
+        )
+
+    @extend_schema(request=KanbanBoardConfigUpdateSerializer, tags=["projects"])
+    def put(self, request, project_id: UUID):
+        if select_project_by_id(project_id) is None:
+            raise ProjectNotFoundError(f"Project '{project_id}' does not exist.")
+        require_kanban_project(project_id)
+
+        serializer = KanbanBoardConfigUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            columns = update_kanban_board_config(
+                project_id,
+                serializer.validated_data["columns"],
+            )
+        except ValueError as exc:
+            raise ValidationError({"board_config": str(exc)}) from exc
+
+        return success_response(
+            data={
+                "board_config": {
+                    "columns": [_board_config_column_data(column) for column in columns],
+                }
+            }
+        )

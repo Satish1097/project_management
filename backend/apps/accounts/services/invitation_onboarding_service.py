@@ -4,22 +4,23 @@ import secrets
 from datetime import timedelta
 from uuid import UUID
 
-from django.db import transaction
 from django.utils import timezone
 
+from apps.accounts.exceptions import PendingInvitationExistsError
 from apps.accounts.models import UserInvitation
 from apps.accounts.selectors import select_user_by_email
 from apps.accounts.services.invitation_service import consume_invitation
-from apps.accounts.tasks import (
-    send_project_added_notification_email,
-    send_project_invite_email,
-)
+from apps.accounts.tasks import send_project_invite_email
 from apps.contracts.organization_contract import get_organization_by_id
-from apps.organizations.models import OrganizationRole
+from apps.organizations.models import OrganizationMember, OrganizationRole
 from apps.organizations.selectors import select_organization_member
 from apps.organizations.services.membership_service import add_organization_member
 from apps.permissions.services import permission_service
-from apps.projects.exceptions import ProjectAccessDeniedError, ProjectMembershipError, ProjectNotFoundError
+from apps.projects.exceptions import (
+    ProjectAccessDeniedError,
+    ProjectMembershipError,
+    ProjectNotFoundError,
+)
 from apps.projects.selectors import select_project_by_id, select_project_member
 from apps.projects.services.membership_service import add_project_member
 
@@ -63,6 +64,17 @@ def _ensure_organization_membership(
 ) -> None:
     existing = select_organization_member(organization_id, user_id)
     if existing is not None:
+        if not existing.is_active:
+            OrganizationMember.objects.filter(
+                organization_id=organization_id,
+                user_id=user_id,
+            ).update(
+                is_active=True,
+                role=role,
+                added_by=added_by,
+                updated_by=added_by,
+                updated_at=timezone.now(),
+            )
         return
     add_organization_member(
         organization_id=organization_id,
@@ -72,24 +84,13 @@ def _ensure_organization_membership(
     )
 
 
-def _ensure_project_membership(
-    *,
-    project_id: UUID,
-    user_id: UUID,
-    added_by,
-    role: str,
-) -> None:
-    existing = select_project_member(project_id, user_id)
-    if existing is not None:
-        raise ProjectMembershipError(
-            f"User '{user_id}' is already a member of project '{project_id}'."
-        )
-    add_project_member(
-        project_id=project_id,
-        user_id=user_id,
-        added_by=added_by,
-        role=role,
-    )
+def _has_pending_project_invitation(*, email: str, project_id: UUID) -> bool:
+    return UserInvitation.objects.filter(
+        email=email,
+        used_at__isnull=True,
+        expires_at__gt=timezone.now(),
+        metadata__project_id=str(project_id),
+    ).exists()
 
 
 def _dispatch_invitation_email(task, *args) -> None:
@@ -130,26 +131,16 @@ def invite_to_project(
     existing_user = select_user_by_email(normalized_email)
 
     if existing_user is not None:
-        with transaction.atomic():
-            _ensure_organization_membership(
-                organization_id=project.organization_id,
-                user_id=existing_user.id,
-                added_by=actor,
-            )
-            _ensure_project_membership(
-                project_id=project_id,
-                user_id=existing_user.id,
-                added_by=actor,
-                role=project_role,
+        existing_project_member = select_project_member(project_id, existing_user.id)
+        if existing_project_member is not None:
+            raise ProjectMembershipError(
+                f"User '{existing_user.id}' is already a member of project '{project_id}'."
             )
 
-        _dispatch_invitation_email(
-            send_project_added_notification_email,
-            normalized_email,
-            project.name,
-            organization.name,
+    if _has_pending_project_invitation(email=normalized_email, project_id=project_id):
+        raise PendingInvitationExistsError(
+            "A pending invitation already exists for this user and project."
         )
-        return {"status": "added_existing_user"}
 
     token = secrets.token_urlsafe(32)
     expires_at = timezone.now() + timedelta(days=INVITATION_EXPIRY_DAYS)

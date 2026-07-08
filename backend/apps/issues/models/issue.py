@@ -59,10 +59,8 @@ class Issue(BaseModel):
         blank=True,
         related_name="issues",
     )
-    assignee = models.ForeignKey(
+    assignees = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
         blank=True,
         related_name="assigned_issues",
     )
@@ -86,6 +84,7 @@ class Issue(BaseModel):
         blank=True,
         related_name="subtasks",
     )
+    completed_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
         verbose_name = "issue"
@@ -99,6 +98,17 @@ class Issue(BaseModel):
         indexes = [
             models.Index(fields=["project", "status"]),
             models.Index(fields=["project", "sprint"]),
-            models.Index(fields=["project", "assignee"]),
             models.Index(fields=["project", "priority"]),
+            # Supports throughput / cycle-time queries filtered by project and
+            # completion date range (e.g. "issues completed this sprint").
+            models.Index(
+                fields=["project", "completed_at"],
+                name="issues_project_completed_idx",
+            ),
         ]
+
+    def get_primary_assignee_id(self):
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("assignees")
+        if prefetched is not None:
+            return prefetched[0].pk if prefetched else None
+        return self.assignees.values_list("pk", flat=True).first()

@@ -11,6 +11,10 @@ type InlineSummaryEditorProps = {
   value: string
   onSave: (next: string) => void | Promise<void>
   disabled?: boolean
+  autoFocus?: boolean
+  activateOnClick?: boolean
+  enableDoubleClickEdit?: boolean
+  editRequestVersion?: number
   className?: string
   onOpenDetail?: () => void
 }
@@ -19,16 +23,34 @@ export function InlineSummaryEditor({
   value,
   onSave,
   disabled = false,
+  autoFocus = false,
+  activateOnClick = true,
+  enableDoubleClickEdit = false,
+  editRequestVersion,
   className,
   onOpenDetail,
 }: InlineSummaryEditorProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
+  const hasAutoFocusedRef = useRef(false)
+  const lastEditRequestVersionRef = useRef(editRequestVersion)
 
   useEffect(() => {
     if (!editing) setDraft(value)
   }, [editing, value])
+
+  useEffect(() => {
+    if (!autoFocus) {
+      hasAutoFocusedRef.current = false
+      return
+    }
+    if (hasAutoFocusedRef.current || editing || disabled) return
+    hasAutoFocusedRef.current = true
+    setDraft(value)
+    setEditing(true)
+    requestAnimationFrame(() => inputRef.current?.select())
+  }, [autoFocus, disabled, editing, value])
 
   const startEditing = useCallback(() => {
     if (disabled) return
@@ -36,6 +58,13 @@ export function InlineSummaryEditor({
     setEditing(true)
     requestAnimationFrame(() => inputRef.current?.select())
   }, [disabled, value])
+
+  useEffect(() => {
+    if (editRequestVersion === undefined) return
+    if (editRequestVersion === lastEditRequestVersionRef.current) return
+    lastEditRequestVersionRef.current = editRequestVersion
+    startEditing()
+  }, [editRequestVersion, startEditing])
 
   const commit = useCallback(async () => {
     const trimmed = draft.trim()
@@ -84,9 +113,15 @@ export function InlineSummaryEditor({
     <button
       type="button"
       disabled={disabled}
-      onClick={startEditing}
+      onClick={() => {
+        if (activateOnClick) startEditing()
+      }}
       onDoubleClick={(event) => {
         event.preventDefault()
+        if (enableDoubleClickEdit) {
+          startEditing()
+          return
+        }
         onOpenDetail?.()
       }}
       title={value}

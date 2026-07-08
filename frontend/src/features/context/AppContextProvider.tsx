@@ -44,8 +44,7 @@ function resolveOrganizationSelection(
     if (stored) return stored
   }
 
-  if (organizations.length === 1) return organizations[0]
-  return null
+  return organizations[0]
 }
 
 function resolveProjectSelection(
@@ -59,8 +58,7 @@ function resolveProjectSelection(
     if (stored) return stored
   }
 
-  if (projects.length === 1) return projects[0]
-  return null
+  return projects[0]
 }
 
 function applySelection(

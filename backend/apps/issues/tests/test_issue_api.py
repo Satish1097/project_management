@@ -117,52 +117,121 @@ def test_subtask_same_project_parent_enforcement(
 
 
 @pytest.mark.django_db
-def test_kanban_api_returns_all_project_issues(
+def test_scrum_kanban_api_returns_only_active_sprint_issues(
     superuser_client,
     project,
     create_test_issue,
 ):
+    from apps.sprints.models import Sprint, SprintStatus
+
     active_sprint = Sprint.objects.create(
         project_id=project.id,
         name="Active Sprint",
         status=SprintStatus.ACTIVE,
     )
     planned_sprint = Sprint.objects.create(project_id=project.id, name="Planned Sprint")
-    active_issue = create_test_issue(title="Active sprint card", sprint_id=active_sprint.id)
-    planned_issue = create_test_issue(title="Planned sprint card", sprint_id=planned_sprint.id)
-    backlog_issue = create_test_issue(title="Backlog card")
+    create_test_issue(title="Active sprint card", sprint_id=active_sprint.id)
+    create_test_issue(title="Planned sprint card", sprint_id=planned_sprint.id)
+    create_test_issue(title="Backlog card")
 
     response = superuser_client.get(f"/api/projects/{project.id}/kanban")
 
     assert response.status_code == 200
     board = response.json()["data"]["board"]
-    issue_titles = {
-        column["name"]
-        for column in board["columns"]
-        if column.get("count", 0) > 0
-    }
-    assert len(issue_titles) >= 1
     total_count = sum(column.get("count", 0) for column in board["columns"])
-    assert total_count == 3
-    assert board["selected_sprint"] is None
+    assert total_count == 1
+    assert board["selected_sprint"]["id"] == str(active_sprint.id)
+    assert board["has_active_sprint"] is True
+    assert board["methodology"] == "scrum"
 
 
 @pytest.mark.django_db
-def test_kanban_api_includes_issues_without_active_sprint(
+def test_scrum_kanban_api_empty_when_no_active_sprint(
     superuser_client,
     project,
     create_test_issue,
 ):
+    from apps.sprints.models import Sprint
+
     planned_sprint = Sprint.objects.create(project_id=project.id, name="Planned Sprint")
-    planned_issue = create_test_issue(title="Planned sprint card", sprint_id=planned_sprint.id)
-    backlog_issue = create_test_issue(title="Backlog card")
+    create_test_issue(title="Planned sprint card", sprint_id=planned_sprint.id)
+    create_test_issue(title="Backlog card")
 
     response = superuser_client.get(f"/api/projects/{project.id}/kanban")
 
     assert response.status_code == 200
     board = response.json()["data"]["board"]
     total_count = sum(column.get("count", 0) for column in board["columns"])
-    assert total_count == 2
+    assert total_count == 0
+    assert board["selected_sprint"] is None
+    assert board["has_active_sprint"] is False
+    assert board["methodology"] == "scrum"
+
+
+@pytest.mark.django_db
+def test_scrum_kanban_api_selected_sprint_param(
+    superuser_client,
+    project,
+    create_test_issue,
+):
+    from apps.sprints.models import Sprint, SprintStatus
+
+    first_active = Sprint.objects.create(
+        project_id=project.id,
+        name="Sprint A",
+        status=SprintStatus.ACTIVE,
+    )
+    second_active = Sprint.objects.create(
+        project_id=project.id,
+        name="Sprint B",
+        status=SprintStatus.ACTIVE,
+    )
+    first_issue = create_test_issue(title="Sprint A card", sprint_id=first_active.id)
+    create_test_issue(title="Sprint B card", sprint_id=second_active.id)
+
+    response = superuser_client.get(
+        f"/api/projects/{project.id}/kanban",
+        {"sprint": str(first_active.id)},
+    )
+
+    assert response.status_code == 200
+    board = response.json()["data"]["board"]
+    total_count = sum(column.get("count", 0) for column in board["columns"])
+    assert total_count == 1
+    assert board["selected_sprint"]["id"] == str(first_active.id)
+
+
+@pytest.mark.django_db
+def test_kanban_methodology_board_returns_all_issues(
+    superuser_client,
+    kanban_project,
+    create_test_issue,
+):
+    from apps.sprints.models import Sprint, SprintStatus
+
+    active_sprint = Sprint.objects.create(
+        project_id=kanban_project.id,
+        name="Active Sprint",
+        status=SprintStatus.ACTIVE,
+    )
+    planned_sprint = Sprint.objects.create(project_id=kanban_project.id, name="Planned Sprint")
+
+    def _create(**kwargs):
+        return create_test_issue(project_id=kanban_project.id, **kwargs)
+
+    _create(title="Active sprint card", sprint_id=active_sprint.id)
+    _create(title="Planned sprint card", sprint_id=planned_sprint.id)
+    _create(title="Backlog card")
+
+    response = superuser_client.get(f"/api/projects/{kanban_project.id}/kanban")
+
+    assert response.status_code == 200
+    board = response.json()["data"]["board"]
+    total_count = sum(column.get("count", 0) for column in board["columns"])
+    assert total_count == 3
+    assert board["selected_sprint"] is None
+    assert board["has_active_sprint"] is True
+    assert board["methodology"] == "kanban"
 
 
 @pytest.mark.django_db
@@ -234,3 +303,17 @@ def test_viewer_cannot_assign(viewer_client, project_with_roles, user, create_te
     )
 
     assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_non_member_cannot_access_project_board_backlog_or_issues(org_member_client, project):
+    board_response = org_member_client.get(f"/api/projects/{project.id}/board")
+    backlog_response = org_member_client.get(f"/api/projects/{project.id}/backlog")
+    issues_response = org_member_client.get(
+        "/api/issues",
+        {"project": str(project.id)},
+    )
+
+    assert board_response.status_code == 403
+    assert backlog_response.status_code == 403
+    assert issues_response.status_code == 403

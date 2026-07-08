@@ -5,12 +5,14 @@ Scope:
 - create/update/start/pause/resume/complete sprint lifecycle
 - no issue/workflow/analytics integration
 """
+import logging
 from uuid import UUID
 
 from django.db import transaction
 
 from apps.issues.selectors import get_incomplete_sprint_issue_ids
 from apps.permissions.services import permission_service
+from apps.projects.services.project_service import require_scrum_project
 from apps.sprints.exceptions import (
     SprintCompletionError,
     SprintError,
@@ -18,6 +20,9 @@ from apps.sprints.exceptions import (
 )
 from apps.sprints.models import Sprint, SprintStatus
 from apps.sprints.selectors import get_sprint_by_id
+from apps.reports.services.analytics_recorder import analytics_event_recorder
+
+logger = logging.getLogger(__name__)
 
 
 def _get_sprint_or_raise(sprint_id: UUID) -> Sprint:
@@ -50,6 +55,7 @@ class SprintService:
         end_date=None,
         capacity_points: int | None = None,
     ) -> Sprint:
+        require_scrum_project(project_id)
         if not _can_start_sprint_for_project(user.id, project_id):
             raise SprintError("Permission denied: cannot create sprint.")
 
@@ -65,6 +71,7 @@ class SprintService:
 
     def update_sprint(self, user, sprint_id: UUID, **fields) -> Sprint:
         sprint = _get_sprint_or_raise(sprint_id)
+        require_scrum_project(sprint.project_id)
         if not permission_service.can_start_sprint(user.id, sprint.project_id):
             raise SprintError("Permission denied: cannot update sprint.")
 
@@ -95,6 +102,7 @@ class SprintService:
 
     def start_sprint(self, user, sprint_id: UUID) -> Sprint:
         sprint = _get_sprint_or_raise(sprint_id)
+        require_scrum_project(sprint.project_id)
         if not _can_start_sprint(user.id, sprint):
             raise SprintError("Permission denied: cannot start sprint.")
         if sprint.status != SprintStatus.PLANNED:
@@ -104,10 +112,23 @@ class SprintService:
         # active sprint in the project. Multiple active sprints may coexist.
         sprint.status = SprintStatus.ACTIVE
         sprint.save(update_fields=["status", "updated_at"])
+
+        # Record start snapshot — fire-and-forget so an analytics failure
+        # does not block the sprint from being activated.
+        try:
+            analytics_event_recorder.record_sprint_snapshot(sprint, "start")
+        except Exception:
+            logger.exception(
+                "Analytics: start snapshot failed for sprint %s. "
+                "Sprint is now ACTIVE.",
+                sprint.id,
+            )
+
         return sprint
 
     def pause_sprint(self, user, sprint_id: UUID) -> Sprint:
         sprint = _get_sprint_or_raise(sprint_id)
+        require_scrum_project(sprint.project_id)
         if not permission_service.can_start_sprint(user.id, sprint.project_id):
             raise SprintError("Permission denied: cannot pause sprint.")
         if sprint.status != SprintStatus.ACTIVE:
@@ -119,6 +140,7 @@ class SprintService:
 
     def resume_sprint(self, user, sprint_id: UUID) -> Sprint:
         sprint = _get_sprint_or_raise(sprint_id)
+        require_scrum_project(sprint.project_id)
         if not permission_service.can_start_sprint(user.id, sprint.project_id):
             raise SprintError("Permission denied: cannot resume sprint.")
         if sprint.status != SprintStatus.PAUSED:
@@ -139,6 +161,7 @@ class SprintService:
         target_sprint_id: UUID | None = None,
     ) -> Sprint:
         sprint = _get_sprint_or_raise(sprint_id)
+        require_scrum_project(sprint.project_id)
         if not permission_service.can_complete_sprint(user.id, sprint.project_id):
             raise SprintError("Permission denied: cannot complete sprint.")
         if sprint.status not in {SprintStatus.ACTIVE, SprintStatus.PAUSED}:
@@ -174,6 +197,17 @@ class SprintService:
             from apps.issues.services.issue_service import issue_service
 
             with transaction.atomic():
+                # Snapshot is inside the atomic block so it rolls back if
+                # issue reassignment or sprint status save fails (no orphan).
+                try:
+                    analytics_event_recorder.record_sprint_snapshot(sprint, "end")
+                except Exception:
+                    logger.exception(
+                        "Analytics: end snapshot failed for sprint %s. "
+                        "Sprint completion will still proceed.",
+                        sprint.id,
+                    )
+
                 issue_service.bulk_assign_sprint(
                     user,
                     incomplete_issue_ids,
@@ -182,10 +216,56 @@ class SprintService:
                 sprint.status = SprintStatus.COMPLETED
                 sprint.save(update_fields=["status", "updated_at"])
         else:
-            sprint.status = SprintStatus.COMPLETED
-            sprint.save(update_fields=["status", "updated_at"])
+            with transaction.atomic():
+                try:
+                    analytics_event_recorder.record_sprint_snapshot(sprint, "end")
+                except Exception:
+                    logger.exception(
+                        "Analytics: end snapshot failed for sprint %s. "
+                        "Sprint completion will still proceed.",
+                        sprint.id,
+                    )
+
+                sprint.status = SprintStatus.COMPLETED
+                sprint.save(update_fields=["status", "updated_at"])
 
         return sprint
 
 
 sprint_service = SprintService()
+
+
+def create_sprint(
+    project_id,
+    name,
+    actor_id,
+    goal=None,
+    start_date=None,
+    end_date=None,
+    capacity_points=None,
+):
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.get(pk=actor_id)
+    return sprint_service.create_sprint(
+        user=user,
+        project_id=project_id,
+        name=name,
+        goal=goal,
+        start_date=start_date,
+        end_date=end_date,
+        capacity_points=capacity_points,
+    )
+
+
+def start_sprint(sprint_id, actor_id):
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.get(pk=actor_id)
+    return sprint_service.start_sprint(
+        user=user,
+        sprint_id=sprint_id,
+    )
+

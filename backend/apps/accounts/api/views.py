@@ -5,21 +5,24 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.accounts.api.serializers import (
     ForgotPasswordSerializer,
+    InvitationTokenSerializer,
     LoginSerializer,
     LogoutSerializer,
     ProfileUpdateSerializer,
     RegisterSerializer,
     ResetPasswordSerializer,
 )
+from apps.accounts.selectors import select_me, select_user_by_email
 from apps.accounts.services import (
+    accept_invitation,
     login_user,
     logout_user,
     register_user,
     request_password_reset,
     reset_password,
     update_profile,
+    validate_invitation,
 )
-from apps.accounts.selectors import select_me
 from apps.contracts.identity_contract import UserDTO
 from apps.contracts.organization_contract import get_organizations_for_user
 from apps.contracts.project_contract import get_projects_for_organization
@@ -51,6 +54,42 @@ class RegisterView(APIView):
                 "tokens": result["tokens"],
             },
             status=201,
+        )
+
+
+def _invitation_to_data(invitation) -> dict:
+    return {
+        "email": invitation.email,
+        "account_exists": select_user_by_email(invitation.email) is not None,
+        "metadata": invitation.metadata or {},
+    }
+
+
+class InvitationValidateView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(parameters=[InvitationTokenSerializer], tags=["auth"])
+    def get(self, request):
+        serializer = InvitationTokenSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        invitation = validate_invitation(serializer.validated_data["invite_token"])
+        return success_response(data={"invitation": _invitation_to_data(invitation)})
+
+
+class InvitationAcceptView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(request=InvitationTokenSerializer, tags=["auth"])
+    def post(self, request):
+        serializer = InvitationTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = accept_invitation(
+            user=request.user,
+            invite_token=serializer.validated_data["invite_token"],
+        )
+        return success_response(
+            data={"user": _user_to_data(result["user"])},
+            message="Invitation accepted.",
         )
 
 
@@ -137,6 +176,7 @@ def _organization_summary_to_data(org) -> dict:
         "slug": org.slug,
         "role": org.role,
         "is_active": org.is_active,
+        "can_create_projects": org.can_create_projects,
         "project_count": org.project_count,
         "member_count": org.member_count,
     }
@@ -150,9 +190,8 @@ def _project_summary_to_data(project) -> dict:
         "name": project.name,
         "status": project.status,
         "open_issue_count": project.open_issue_count,
-        "active_sprint_id": (
-            str(project.active_sprint_id) if project.active_sprint_id else None
-        ),
+        "active_sprint_id": (str(project.active_sprint_id) if project.active_sprint_id else None),
+        "is_member": project.is_member,
     }
 
 
@@ -165,9 +204,7 @@ class MeContextView(APIView):
         organizations = get_organizations_for_user(request.user.id)
         projects = []
         for organization in organizations:
-            projects.extend(
-                get_projects_for_organization(organization.id, request.user.id)
-            )
+            projects.extend(get_projects_for_organization(organization.id, request.user.id))
         return success_response(
             data={
                 "user": _user_to_data(user),

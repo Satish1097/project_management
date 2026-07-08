@@ -6,6 +6,7 @@ export type ContextOrganization = {
   slug: string
   role: string
   is_active: boolean
+  can_create_projects?: boolean
   project_count: number
   member_count: number
 }
@@ -18,6 +19,7 @@ export type ContextProject = {
   status: string
   open_issue_count: number
   active_sprint_id: string | null
+  is_member?: boolean
 }
 
 export type MeContextData = {

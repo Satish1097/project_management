@@ -5,35 +5,30 @@ from django.core import mail
 
 from apps.accounts.models import UserInvitation
 from apps.accounts.tasks import send_project_invite_email
-from apps.organizations.models import OrganizationMember
-from apps.projects.models import ProjectMember, ProjectRole
+from apps.projects.models import ProjectRole
 
 
 @pytest.mark.django_db
-@patch("apps.accounts.services.invitation_onboarding_service.send_project_added_notification_email.delay")
-def test_invite_existing_user_adds_memberships(mock_notify, superuser_client, project, other_user):
+@patch("apps.accounts.services.invitation_onboarding_service.send_project_invite_email.delay")
+def test_invite_existing_user_creates_invitation(
+    mock_invite_email, superuser_client, project, other_user
+):
     response = superuser_client.post(
         f"/api/projects/{project.id}/invite",
         {"email": other_user.email, "role": ProjectRole.DEVELOPER},
         format="json",
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     body = response.json()
     assert body["success"] is True
-    assert body["data"]["status"] == "added_existing_user"
+    assert body["data"]["status"] == "invite_sent"
 
-    assert OrganizationMember.objects.filter(
-        organization_id=project.organization_id,
-        user_id=other_user.id,
-        is_active=True,
-    ).exists()
-    assert ProjectMember.objects.filter(
-        project_id=project.id,
-        user_id=other_user.id,
-        role=ProjectRole.DEVELOPER,
-    ).exists()
-    mock_notify.assert_called_once()
+    invitation = UserInvitation.objects.get(email=other_user.email)
+    assert invitation.used_at is None
+    assert invitation.metadata["project_id"] == str(project.id)
+    assert invitation.metadata["project_role"] == ProjectRole.DEVELOPER
+    mock_invite_email.assert_called_once()
 
 
 @pytest.mark.django_db
@@ -55,6 +50,33 @@ def test_invite_new_user_creates_invitation(mock_invite_email, superuser_client,
     assert invitation.metadata["organization_id"] == str(project.organization_id)
     assert invitation.metadata["project_role"] == ProjectRole.QA
     assert invitation.metadata["invited_for"] == "project"
+    mock_invite_email.assert_called_once()
+
+
+@pytest.mark.django_db
+@patch("apps.accounts.services.invitation_onboarding_service.send_project_invite_email.delay")
+def test_invite_duplicate_pending_invitation_returns_409(
+    mock_invite_email, superuser_client, project
+):
+    payload = {"email": "pending@example.com", "role": ProjectRole.QA}
+    first_response = superuser_client.post(
+        f"/api/projects/{project.id}/invite",
+        payload,
+        format="json",
+    )
+
+    second_response = superuser_client.post(
+        f"/api/projects/{project.id}/invite",
+        payload,
+        format="json",
+    )
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 409
+    assert (
+        UserInvitation.objects.filter(email="pending@example.com", used_at__isnull=True).count()
+        == 1
+    )
     mock_invite_email.assert_called_once()
 
 
@@ -111,7 +133,9 @@ def test_invite_requires_manage_members_permission(developer_client, project):
 
 @pytest.mark.django_db
 @patch("apps.accounts.services.invitation_onboarding_service.send_project_invite_email.delay")
-def test_invite_new_user_succeeds_when_email_task_fails(mock_invite_email, superuser_client, project):
+def test_invite_new_user_succeeds_when_email_task_fails(
+    mock_invite_email, superuser_client, project
+):
     mock_invite_email.side_effect = ConnectionError("broker unavailable")
 
     response = superuser_client.post(
@@ -126,11 +150,11 @@ def test_invite_new_user_succeeds_when_email_task_fails(mock_invite_email, super
 
 
 @pytest.mark.django_db
-@patch("apps.accounts.services.invitation_onboarding_service.send_project_added_notification_email.delay")
+@patch("apps.accounts.services.invitation_onboarding_service.send_project_invite_email.delay")
 def test_invite_existing_user_succeeds_when_email_task_fails(
-    mock_notify, superuser_client, project, other_user
+    mock_invite_email, superuser_client, project, other_user
 ):
-    mock_notify.side_effect = ConnectionError("broker unavailable")
+    mock_invite_email.side_effect = ConnectionError("broker unavailable")
 
     response = superuser_client.post(
         f"/api/projects/{project.id}/invite",
@@ -138,12 +162,9 @@ def test_invite_existing_user_succeeds_when_email_task_fails(
         format="json",
     )
 
-    assert response.status_code == 200
-    assert response.json()["data"]["status"] == "added_existing_user"
-    assert ProjectMember.objects.filter(
-        project_id=project.id,
-        user_id=other_user.id,
-    ).exists()
+    assert response.status_code == 201
+    assert response.json()["data"]["status"] == "invite_sent"
+    assert UserInvitation.objects.filter(email=other_user.email, used_at__isnull=True).exists()
 
 
 @pytest.mark.django_db

@@ -1,4 +1,5 @@
-import { ExternalLink, GripVertical } from 'lucide-react'
+import { useState } from 'react'
+import { ExternalLink, GripVertical, Pencil } from 'lucide-react'
 import { useIssueDetail } from '@/contexts/IssueDetailContext'
 import {
   InlineAssigneePicker,
@@ -36,11 +37,12 @@ export function BacklogMobileCard({
   const { pendingIds, assignUser, setTitle, setPriority, setLabels, assignSprint } =
     useOptimisticIssueActions(projectId)
   const isPending = pendingIds.has(issue.id)
+  const [editRequestVersion, setEditRequestVersion] = useState(0)
 
   return (
     <article
       className={cn(
-        'rounded-md border border-devflow-border/80 bg-devflow-card p-2.5 transition-colors',
+        'group rounded-md border border-devflow-border/80 bg-devflow-card p-2.5 transition-colors',
         isEntering && 'backlog-row-enter',
         isExiting && 'backlog-row-exit',
         selected && 'border-devflow-primary/30 bg-[var(--df-nav-tint)]/10 backlog-row-selected',
@@ -83,12 +85,35 @@ export function BacklogMobileCard({
               <ExternalLink className="size-3.5" />
             </button>
           </div>
-          <InlineSummaryEditor
-            value={issue.title}
-            disabled={isPending}
-            onSave={(title) => setTitle(issue.id, title)}
-            onOpenDetail={() => openIssueDetail({ issueId: issue.id })}
-          />
+          <div className="flex min-w-0 items-center gap-1">
+            <InlineSummaryEditor
+              value={issue.title}
+              disabled={isPending}
+              autoFocus={false}
+              activateOnClick={false}
+              enableDoubleClickEdit
+              editRequestVersion={editRequestVersion}
+              onSave={(title) => setTitle(issue.id, title)}
+              onOpenDetail={() => openIssueDetail({ issueId: issue.id })}
+              className="w-auto max-w-full"
+            />
+            <button
+              type="button"
+              onClick={() => setEditRequestVersion((prev) => prev + 1)}
+              className={cn(
+                'h-6 w-6 shrink-0 rounded p-1 text-devflow-text-muted',
+                'pointer-events-none opacity-0 transition-opacity duration-150 ease-out',
+                'hover:bg-devflow-muted/50',
+                'group-hover:pointer-events-auto group-hover:opacity-100',
+                'group-focus-within:pointer-events-auto group-focus-within:opacity-100',
+                'focus-visible:pointer-events-auto focus-visible:opacity-100',
+              )}
+              aria-label={`Edit ${issue.key}`}
+              title="Edit issue title"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <InlineAssigneePicker
               projectId={projectId}

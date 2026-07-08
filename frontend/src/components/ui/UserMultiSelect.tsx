@@ -1,13 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { UserAvatar } from '@/components/ui/UserAvatar'
-import type { WorkspaceMember } from '@/services/mockMembers'
+import type { OrganizationMemberOption } from '@/hooks/useOrganizationMembers'
 import { cn } from '@/utils/cn'
 
 type UserMultiSelectProps = {
   label: string
   hint?: string
-  users: WorkspaceMember[]
+  users: OrganizationMemberOption[]
   selectedIds: string[]
   onChange: (ids: string[]) => void
   excludeIds?: string[]

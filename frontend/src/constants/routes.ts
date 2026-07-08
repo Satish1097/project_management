@@ -14,6 +14,7 @@ export const ROUTES = {
 
   // Workspace
   dashboard: '/',
+  createWorkspace: '/workspace/create',
   myTasks: '/tasks',
   projects: '/projects',
   sprints: '/sprints',
@@ -129,6 +130,10 @@ export function projectSettingsLabelsPath(projectId: string) {
 
 export function projectSettingsIntegrationsPath(projectId: string) {
   return `${projectSettingsPath(projectId)}/integrations`
+}
+
+export function projectSettingsBoardPath(projectId: string) {
+  return `${projectSettingsPath(projectId)}/board`
 }
 
 export function isProjectSettingsPath(pathname: string, projectId: string): boolean {

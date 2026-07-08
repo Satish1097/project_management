@@ -1,5 +1,20 @@
-import { Check, ChevronDown, Plus } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  Building2,
+  Check,
+  ChevronDown,
+  FolderKanban,
+  Plus,
+  Search,
+} from 'lucide-react'
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   parseProjectRoute,
@@ -18,91 +33,105 @@ type SidebarContextPanelProps = {
   collapsed: boolean
 }
 
-type ContextOption = { id: string; name: string }
+type ContextOption = { id: string; name: string; role?: string }
 
 type ContextSelectorProps = {
   label: string
   value: string
+  open: boolean
   options: ContextOption[]
+  query: string
   placeholder: string
+  createLabel?: string
+  onOpenChange: (open: boolean) => void
+  onQueryChange: (value: string) => void
+  onClose: () => void
   onChange: (id: string) => void
+  onCreate?: () => void
   'aria-label': string
 }
 
-function ContextSelector({
-  label,
-  value,
-  options,
-  placeholder,
-  onChange,
-  'aria-label': ariaLabel,
-}: ContextSelectorProps) {
-  return (
-    <div className="sidebar-context-selector">
-      <span className="sidebar-context-label">{label}</span>
-      <div className="sidebar-context-select-row">
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          aria-label={ariaLabel}
-          className="sidebar-context-select"
-        >
-          {!value && (
-            <option value="" disabled>
-              {placeholder}
-            </option>
-          )}
-          {options.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className="sidebar-context-chevron" aria-hidden />
-      </div>
-    </div>
-  )
-}
-
-type WorkspaceDropdownProps = {
-  label?: string
-  value: string
+type ContextPopoverProps = {
+  open: boolean
+  anchorRef: RefObject<HTMLButtonElement | null>
+  placement?: 'right' | 'bottom-start'
+  title: string
+  ariaLabel: string
   options: ContextOption[]
-  placeholder: string
-  collapsed?: boolean
-  onChange: (id: string) => void
-  onCreateOrganization: () => void
-  'aria-label': string
+  selectedId: string
+  query: string
+  emptyLabel: string
+  searchPlaceholder: string
+  createLabel?: string
+  onQueryChange: (query: string) => void
+  onSelect: (id: string) => void
+  onCreate?: () => void
+  onClose: () => void
 }
 
-function WorkspaceDropdown({
-  label = 'Workspace',
-  value,
+function ContextPopover({
+  open,
+  anchorRef,
+  placement = 'right',
+  title,
+  ariaLabel,
   options,
-  placeholder,
-  collapsed = false,
-  onChange,
-  onCreateOrganization,
-  'aria-label': ariaLabel,
-}: WorkspaceDropdownProps) {
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const selected = options.find((option) => option.id === value)
+  selectedId,
+  query,
+  emptyLabel,
+  searchPlaceholder,
+  createLabel,
+  onQueryChange,
+  onSelect,
+  onCreate,
+  onClose,
+}: ContextPopoverProps) {
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
+
+  useEffect(() => {
+    if (!open) return
+
+    const updatePosition = () => {
+      const anchor = anchorRef.current
+      if (!anchor) return
+
+      const rect = anchor.getBoundingClientRect()
+      if (placement === 'bottom-start') {
+        setPosition({
+          top: rect.bottom + 8,
+          left: rect.left,
+        })
+        return
+      }
+
+      setPosition({
+        top: rect.top,
+        left: rect.right + 12,
+      })
+    }
+
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [anchorRef, open, placement])
 
   useEffect(() => {
     if (!open) return
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false)
-      }
+      const target = event.target as Node
+      if (anchorRef.current?.contains(target)) return
+      if (popoverRef.current?.contains(target)) return
+      onClose()
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') onClose()
     }
 
     document.addEventListener('mousedown', handlePointerDown)
@@ -111,56 +140,108 @@ function WorkspaceDropdown({
       document.removeEventListener('mousedown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [open])
+  }, [anchorRef, onClose, open])
 
-  const displayValue = selected?.name ?? placeholder
+  if (!open) return null
 
-  return (
+  return createPortal(
     <div
-      ref={containerRef}
-      className={cn(
-        'sidebar-context-selector sidebar-context-selector--menu',
-        collapsed && 'sidebar-context-selector--collapsed',
-      )}
+      ref={popoverRef}
+      role="dialog"
+      aria-label={ariaLabel}
+      className="sidebar-context-popover"
+      style={{ top: position.top, left: position.left }}
     >
-      {!collapsed ? (
-        <span className="sidebar-context-label">{label}</span>
-      ) : null}
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        aria-label={ariaLabel}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        title={collapsed ? displayValue : undefined}
-        className={cn(
-          'sidebar-context-select-row w-full text-left',
-          collapsed && 'relative h-full w-full',
-        )}
-      >
-        <span
-          className={cn(
-            'sidebar-context-select truncate',
-            !selected && 'font-normal text-devflow-text-muted dark:text-zinc-500',
-            collapsed && 'sr-only',
-          )}
-        >
-          {displayValue}
-        </span>
-        <ChevronDown
-          className={cn(
-            'sidebar-context-chevron',
-            collapsed && 'relative static translate-y-0',
-          )}
-          aria-hidden
-        />
-      </button>
+      <p className="sidebar-context-popover-title">{title}</p>
 
-      {open ? (
-        <div className="sidebar-workspace-menu" role="listbox" aria-label={ariaLabel}>
-          <p className="sidebar-workspace-menu-heading">Organizations</p>
-          {options.map((option) => {
-            const isActive = option.id === value
+      <label className="sidebar-context-popover-search">
+        <Search className="size-3.5 text-devflow-text-muted" aria-hidden />
+        <span className="sr-only">{searchPlaceholder}</span>
+        <input
+          type="text"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder={searchPlaceholder}
+          className="sidebar-context-popover-search-input"
+        />
+      </label>
+
+      <div className="sidebar-context-popover-list" role="listbox" aria-label={ariaLabel}>
+        {ariaLabel === 'Workspace' ? (
+          <>
+            {(() => {
+              const owned = options.filter((o) => o.role === 'owner')
+              const joined = options.filter((o) => o.role && o.role !== 'owner')
+              const renderOption = (option: ContextOption) => {
+                const isActive = option.id === selectedId
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    className={cn(
+                      'sidebar-workspace-menu-item',
+                      isActive && 'sidebar-workspace-menu-item--active',
+                    )}
+                    onClick={() => {
+                      onSelect(option.id)
+                      onClose()
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        'sidebar-workspace-menu-check',
+                        !isActive && 'sidebar-workspace-menu-check--empty',
+                      )}
+                      aria-hidden
+                    />
+                    <span className="truncate flex-1 text-left">{option.name}</span>
+                    {option.role && (
+                      <span
+                        className={cn(
+                          'ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium capitalize shrink-0',
+                          option.role === 'owner' &&
+                            'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+                          option.role === 'admin' &&
+                            'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+                          option.role === 'member' &&
+                            'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+                        )}
+                      >
+                        {option.role}
+                      </span>
+                    )}
+                  </button>
+                )
+              }
+
+              return (
+                <>
+                  {owned.length > 0 && (
+                    <div className="px-3 py-1.5 text-[11px] font-semibold text-devflow-text-muted uppercase tracking-wider">
+                      Owned Workspaces
+                    </div>
+                  )}
+                  {owned.map(renderOption)}
+
+                  {joined.length > 0 && (
+                    <div className="mt-2 px-3 py-1.5 text-[11px] font-semibold text-devflow-text-muted uppercase tracking-wider">
+                      Joined Workspaces
+                    </div>
+                  )}
+                  {joined.map(renderOption)}
+
+                  {options.length === 0 && (
+                    <p className="sidebar-context-popover-empty">{emptyLabel}</p>
+                  )}
+                </>
+              )
+            })()}
+          </>
+        ) : options.length > 0 ? (
+          options.map((option) => {
+            const isActive = option.id === selectedId
             return (
               <button
                 key={option.id}
@@ -172,8 +253,8 @@ function WorkspaceDropdown({
                   isActive && 'sidebar-workspace-menu-item--active',
                 )}
                 onClick={() => {
-                  onChange(option.id)
-                  setOpen(false)
+                  onSelect(option.id)
+                  onClose()
                 }}
               >
                 <Check
@@ -186,21 +267,211 @@ function WorkspaceDropdown({
                 <span className="truncate">{option.name}</span>
               </button>
             )
-          })}
+          })
+        ) : (
+          <p className="sidebar-context-popover-empty">{emptyLabel}</p>
+        )}
+      </div>
+
+      {onCreate && createLabel ? (
+        <div className="sidebar-context-popover-footer">
           <div className="sidebar-workspace-menu-divider" role="separator" />
           <button
             type="button"
             className="sidebar-workspace-menu-create"
             onClick={() => {
-              setOpen(false)
-              onCreateOrganization()
+              onClose()
+              onCreate()
             }}
           >
             <Plus className="size-3.5 shrink-0" aria-hidden />
-            Create Organization
+            {createLabel}
           </button>
         </div>
       ) : null}
+    </div>,
+    document.body,
+  )
+}
+
+type ProjectSwitcherProps = {
+  collapsed: boolean
+  disabled: boolean
+  open: boolean
+  selectedProjectName: string
+  selectedProjectId: string
+  options: ContextOption[]
+  query: string
+  onOpenChange: (open: boolean) => void
+  onClose: () => void
+  onQueryChange: (value: string) => void
+  onSelect: (projectId: string) => void
+  onCreate?: () => void
+}
+
+function ProjectSwitcher({
+  collapsed,
+  disabled,
+  open,
+  selectedProjectName,
+  selectedProjectId,
+  options,
+  query,
+  onOpenChange,
+  onClose,
+  onQueryChange,
+  onSelect,
+  onCreate,
+}: ProjectSwitcherProps) {
+  const projectButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (disabled && open) onClose()
+  }, [disabled, onClose, open])
+
+  if (collapsed) {
+    return (
+      <>
+        <button
+          ref={projectButtonRef}
+          type="button"
+          title="Project"
+          aria-label="Open project switcher"
+          aria-expanded={open}
+          disabled={disabled}
+          className={cn(
+            'sidebar-nav-item sidebar-nav-item--collapsed sidebar-context-icon-trigger',
+            open && 'sidebar-nav-item--active',
+          )}
+          onClick={() => onOpenChange(!open)}
+        >
+          <FolderKanban className="sidebar-nav-icon" strokeWidth={1.75} />
+        </button>
+
+        <ContextPopover
+          open={open}
+          anchorRef={projectButtonRef}
+          title={selectedProjectName}
+          ariaLabel="Project"
+          options={options}
+          selectedId={selectedProjectId}
+          query={query}
+          emptyLabel="No projects found"
+          searchPlaceholder="Search projects"
+          createLabel={onCreate ? 'Create Project' : undefined}
+          onQueryChange={onQueryChange}
+          onSelect={onSelect}
+          onCreate={onCreate}
+          onClose={onClose}
+        />
+      </>
+    )
+  }
+
+  return (
+    <div className="sidebar-context-selector sidebar-context-selector--menu">
+      <span className="sidebar-context-label">Project</span>
+      <button
+        ref={projectButtonRef}
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        aria-label="Project"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        disabled={disabled}
+        className="sidebar-context-select-row w-full text-left"
+      >
+        <span
+          className={cn(
+            'sidebar-context-select truncate',
+            !selectedProjectId && 'font-normal text-devflow-text-muted',
+          )}
+        >
+          {selectedProjectId ? selectedProjectName : 'Select project'}
+        </span>
+        <ChevronDown className="sidebar-context-chevron" aria-hidden />
+      </button>
+
+      <ContextPopover
+        open={open}
+        placement="bottom-start"
+        anchorRef={projectButtonRef}
+        title={selectedProjectName}
+        ariaLabel="Project"
+        options={options}
+        selectedId={selectedProjectId}
+        query={query}
+        emptyLabel="No projects found"
+        searchPlaceholder="Search projects"
+        createLabel={onCreate ? 'Create Project' : undefined}
+        onQueryChange={onQueryChange}
+        onSelect={onSelect}
+        onCreate={onCreate}
+        onClose={onClose}
+      />
+    </div>
+  )
+}
+
+function ContextSelector({
+  label,
+  value,
+  open,
+  options,
+  query,
+  placeholder,
+  createLabel,
+  onOpenChange,
+  onQueryChange,
+  onClose,
+  onChange,
+  onCreate,
+  'aria-label': ariaLabel,
+}: ContextSelectorProps) {
+  const selectorButtonRef = useRef<HTMLButtonElement>(null)
+  const selected = options.find((option) => option.id === value)
+  const displayValue = selected?.name ?? placeholder
+
+  return (
+    <div className="sidebar-context-selector sidebar-context-selector--menu">
+      <span className="sidebar-context-label">{label}</span>
+      <button
+        ref={selectorButtonRef}
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="sidebar-context-select-row w-full text-left"
+      >
+        <span
+          className={cn(
+            'sidebar-context-select truncate',
+            !selected && 'font-normal text-devflow-text-muted',
+          )}
+        >
+          {displayValue}
+        </span>
+        <ChevronDown className="sidebar-context-chevron" aria-hidden />
+      </button>
+
+      <ContextPopover
+        open={open}
+        placement="bottom-start"
+        anchorRef={selectorButtonRef}
+        title={displayValue}
+        ariaLabel={ariaLabel}
+        options={options}
+        selectedId={value}
+        query={query}
+        emptyLabel="No workspaces found"
+        searchPlaceholder="Search workspaces"
+        createLabel={createLabel}
+        onQueryChange={onQueryChange}
+        onSelect={onChange}
+        onCreate={onCreate}
+        onClose={onClose}
+      />
     </div>
   )
 }
@@ -237,51 +508,8 @@ function ContextSelectorSkeleton({ label }: { label: string }) {
     <div className="sidebar-context-selector" aria-hidden>
       <span className="sidebar-context-label">{label}</span>
       <div className="sidebar-context-select-row">
-        <div className="h-[14px] w-3/4 animate-pulse rounded bg-devflow-muted dark:bg-zinc-800" />
+        <div className="h-[14px] w-3/4 animate-pulse rounded bg-devflow-muted" />
       </div>
-    </div>
-  )
-}
-
-function ContextSelectorCollapsed({
-  value,
-  options,
-  placeholder,
-  onChange,
-  'aria-label': ariaLabel,
-}: {
-  value: string
-  options: ContextOption[]
-  placeholder: string
-  onChange: (id: string) => void
-  'aria-label': string
-}) {
-  const displayValue =
-    options.find((option) => option.id === value)?.name ?? placeholder
-
-  return (
-    <div
-      className="sidebar-context-selector sidebar-context-selector--collapsed"
-      title={displayValue}
-    >
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        aria-label={ariaLabel}
-        className="sidebar-context-select sidebar-context-select--collapsed"
-      >
-        {!value && (
-          <option value="" disabled>
-            {placeholder}
-          </option>
-        )}
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.name}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="size-3 shrink-0 text-devflow-text-muted dark:text-zinc-500" aria-hidden />
     </div>
   )
 }
@@ -304,10 +532,46 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
   const { projects, isLoading: projectsLoading } = useProjects()
   const isLoading = contextLoading || (Boolean(currentOrganization) && projectsLoading)
   const isSuperuser = user?.is_superuser === true
-  const orgOptions = organizations.map((org) => ({ id: org.id, name: org.name }))
+  const canCreateProjects =
+    isSuperuser ||
+    currentOrganization?.role === 'owner' ||
+    currentOrganization?.role === 'admin' ||
+    currentOrganization?.can_create_projects === true
+  const orgOptions = organizations.map((org) => ({
+    id: org.id,
+    name: org.name,
+    role: org.role,
+  }))
+  const projectOptions = projects.map((project) => ({
+    id: project.id,
+    name: project.name,
+  }))
+  const [openMenu, setOpenMenu] = useState<'workspace' | 'project' | null>(null)
+  const [workspaceQuery, setWorkspaceQuery] = useState('')
+  const [projectQuery, setProjectQuery] = useState('')
+  const workspaceButtonRef = useRef<HTMLButtonElement>(null)
 
   const routeProjectId = parseProjectRoute(pathname).projectId
   const selectedProjectId = routeProjectId ?? selectedProject?.id ?? ''
+  const selectedWorkspaceName =
+    orgOptions.find((option) => option.id === (currentOrganization?.id ?? ''))?.name ??
+    'Workspace'
+  const selectedProjectName =
+    projectOptions.find((option) => option.id === selectedProjectId)?.name ?? 'Project'
+  const filteredWorkspaceOptions = useMemo(() => {
+    const normalizedQuery = workspaceQuery.trim().toLowerCase()
+    if (!normalizedQuery) return orgOptions
+    return orgOptions.filter((option) =>
+      option.name.toLowerCase().includes(normalizedQuery),
+    )
+  }, [orgOptions, workspaceQuery])
+  const filteredProjectOptions = useMemo(() => {
+    const normalizedQuery = projectQuery.trim().toLowerCase()
+    if (!normalizedQuery) return projectOptions
+    return projectOptions.filter((option) =>
+      option.name.toLowerCase().includes(normalizedQuery),
+    )
+  }, [projectOptions, projectQuery])
 
   useEffect(() => {
     projectSwitchTrace.sidebarContextPanelMount(collapsed)
@@ -316,6 +580,10 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
   const handleProjectCreated = (projectId: string) => {
     navigate(projectBacklogPath(projectId))
   }
+
+  const openCreateProject = useCallback(() => {
+    setCreateProjectOpen(true)
+  }, [])
 
   const handleProjectChange = useCallback(
     (projectId: string) => {
@@ -345,11 +613,21 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
   )
 
   const workspaceSelectorProps = {
+    label: 'Workspace',
     value: currentOrganization?.id ?? '',
-    options: orgOptions,
+    open: openMenu === 'workspace',
+    options: filteredWorkspaceOptions,
+    query: workspaceQuery,
     placeholder: collapsed ? 'Workspace' : 'Select workspace',
+    createLabel: 'Create Workspace',
+    onOpenChange: (open: boolean) => setOpenMenu(open ? 'workspace' : null),
+    onQueryChange: setWorkspaceQuery,
+    onClose: () => {
+      setOpenMenu(null)
+      setWorkspaceQuery('')
+    },
     onChange: setCurrentOrganization,
-    onCreateOrganization: () => setCreateOrgOpen(true),
+    onCreate: () => setCreateOrgOpen(true),
     'aria-label': 'Workspace',
   }
 
@@ -358,40 +636,80 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
       return (
         <div className="sidebar-context-panel sidebar-context-panel--single mt-2 items-center">
           <div
-            className="sidebar-context-selector sidebar-context-selector--collapsed animate-pulse bg-devflow-muted dark:bg-zinc-800"
+            className="sidebar-context-selector sidebar-context-selector--collapsed animate-pulse bg-devflow-muted"
             aria-hidden
           />
         </div>
       )
     }
-
-    if (organizations.length === 0) {
-      return null
-    }
-
     return (
       <>
         <div className="sidebar-context-panel mt-2 items-center">
-          {isSuperuser ? (
-            <WorkspaceDropdown {...workspaceSelectorProps} collapsed />
-          ) : (
-            <ContextSelectorCollapsed {...workspaceSelectorProps} />
-          )}
-          {currentOrganization && projects.length > 0 && (
-            <ContextSelectorCollapsed
-              value={selectedProjectId}
-              options={projects.map((project) => ({
-                id: project.id,
-                name: project.name,
-              }))}
-              placeholder="Project"
-              onChange={handleProjectChange}
-              aria-label="Project"
-            />
-          )}
+          <button
+            ref={workspaceButtonRef}
+            type="button"
+            title="Workspace"
+            aria-label="Open workspace switcher"
+            aria-expanded={openMenu === 'workspace'}
+            className={cn(
+              'sidebar-nav-item sidebar-nav-item--collapsed sidebar-context-icon-trigger',
+              openMenu === 'workspace' && 'sidebar-nav-item--active',
+            )}
+            onClick={() =>
+              setOpenMenu((current) => (current === 'workspace' ? null : 'workspace'))
+            }
+          >
+            <Building2 className="sidebar-nav-icon" strokeWidth={1.75} />
+          </button>
+
+          <ProjectSwitcher
+            collapsed
+            disabled={!currentOrganization}
+            open={openMenu === 'project'}
+            selectedProjectName={selectedProjectName}
+            selectedProjectId={selectedProjectId}
+            options={filteredProjectOptions}
+            query={projectQuery}
+            onOpenChange={(open) => setOpenMenu(open ? 'project' : null)}
+            onClose={() => {
+              setOpenMenu(null)
+              setProjectQuery('')
+            }}
+            onQueryChange={setProjectQuery}
+            onSelect={handleProjectChange}
+            onCreate={
+              currentOrganization && canCreateProjects ? openCreateProject : undefined
+            }
+          />
         </div>
 
-        {isSuperuser && user ? (
+        <ContextPopover
+          open={openMenu === 'workspace'}
+          anchorRef={workspaceButtonRef}
+          title={selectedWorkspaceName}
+          ariaLabel="Workspace"
+          options={filteredWorkspaceOptions}
+          selectedId={currentOrganization?.id ?? ''}
+          query={workspaceQuery}
+          emptyLabel="No workspaces found"
+          searchPlaceholder="Search workspaces"
+          createLabel="Create Workspace"
+          onQueryChange={setWorkspaceQuery}
+          onSelect={setCurrentOrganization}
+          onCreate={() => setCreateOrgOpen(true)}
+          onClose={() => {
+            setOpenMenu(null)
+            setWorkspaceQuery('')
+          }}
+        />
+
+        <CreateProjectDrawer
+          open={createProjectOpen}
+          onClose={() => setCreateProjectOpen(false)}
+          onCreated={handleProjectCreated}
+        />
+
+        {user ? (
           <CreateOrganizationModal
             open={createOrgOpen}
             ownerUserId={user.id}
@@ -424,35 +742,30 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
     )
   }
 
-  const showCreateProject = currentOrganization && projects.length === 0
+  const showProjectSwitcher = Boolean(currentOrganization)
 
   return (
     <>
       <div className="sidebar-context-panel mt-3">
-        {isSuperuser ? (
-          <WorkspaceDropdown {...workspaceSelectorProps} />
-        ) : (
-          <ContextSelector
-            label="Workspace"
-            value={workspaceSelectorProps.value}
-            options={workspaceSelectorProps.options}
-            placeholder={workspaceSelectorProps.placeholder}
-            onChange={workspaceSelectorProps.onChange}
-            aria-label={workspaceSelectorProps['aria-label']}
-          />
-        )}
+        <ContextSelector {...workspaceSelectorProps} />
 
-        {currentOrganization && projects.length > 0 ? (
-          <ContextSelector
-            label="Project"
-            value={selectedProjectId}
-            options={projects.map((project) => ({
-              id: project.id,
-              name: project.name,
-            }))}
-            placeholder="Select project"
-            onChange={handleProjectChange}
-            aria-label="Project"
+        {showProjectSwitcher ? (
+          <ProjectSwitcher
+            collapsed={false}
+            disabled={false}
+            open={openMenu === 'project'}
+            selectedProjectName={selectedProjectName}
+            selectedProjectId={selectedProjectId}
+            options={filteredProjectOptions}
+            query={projectQuery}
+            onOpenChange={(open) => setOpenMenu(open ? 'project' : null)}
+            onClose={() => {
+              setOpenMenu(null)
+              setProjectQuery('')
+            }}
+            onQueryChange={setProjectQuery}
+            onSelect={handleProjectChange}
+            onCreate={canCreateProjects ? openCreateProject : undefined}
           />
         ) : (
           <ContextSelectorStatic
@@ -460,16 +773,6 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
             text="No project selected"
             placeholder
           />
-        )}
-
-        {showCreateProject && (
-          <button
-            type="button"
-            onClick={() => setCreateProjectOpen(true)}
-            className="sidebar-context-create-btn"
-          >
-            Create Project
-          </button>
         )}
       </div>
 
@@ -479,7 +782,7 @@ export function SidebarContextPanel({ collapsed }: SidebarContextPanelProps) {
         onCreated={handleProjectCreated}
       />
 
-      {isSuperuser && user ? (
+      {user ? (
         <CreateOrganizationModal
           open={createOrgOpen}
           ownerUserId={user.id}

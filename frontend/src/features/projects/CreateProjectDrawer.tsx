@@ -5,13 +5,9 @@ import { DrawerPanel } from '@/components/ui/DrawerPanel'
 import { FormField, FormSection } from '@/components/ui/FormField'
 import { RadioOptionGroup } from '@/components/ui/RadioOptionGroup'
 import { SelectField } from '@/components/ui/SelectField'
-import { UserMultiSelect } from '@/components/ui/UserMultiSelect'
-import { UserSelectField } from '@/components/ui/UserSelectField'
 import { projectOverviewPath } from '@/constants/routes'
-import { CURRENT_USER } from '@/constants/currentUser'
 import { useProjects } from '@/contexts/ProjectsContext'
 import { ApiError } from '@/api/types'
-import { mockMembers } from '@/services/mockMembers'
 import {
   DEFAULT_CREATE_PROJECT_VALUES,
   type CreateProjectFormValues,
@@ -19,11 +15,7 @@ import {
 import {
   generateProjectKey,
   generateProjectSlug,
-  isProjectKeyTaken,
-  isValidProjectKey,
-  normalizeProjectKey,
   PROJECT_DESCRIPTION_MAX_LENGTH,
-  PROJECT_KEY_MAX_LENGTH,
   PROJECT_NAME_MAX_LENGTH,
 } from '@/utils/projectKey'
 import { cn } from '@/utils/cn'
@@ -34,15 +26,7 @@ type CreateProjectDrawerProps = {
   onCreated?: (projectId: string) => void
 }
 
-type FieldErrors = Partial<Record<'name' | 'key' | 'description', string>>
-
-const PROJECT_TYPE_OPTIONS = [
-  { value: 'software', label: 'Software Development' },
-  { value: 'marketing', label: 'Marketing' },
-  { value: 'design', label: 'Design' },
-  { value: 'operations', label: 'Operations' },
-  { value: 'custom', label: 'Custom' },
-] as const
+type FieldErrors = Partial<Record<'name' | 'description', string>>
 
 const SPRINT_DURATION_OPTIONS = [
   { value: '1', label: '1 Week' },
@@ -55,12 +39,7 @@ const SPRINT_DURATION_OPTIONS = [
 export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectDrawerProps) {
   const navigate = useNavigate()
   const { createProject, projectKeys } = useProjects()
-
-  const [values, setValues] = useState<CreateProjectFormValues>(() => ({
-    ...DEFAULT_CREATE_PROJECT_VALUES,
-    leadId: CURRENT_USER.id,
-  }))
-  const [keyTouched, setKeyTouched] = useState(false)
+  const [values, setValues] = useState<CreateProjectFormValues>(DEFAULT_CREATE_PROJECT_VALUES)
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitAttempted, setSubmitAttempted] = useState(false)
@@ -68,11 +47,7 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
   const [serverFieldErrors, setServerFieldErrors] = useState<FieldErrors>({})
 
   const resetForm = useCallback(() => {
-    setValues({
-      ...DEFAULT_CREATE_PROJECT_VALUES,
-      leadId: CURRENT_USER.id,
-    })
-    setKeyTouched(false)
+    setValues(DEFAULT_CREATE_PROJECT_VALUES)
     setTouched({})
     setSubmitAttempted(false)
     setSubmitting(false)
@@ -95,20 +70,12 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
       next.name = `Maximum ${PROJECT_NAME_MAX_LENGTH} characters`
     }
 
-    if (!values.key) {
-      next.key = 'Project key is required'
-    } else if (!isValidProjectKey(values.key)) {
-      next.key = 'Use 2–10 uppercase letters or numbers'
-    } else if (isProjectKeyTaken(values.key, projectKeys)) {
-      next.key = 'This key is already in use'
-    }
-
     if (values.description.length > PROJECT_DESCRIPTION_MAX_LENGTH) {
       next.description = `Maximum ${PROJECT_DESCRIPTION_MAX_LENGTH} characters`
     }
 
     return next
-  }, [values, projectKeys])
+  }, [values])
 
   const showError = (field: keyof FieldErrors): string | undefined => {
     if (serverFieldErrors[field]) return serverFieldErrors[field]
@@ -118,9 +85,7 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
 
   const isFormValid =
     values.name.trim().length > 0 &&
-    values.key.length > 0 &&
     !errors.name &&
-    !errors.key &&
     !errors.description
 
   const update = <K extends keyof CreateProjectFormValues>(
@@ -130,17 +95,21 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
     setValues((prev) => ({ ...prev, [key]: value }))
   }
 
-  const handleNameChange = (name: string) => {
-    update('name', name)
-    if (!keyTouched) {
-      update('key', generateProjectKey(name))
-    }
-  }
+  const buildCreateProjectKey = useCallback(
+    (name: string): string => {
+      const base = generateProjectKey(name) || 'PRJ'
+      const normalizedExisting = new Set(projectKeys.map((key) => key.toUpperCase()))
+      if (!normalizedExisting.has(base.toUpperCase())) return base
 
-  const handleKeyChange = (raw: string) => {
-    setKeyTouched(true)
-    update('key', normalizeProjectKey(raw))
-  }
+      for (let index = 2; index <= 9999; index += 1) {
+        const candidate = `${base}${index}`.slice(0, 10)
+        if (!normalizedExisting.has(candidate.toUpperCase())) return candidate
+      }
+
+      return `${base.slice(0, 7)}${Date.now().toString().slice(-3)}`.slice(0, 10)
+    },
+    [projectKeys],
+  )
 
   const handleSubmit = async () => {
     setSubmitAttempted(true)
@@ -150,11 +119,19 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
 
     setSubmitting(true)
     try {
+      const sprintWeeks =
+        values.methodology === 'scrum' && values.sprintDuration !== 'custom'
+          ? Number(values.sprintDuration)
+          : undefined
+
+      const projectName = values.name.trim()
       const project = await createProject({
-        key: values.key,
-        slug: generateProjectSlug(values.name || values.key),
-        name: values.name.trim(),
+        key: buildCreateProjectKey(projectName),
+        slug: generateProjectSlug(projectName),
+        name: projectName,
         description: values.description.trim(),
+        methodology: values.methodology,
+        ...(sprintWeeks !== undefined ? { default_sprint_weeks: sprintWeeks } : {}),
       })
       setSubmitting(false)
       onClose()
@@ -167,8 +144,7 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
       setSubmitting(false)
       if (error instanceof ApiError) {
         const nextFieldErrors: FieldErrors = {}
-        if (error.errors?.key?.[0]) nextFieldErrors.key = error.errors.key[0]
-        if (error.errors?.slug?.[0]) nextFieldErrors.key = error.errors.slug[0]
+        if (error.errors?.name?.[0]) nextFieldErrors.name = error.errors.name[0]
         setServerFieldErrors(nextFieldErrors)
         setSubmitError(error.message)
         return
@@ -228,7 +204,6 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
             {submitError}
           </p>
         )}
-
         <FormSection title="Basic information">
           <FormField
             label="Project name"
@@ -237,24 +212,8 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
             maxLength={PROJECT_NAME_MAX_LENGTH}
             placeholder="e.g. Mobile App, Backend API"
             error={showError('name')}
-            onChange={(e) => handleNameChange(e.target.value)}
+            onChange={(e) => update('name', e.target.value)}
             onBlur={() => setTouched((t) => ({ ...t, name: true }))}
-          />
-
-          <FormField
-            label="Project key"
-            required
-            value={values.key}
-            maxLength={PROJECT_KEY_MAX_LENGTH}
-            placeholder="MOB"
-            hint="Used in issue IDs (e.g. MOB-101). Auto-generated from name."
-            error={showError('key')}
-            className="[&_input]:font-mono [&_input]:tracking-wide"
-            onChange={(e) => handleKeyChange(e.target.value)}
-            onBlur={() => {
-              setKeyTouched(true)
-              setTouched((t) => ({ ...t, key: true }))
-            }}
           />
 
           <FormField
@@ -271,21 +230,6 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
         </FormSection>
 
         <FormSection title="Project setup">
-          <SelectField
-            label="Project type"
-            value={values.projectType}
-            options={PROJECT_TYPE_OPTIONS.map((o) => ({
-              value: o.value,
-              label: o.label,
-            }))}
-            onChange={(e) =>
-              update(
-                'projectType',
-                e.target.value as CreateProjectFormValues['projectType'],
-              )
-            }
-          />
-
           <RadioOptionGroup
             name="methodology"
             label="Methodology / workflow"
@@ -303,43 +247,6 @@ export function CreateProjectDrawer({ open, onClose, onCreated }: CreateProjectD
                 description: 'Continuous flow board without sprints',
               },
             ]}
-          />
-
-          <RadioOptionGroup
-            name="visibility"
-            label="Project visibility"
-            value={values.visibility}
-            onChange={(visibility) => update('visibility', visibility)}
-            options={[
-              {
-                value: 'private',
-                label: 'Private',
-                description: 'Only invited members',
-              },
-              {
-                value: 'workspace',
-                label: 'Workspace visible',
-                description: 'Anyone in the workspace can view',
-              },
-            ]}
-          />
-        </FormSection>
-
-        <FormSection title="Team">
-          <UserSelectField
-            label="Project lead"
-            users={mockMembers}
-            value={values.leadId}
-            onChange={(leadId) => update('leadId', leadId)}
-          />
-
-          <UserMultiSelect
-            label="Team members"
-            hint="Optional — invite collaborators now or add them later."
-            users={mockMembers}
-            selectedIds={values.memberIds}
-            excludeIds={[values.leadId]}
-            onChange={(memberIds) => update('memberIds', memberIds)}
           />
         </FormSection>
 

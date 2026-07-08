@@ -27,18 +27,54 @@ def test_create_organization_superuser_success(superuser_client, superuser):
     )
     assert membership.role == OrganizationRole.OWNER
     assert membership.is_active is True
+    assert membership.can_create_projects is True
 
 
 @pytest.mark.django_db
-def test_create_organization_normal_user_forbidden(user_client, user):
+def test_create_workspace_authenticated_user_success(user_client, user):
     response = user_client.post(
         ORGANIZATIONS_URL,
-        {"name": "Blocked Org", "slug": "blocked-org", "owner_user_id": str(user.id)},
+        {"name": "Self Serve Org", "slug": "self-serve-org", "owner_user_id": str(user.id)},
         format="json",
     )
 
-    assert response.status_code == 403
-    assert response.json()["success"] is False
+    assert response.status_code == 201
+    org = response.json()["data"]["organization"]
+    assert org["owner_id"] == str(user.id)
+
+    membership = OrganizationMember.objects.get(
+        organization_id=org["id"],
+        user_id=user.id,
+    )
+    assert membership.role == OrganizationRole.OWNER
+    assert membership.is_active is True
+
+
+@pytest.mark.django_db
+def test_create_workspace_creator_becomes_owner(user_client, user, other_user):
+    response = user_client.post(
+        ORGANIZATIONS_URL,
+        {
+            "name": "Creator Owned Org",
+            "slug": "creator-owned-org",
+            "owner_user_id": str(other_user.id),
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    org = response.json()["data"]["organization"]
+    assert org["owner_id"] == str(user.id)
+
+    assert OrganizationMember.objects.filter(
+        organization_id=org["id"],
+        user_id=user.id,
+        role=OrganizationRole.OWNER,
+    ).exists()
+    assert not OrganizationMember.objects.filter(
+        organization_id=org["id"],
+        user_id=other_user.id,
+    ).exists()
 
 
 @pytest.mark.django_db

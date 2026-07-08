@@ -14,6 +14,7 @@ from apps.contracts.membership_contract import get_project_role, user_has_projec
 from apps.contracts.organization_contract import get_organization_member, is_organization_member
 
 _ORG_MANAGE_ROLES = frozenset({"owner", "admin"})
+_ORG_PROJECT_CREATE_ROLES = frozenset({"owner", "admin"})
 
 _PROJECT_EDIT_ROLES = frozenset({"project_admin", "project_manager"})
 
@@ -70,8 +71,12 @@ class PermissionService:
 
 
     def can_create_project(self, user_id: UUID, organization_id: UUID) -> bool:
-
-        return is_organization_member(user_id, organization_id)
+        member = get_organization_member(user_id, organization_id)
+        if member is None or not member.is_active:
+            return False
+        return member.role in _ORG_PROJECT_CREATE_ROLES or getattr(
+            member, "can_create_projects", False
+        )
 
 
 
@@ -133,8 +138,34 @@ class PermissionService:
         self,
         user_id: UUID,
         project_id: UUID,
+        from_status_slug: str | None = None,
+        to_status_slug: str | None = None,
     ) -> bool:
-        return user_has_project_access(user_id, project_id)
+        if not user_has_project_access(user_id, project_id):
+            return False
+
+        # If no status parameters are passed, general access is sufficient.
+        if from_status_slug is None and to_status_slug is None:
+            return True
+
+        role = get_project_role(user_id, project_id)
+        if role in ("project_admin", "project_manager"):
+            return True
+
+        if role == "viewer":
+            return False
+
+        # Reopen (done -> anything else) is restricted to Project Manager and Project Admin.
+        if from_status_slug == "done":
+            return False
+
+        # Transitioning to "done" (approval) is restricted to QA, Project Manager, and Project Admin.
+        if to_status_slug == "done":
+            return role == "qa"
+
+        # Developer and QA roles are allowed to perform any other workflow transition.
+        return role in ("developer", "qa")
+
 
 
 

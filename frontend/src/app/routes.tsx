@@ -29,6 +29,7 @@ import { WorkspaceModulePlaceholderPage } from '@/features/workspace/WorkspaceMo
 import { WorkspaceSprintsPage } from '@/features/sprints/WorkspaceSprintsPage'
 import { MyTasksPage } from '@/features/tasks/MyTasksPage'
 import { ProjectSettingsLayout } from '@/components/layout/ProjectSettingsLayout'
+import { ProjectSettingsBoardPage } from '@/features/settings/ProjectSettingsBoardPage'
 import { ProjectSettingsGeneralPage } from '@/features/settings/ProjectSettingsGeneralPage'
 import { ProjectSettingsMembersPage } from '@/features/settings/ProjectSettingsMembersPage'
 import { ProjectSettingsLabelsPage } from '@/features/settings/ProjectSettingsLabelsPage'
@@ -46,6 +47,7 @@ import { ProjectOverviewPage } from '@/features/projects/ProjectOverviewPage'
 import { ProjectActivityPage } from '@/features/projects/ProjectActivityPage'
 import { ProjectSprintsPage } from '@/features/projects/ProjectSprintsPage'
 import { ProjectPlaceholderPage } from '@/features/projects/ProjectPlaceholderPage'
+import { ProjectReportsPage } from '@/features/reports/ProjectReportsPage'
 import { ProjectTeamPage } from '@/features/projects/ProjectTeamPage'
 import { ProjectBacklogPage } from '@/features/projects/ProjectBacklogPage'
 import { SprintShell } from '@/components/layout/SprintShell'
@@ -55,6 +57,7 @@ import { SprintDetailPage } from '@/features/projects/SprintDetailPage'
 import { SprintListPage } from '@/features/projects/SprintListPage'
 import { SprintActivityPage } from '@/features/projects/SprintActivityPage'
 import { BoardLegacyRedirect } from '@/features/projects/BoardLegacyRedirect'
+import { CreateWorkspacePage } from '@/features/onboarding/CreateWorkspacePage'
 
 const { projectId: defaultProjectId, sprintId: defaultSprintId } =
   DEFAULT_BOARD_CONTEXT
@@ -94,6 +97,7 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      { path: ROUTES.createWorkspace, element: <CreateWorkspacePage /> },
       {
         element: <AppShell />,
         children: [
@@ -147,15 +151,7 @@ export const router = createBrowserRouter([
                   />
                 ),
               },
-              {
-                path: 'reports',
-                element: (
-                  <ProjectPlaceholderPage
-                    title="Reports"
-                    description="Velocity, burndown, and delivery metrics."
-                  />
-                ),
-              },
+              { path: 'reports', element: <ProjectReportsPage /> },
               {
                 path: 'settings',
                 element: <ProjectSettingsLayout />,
@@ -167,6 +163,7 @@ export const router = createBrowserRouter([
                   { path: 'general', element: <ProjectSettingsGeneralPage /> },
                   { path: 'members', element: <ProjectSettingsMembersPage /> },
                   { path: 'statuses', element: <ProjectSettingsStatusesPage /> },
+                  { path: 'board', element: <ProjectSettingsBoardPage /> },
                   { path: 'labels', element: <ProjectSettingsLabelsPage /> },
                   {
                     path: 'integrations',

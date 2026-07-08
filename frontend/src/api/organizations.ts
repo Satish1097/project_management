@@ -13,7 +13,17 @@ export type OrganizationDetail = {
 export type CreateOrganizationPayload = {
   name: string
   slug: string
-  owner_user_id: string
+  owner_user_id?: string
+}
+
+export type OrganizationMemberRecord = {
+  user_id: string
+  organization_id: string
+  role: string
+  is_active: boolean
+  joined_at?: string
+  email?: string
+  display_name?: string
 }
 
 function toApiError(error: unknown): ApiError {
@@ -43,6 +53,19 @@ export async function createOrganization(
       payload,
     )
     return data.data.organization
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+export async function getOrganizationMembers(
+  organizationId: string,
+): Promise<OrganizationMemberRecord[]> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<{ members: OrganizationMemberRecord[] }>>(
+      `/organizations/${organizationId}/members`,
+    )
+    return data.data?.members ?? []
   } catch (error) {
     throw toApiError(error)
   }

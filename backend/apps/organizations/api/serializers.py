@@ -37,7 +37,9 @@ class OrganizationMemberSerializer(serializers.Serializer):
         default=OrganizationRole.MEMBER,
         required=False,
     )
+    can_create_projects = serializers.BooleanField(required=False, default=False)
 
 
 class OrganizationMemberUpdateSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=OrganizationRole.choices)
+    can_create_projects = serializers.BooleanField(required=False)

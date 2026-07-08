@@ -12,6 +12,7 @@ type KanbanBoardViewProps = {
   ) => void | Promise<void>
   transitioningIssueId?: string | null
   enableDragDrop?: boolean
+  showWipIndicators?: boolean
   emptyTitle?: string
   emptyHint?: string
   showSprintBadge?: boolean
@@ -23,6 +24,7 @@ export function KanbanBoardView({
   onTransitionIssue,
   transitioningIssueId = null,
   enableDragDrop = true,
+  showWipIndicators = false,
   emptyTitle = 'No issues on the board',
   emptyHint = 'Create issues in the backlog to see them here.',
   showSprintBadge = false,
@@ -54,6 +56,7 @@ export function KanbanBoardView({
                 column={column}
                 draggable={false}
                 showSprintBadge={showSprintBadge}
+                showWipIndicators={showWipIndicators}
                 onLoadMore={onLoadMoreColumn}
               />
             </div>
@@ -86,6 +89,7 @@ export function KanbanBoardView({
                   isDragActive={isDragActive}
                   transitioningIssueId={transitioningIssueId}
                   showSprintBadge={showSprintBadge}
+                  showWipIndicators={showWipIndicators}
                   onLoadMore={onLoadMoreColumn}
                 />
               </div>

@@ -55,6 +55,7 @@ def create_organization(
             organization=organization,
             user=owner,
             role=OrganizationRole.OWNER,
+            can_create_projects=True,
             added_by=creator,
             created_by=creator,
             updated_by=creator,

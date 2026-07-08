@@ -1,7 +1,6 @@
 import pytest
 
 from apps.contracts.workflow_contract import get_workflow_config, is_valid_transition
-from apps.issues.models import Issue
 from apps.issues.services.issue_service import create_issue
 from apps.projects.services import create_project
 from apps.workflow.constants import DEFAULT_STATUSES, DEFAULT_TRANSITIONS
@@ -41,21 +40,27 @@ def test_valid_transition_matrix(project):
 
 @pytest.mark.django_db
 def test_invalid_transition_rejection(project, superuser):
+    from apps.workflow.selectors import select_workflow_config
+
     issue = create_issue(
         project_id=project.id,
         title="Transition test",
         actor_id=superuser.id,
     )
-    issue_obj = Issue.objects.select_related("status").get(pk=issue.id)
+
+    # "todo" → "done" is not a valid transition — expects InvalidWorkflowTransitionError
+    statuses = {s.slug: s for s in select_workflow_config(project.id).statuses}
+    done_status = statuses["done"]
 
     with pytest.raises(InvalidWorkflowTransitionError):
-        transition_service.transition_issue(issue_obj, "done", superuser.id)
+        transition_service.transition_issue(superuser, issue.id, done_status.id)
 
 
 @pytest.mark.django_db
 def test_approve_reopen_restrictions(project, superuser, user):
     from apps.projects.models import ProjectRole
     from apps.projects.services.membership_service import add_project_member
+    from apps.workflow.selectors import select_workflow_config
 
     add_project_member(
         project_id=project.id,
@@ -69,35 +74,39 @@ def test_approve_reopen_restrictions(project, superuser, user):
         title="Approve test",
         actor_id=superuser.id,
     )
-    issue_obj = Issue.objects.select_related("status").get(pk=issue.id)
 
-    transition_service.transition_issue(issue_obj, "in_progress", superuser.id)
-    issue_obj.refresh_from_db()
-    transition_service.transition_issue(issue_obj, "in_review", superuser.id)
-    issue_obj.refresh_from_db()
+    statuses = {s.slug: s for s in select_workflow_config(project.id).statuses}
 
+    transition_service.transition_issue(superuser, issue.id, statuses["in_progress"].id)
+    transition_service.transition_issue(superuser, issue.id, statuses["in_review"].id)
+
+    # A DEVELOPER should not be able to approve "in_review" → "done"
     with pytest.raises(ForbiddenWorkflowTransitionError):
-        transition_service.transition_issue(issue_obj, "done", user.id)
+        transition_service.transition_issue(user, issue.id, statuses["done"].id)
 
 
 @pytest.mark.django_db
 def test_transition_service_single_authority(project, superuser):
+    from apps.contracts.issue_contract import get_issue_by_id
+    from apps.workflow.selectors import select_workflow_config
+
     issue = create_issue(
         project_id=project.id,
         title="Authority test",
         actor_id=superuser.id,
     )
-    issue_obj = Issue.objects.select_related("status").get(pk=issue.id)
+
+    statuses = {s.slug: s for s in select_workflow_config(project.id).statuses}
 
     updated = transition_service.transition_issue(
-        issue_obj,
-        "in_progress",
-        superuser.id,
+        superuser,
+        issue.id,
+        statuses["in_progress"].id,
     )
 
-    assert updated.status.slug == "in_progress"
-
-    from apps.contracts.issue_contract import get_issue_by_id
+    from apps.workflow.slug_utils import status_slug
+    assert status_slug(name=updated.status.name, category=updated.status.category) == "in_progress"
 
     dto = get_issue_by_id(issue.id)
     assert dto.status_slug == "in_progress"
+

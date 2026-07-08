@@ -26,6 +26,13 @@ type BacklogQuickCreateProps = {
 }
 
 const DEFAULT_PRIORITY: IssuePriorityLevel = 'medium'
+const ROW_VIEWPORT_PADDING_PX = 12
+const SCROLL_ADJUST_EPSILON_PX = 1
+
+type RowViewportSnapshot = {
+  top: number
+  viewportHeight: number
+}
 
 export function BacklogCreateButton({
   onClick,
@@ -73,6 +80,41 @@ export function BacklogQuickCreate({
   const inputRef = useRef<HTMLInputElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
 
+  const captureRowViewportSnapshot = useCallback((): RowViewportSnapshot | null => {
+    const row = rowRef.current
+    if (!row) return null
+    const rect = row.getBoundingClientRect()
+    return { top: rect.top, viewportHeight: window.innerHeight }
+  }, [])
+
+  const keepCreateRowAnchored = useCallback((snapshot: RowViewportSnapshot | null) => {
+    if (!snapshot) return
+    const row = rowRef.current
+    if (!row) return
+
+    const currentRect = row.getBoundingClientRect()
+    const anchorDelta = currentRect.top - snapshot.top
+
+    if (Math.abs(anchorDelta) > SCROLL_ADJUST_EPSILON_PX) {
+      window.scrollBy({ top: anchorDelta, behavior: 'auto' })
+    }
+
+    const adjustedRect = row.getBoundingClientRect()
+    const minTop = ROW_VIEWPORT_PADDING_PX
+    const maxBottom = snapshot.viewportHeight - ROW_VIEWPORT_PADDING_PX
+    let visibilityDelta = 0
+
+    if (adjustedRect.bottom > maxBottom) {
+      visibilityDelta = adjustedRect.bottom - maxBottom
+    } else if (adjustedRect.top < minTop) {
+      visibilityDelta = adjustedRect.top - minTop
+    }
+
+    if (Math.abs(visibilityDelta) > SCROLL_ADJUST_EPSILON_PX) {
+      window.scrollBy({ top: visibilityDelta, behavior: 'smooth' })
+    }
+  }, [])
+
   const focusTitle = useCallback(() => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -103,6 +145,7 @@ export function BacklogQuickCreate({
     const trimmed = title.trim()
     if (!trimmed || submitting) return
 
+    const rowSnapshot = captureRowViewportSnapshot()
     const scrollTop = scrollContainerRef?.current?.scrollTop ?? 0
 
     setSubmitting(true)
@@ -126,6 +169,11 @@ export function BacklogQuickCreate({
       resetOptionalFields()
       onCreated?.(issue)
       focusTitle()
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          keepCreateRowAnchored(rowSnapshot)
+        })
+      })
       if (scrollContainerRef?.current) {
         scrollContainerRef.current.scrollTop = scrollTop
       }

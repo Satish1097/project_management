@@ -3,10 +3,16 @@ import { useEffect } from 'react'
 import { LayoutGrid, Plus, Users } from 'lucide-react'
 import {
   isProjectBoardPath,
+  projectActivityPath,
+  projectBoardPath,
+  projectOverviewPath,
+  projectSettingsPath,
   ROUTES,
 } from '@/constants/routes'
+import { isScrumOnlyProjectPath } from '@/components/layout/sidebarNav'
 import { AvatarGroup } from '@/components/ui/AvatarGroup'
 import { ProjectStatusBadge } from '@/components/ui/ProjectStatusBadge'
+import { ProjectMethodologyBadge } from '@/components/ui/ProjectMethodologyBadge'
 import { ProjectNav } from '@/components/layout/ProjectNav'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { NotificationBell } from '@/features/notifications/NotificationBell'
@@ -17,6 +23,7 @@ import { useCreateIssue } from '@/contexts/CreateIssueContext'
 import { ProjectMembersProvider, useProjectMembersContext } from '@/contexts/ProjectMembersContext'
 import { projectMembersToAvatarGroup } from '@/features/members/memberUtils'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
+import { useProjectMethodology } from '@/hooks/useProjectMethodology'
 import { useProjects } from '@/contexts/ProjectsContext'
 import {
   formatSprintMetaLine,
@@ -31,9 +38,26 @@ function resolveHeaderSubtitle(
   pathname: string,
   projectId: string,
   activeSprints: Sprint[],
+  isKanban: boolean,
 ): string {
   if (isProjectBoardPath(pathname)) {
     return 'Board'
+  }
+
+  if (isKanban) {
+    if (pathname === projectOverviewPath(projectId)) {
+      return 'Continuous flow workflow'
+    }
+    if (pathname.startsWith(projectActivityPath(projectId))) {
+      return 'Activity'
+    }
+    if (pathname.includes('/reports')) {
+      return 'Reports'
+    }
+    if (pathname.startsWith(projectSettingsPath(projectId))) {
+      return 'Settings'
+    }
+    return ''
   }
 
   const sprintMatch = pathname.match(/\/sprints\/([^/]+)/)
@@ -60,16 +84,15 @@ export function ProjectShell() {
   const { projectId = '' } = useParams()
   const { projects, isLoading: projectsLoading } = useProjects()
   const projectFromList = projects.find((item) => item.id === projectId)
-  const projectFromRegistry = getProjectById(projectId)
-  const project = projectFromList ?? projectFromRegistry
+  const project = projectFromList
 
   useEffect(() => {
     projectSwitchTrace.projectShellRender(
       projectId,
       projectFromList?.name ?? null,
-      projectFromRegistry?.name ?? null,
+      null,
     )
-  }, [projectId, projectFromList?.name, projectFromRegistry?.name])
+  }, [projectId, projectFromList?.name])
 
   if (!project) {
     if (projectsLoading) {
@@ -105,6 +128,7 @@ function ProjectShellContent({
   projectId: string
 }) {
   const { pathname } = useLocation()
+  const { isKanban, methodology } = useProjectMethodology(projectId)
   useLoadProjectSprints(projectId)
   const activeSprints = getActiveSprints(projectId)
   const { members, loading: membersLoading } = useProjectMembersContext()
@@ -115,7 +139,16 @@ function ProjectShellContent({
 
   const { openCreateIssue } = useCreateIssue()
 
-  const headerSubtitle = resolveHeaderSubtitle(pathname, projectId, activeSprints)
+  const headerSubtitle = resolveHeaderSubtitle(
+    pathname,
+    projectId,
+    activeSprints,
+    isKanban,
+  )
+
+  if (isKanban && isScrumOnlyProjectPath(pathname, projectId)) {
+    return <Navigate to={projectBoardPath(projectId)} replace />
+  }
 
   return (
     <>
@@ -130,6 +163,9 @@ function ProjectShellContent({
                 <h1 className="truncate text-lg font-semibold leading-tight text-devflow-text">
                   {project.name}
                 </h1>
+                {isKanban && (
+                  <ProjectMethodologyBadge methodology={methodology} size="sm" />
+                )}
                 <ProjectStatusBadge status={project.status} size="sm" />
               </div>
               <p className="truncate text-caption text-devflow-text-secondary">

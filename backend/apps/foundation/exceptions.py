@@ -1,6 +1,7 @@
 """
 Global DRF exception handler — normalizes all errors to the standard shape.
 """
+
 import logging
 
 from django.core.exceptions import PermissionDenied
@@ -40,6 +41,7 @@ def _handle_accounts_domain_error(exc):
         InvalidRefreshTokenError,
         InvalidResetTokenError,
         InvitationAlreadyUsedError,
+        PendingInvitationExistsError,
     )
 
     if not isinstance(exc, AccountsDomainError):
@@ -54,6 +56,7 @@ def _handle_accounts_domain_error(exc):
         InvalidResetTokenError: status.HTTP_400_BAD_REQUEST,
         InvalidRefreshTokenError: status.HTTP_400_BAD_REQUEST,
         InvalidProfileFieldError: status.HTTP_400_BAD_REQUEST,
+        PendingInvitationExistsError: status.HTTP_409_CONFLICT,
     }
     status_code = status_map.get(type(exc), status.HTTP_400_BAD_REQUEST)
     return error_response(
@@ -95,6 +98,7 @@ def _handle_projects_domain_error(exc):
         ProjectArchivedError,
         ProjectKeyConflictError,
         ProjectMembershipError,
+        ProjectMethodologyError,
         ProjectNotFoundError,
         ProjectsDomainError,
         ProjectSlugConflictError,
@@ -107,14 +111,18 @@ def _handle_projects_domain_error(exc):
         ProjectNotFoundError: status.HTTP_404_NOT_FOUND,
         ProjectAccessDeniedError: status.HTTP_403_FORBIDDEN,
         ProjectArchivedError: status.HTTP_400_BAD_REQUEST,
+        ProjectMethodologyError: status.HTTP_400_BAD_REQUEST,
         ProjectKeyConflictError: status.HTTP_409_CONFLICT,
         ProjectSlugConflictError: status.HTTP_409_CONFLICT,
         ProjectMembershipError: status.HTTP_409_CONFLICT,
     }
     status_code = status_map.get(type(exc), status.HTTP_400_BAD_REQUEST)
+    errors = {"detail": str(exc)}
+    if isinstance(exc, ProjectMethodologyError):
+        errors["code"] = exc.code
     return error_response(
         message=str(exc),
-        errors={"detail": str(exc)},
+        errors=errors,
         status=status_code,
     )
 

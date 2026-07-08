@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useDroppable } from '@dnd-kit/core'
-import { MoreHorizontal, Plus } from 'lucide-react'
+import { AlertTriangle, MoreHorizontal, Plus } from 'lucide-react'
 import type { KanbanColumnWithPagination } from '@/features/kanban/useProjectKanban'
 import { TaskCard } from './TaskCard'
 import { cn } from '@/utils/cn'
@@ -12,7 +12,22 @@ type KanbanColumnProps = {
   transitioningIssueId?: string | null
   draggable?: boolean
   showSprintBadge?: boolean
+  showWipIndicators?: boolean
   onLoadMore?: (statusId: string) => void
+}
+
+function formatColumnCount(column: KanbanColumnWithPagination, showWipIndicators: boolean) {
+  if (!showWipIndicators || column.wipLimit == null) {
+    return String(column.count)
+  }
+  const wipValue = column.wipCount ?? column.count
+  return `${wipValue} / ${column.wipLimit}`
+}
+
+function isWipExceeded(column: KanbanColumnWithPagination, showWipIndicators: boolean) {
+  if (!showWipIndicators || column.wipLimit == null) return false
+  const wipValue = column.wipCount ?? column.count
+  return wipValue > column.wipLimit
 }
 
 export function KanbanColumn({
@@ -22,6 +37,7 @@ export function KanbanColumn({
   transitioningIssueId = null,
   draggable = true,
   showSprintBadge = false,
+  showWipIndicators = false,
   onLoadMore,
 }: KanbanColumnProps) {
   const statusId = column.statusId ?? column.id
@@ -35,6 +51,8 @@ export function KanbanColumn({
   const pagination = column.pagination
   const hasNext = pagination?.hasNext ?? false
   const loadingMore = pagination?.loading ?? false
+  const countLabel = formatColumnCount(column, showWipIndicators)
+  const wipExceeded = isWipExceeded(column, showWipIndicators)
 
   const handleLoadMore = useCallback(() => {
     if (!onLoadMore || !hasNext || loadingMore) return
@@ -78,11 +96,28 @@ export function KanbanColumn({
             •
           </span>
           <span
-            className="issue-kanban-column__count"
-            aria-label={`${column.count} issues`}
+            className={cn(
+              'issue-kanban-column__count',
+              showWipIndicators && column.wipLimit != null && 'issue-kanban-column__count--wip',
+              wipExceeded && 'issue-kanban-column__count--wip-exceeded',
+            )}
+            aria-label={
+              showWipIndicators && column.wipLimit != null
+                ? `${countLabel} issues, WIP limit ${column.wipLimit}`
+                : `${column.count} issues`
+            }
           >
-            {column.count}
+            {countLabel}
           </span>
+          {wipExceeded ? (
+            <span
+              className="issue-kanban-column__wip-warning"
+              title="WIP limit exceeded"
+              aria-label="WIP limit exceeded"
+            >
+              <AlertTriangle className="size-3.5" strokeWidth={2} />
+            </span>
+          ) : null}
         </div>
         <div className="issue-kanban-column__actions">
           <button

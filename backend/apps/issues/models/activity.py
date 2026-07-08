@@ -14,6 +14,8 @@ class IssueActivityEventType(models.TextChoices):
     COMMENT_DELETED = "comment_deleted", "Comment deleted"
     ATTACHMENT_ADDED = "attachment_added", "Attachment added"
     ATTACHMENT_DELETED = "attachment_deleted", "Attachment deleted"
+    STORY_POINTS_CHANGED = "story_points_changed", "Story points changed"
+    ESTIMATE_CHANGED = "estimate_changed", "Estimate changed"
 
 
 class IssueActivity(BaseModel):

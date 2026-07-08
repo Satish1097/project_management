@@ -5,7 +5,11 @@ import { getProject } from '@/api/projects'
 import { ApiError } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { UserMultiSelect } from '@/components/ui/UserMultiSelect'
+import { UserSelectField } from '@/components/ui/UserSelectField'
 import { useProjects } from '@/contexts/ProjectsContext'
+import { useAppContext } from '@/features/context/useAppContext'
+import { useOrganizationMembers } from '@/hooks/useOrganizationMembers'
 import { mapProjectDetailToUi } from '@/services/mapProjectApi'
 import { getProjectByIdFromRegistry, upsertProjectInRegistry } from '@/services/projectsRegistry'
 import type { Project } from '@/types/projects'
@@ -14,14 +18,29 @@ import { PROJECT_DESCRIPTION_MAX_LENGTH, PROJECT_NAME_MAX_LENGTH } from '@/utils
 export function ProjectSettingsGeneralPage() {
   const { projectId = '' } = useParams()
   const { updateProject } = useProjects()
+  const { user, currentOrganization } = useAppContext()
+  const {
+    members: organizationMembers,
+    loading: membersLoading,
+    error: membersError,
+  } = useOrganizationMembers(currentOrganization?.id)
   const [project, setProject] = useState<Project | null>(null)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [leadId, setLeadId] = useState('')
+  const [memberIds, setMemberIds] = useState<string[]>([])
+  const [initialLeadId, setInitialLeadId] = useState('')
+  const [initialMemberIds, setInitialMemberIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+
+  const ensureLeadIncluded = (nextLeadId: string, nextMemberIds: string[]) => {
+    if (!nextLeadId) return [...new Set(nextMemberIds)]
+    return [...new Set([...nextMemberIds, nextLeadId])]
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -44,6 +63,13 @@ export function ProjectSettingsGeneralPage() {
         setProject(mapped)
         setName(mapped.name)
         setDescription(mapped.description)
+        const responseLeadId = detail.lead_user_id || user?.id || ''
+        const responseMemberIds = (detail.members ?? []).map((member) => member.user_id)
+        const normalizedMemberIds = ensureLeadIncluded(responseLeadId, responseMemberIds)
+        setLeadId(responseLeadId)
+        setMemberIds(normalizedMemberIds)
+        setInitialLeadId(responseLeadId)
+        setInitialMemberIds(normalizedMemberIds)
       } catch (err) {
         if (cancelled) return
         setError(err instanceof ApiError ? err.message : 'Failed to load project settings.')
@@ -56,12 +82,14 @@ export function ProjectSettingsGeneralPage() {
     return () => {
       cancelled = true
     }
-  }, [projectId])
+  }, [projectId, user?.id])
 
   const handleDiscard = () => {
     if (!project) return
     setName(project.name)
     setDescription(project.description)
+    setLeadId(initialLeadId)
+    setMemberIds(initialMemberIds)
     setSaveError(null)
     setSaved(false)
   }
@@ -77,10 +105,17 @@ export function ProjectSettingsGeneralPage() {
       const updated = await updateProject(projectId, {
         name: name.trim(),
         description: description.trim(),
+        lead_user_id: leadId || null,
+        member_ids: ensureLeadIncluded(leadId, memberIds),
       })
       setProject(updated)
       setName(updated.name)
       setDescription(updated.description)
+      const savedMemberIds = ensureLeadIncluded(leadId, memberIds)
+      setLeadId(leadId)
+      setMemberIds(savedMemberIds)
+      setInitialLeadId(leadId)
+      setInitialMemberIds(savedMemberIds)
       setSaved(true)
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : 'Failed to save project settings.')
@@ -160,6 +195,32 @@ export function ProjectSettingsGeneralPage() {
           />
         </div>
       </div>
+      <div className="mt-4 grid max-w-3xl grid-cols-1 gap-4">
+        <UserSelectField
+          label="Project lead"
+          users={organizationMembers}
+          value={leadId}
+          disabled={membersLoading}
+          onChange={(nextLeadId) => {
+            setLeadId(nextLeadId)
+            setMemberIds((prev) => ensureLeadIncluded(nextLeadId, prev))
+            setSaved(false)
+          }}
+        />
+        <UserMultiSelect
+          label="Team members"
+          hint="Selected lead is always included as a member."
+          users={organizationMembers}
+          selectedIds={memberIds}
+          onChange={(nextMemberIds) => {
+            setMemberIds(ensureLeadIncluded(leadId, nextMemberIds))
+            setSaved(false)
+          }}
+        />
+      </div>
+      {membersError && (
+        <p className="mt-4 text-body text-devflow-error">{membersError}</p>
+      )}
 
       {saveError && (
         <p className="mt-4 text-body text-devflow-error">{saveError}</p>

@@ -1,5 +1,6 @@
 import type { ProjectDetailApi, ProjectSummaryApi } from '@/api/projects'
-import type { Project, ProjectStatus } from '@/types/projects'
+import { projectMembersToAvatarGroup } from '@/features/members/memberUtils'
+import type { BoardType, Project, ProjectMethodology, ProjectStatus } from '@/types/projects'
 
 function mapStatus(status: string): ProjectStatus {
   if (status === 'archived') return 'archived'
@@ -22,6 +23,14 @@ export function buildIssueCountLabels(issueCount: number) {
   }
 }
 
+function mapMethodology(value: string): ProjectMethodology {
+  return value === 'kanban' ? 'kanban' : 'scrum'
+}
+
+function mapBoardType(value: string): BoardType {
+  return value === 'kanban' ? 'kanban' : 'scrum'
+}
+
 export function mapProjectSummaryToUi(
   summary: ProjectSummaryApi,
   description = '',
@@ -34,10 +43,12 @@ export function mapProjectSummaryToUi(
     name,
     description: description || 'No description provided.',
     status: mapStatus(summary.status ?? 'active'),
+    methodology: mapMethodology(summary.methodology ?? 'scrum'),
+    boardType: mapBoardType(summary.board_type ?? 'scrum'),
     icon: resolveIcon(name),
     ...buildIssueCountLabels(issueCount),
     members: [],
-    isMember: true,
+    isMember: summary.is_member ?? false,
     recentActivity: summary.recent_activity,
   }
 }
@@ -47,16 +58,24 @@ export function mapProjectDetailToUi(
   openIssueCount?: number,
 ): Project {
   const issueCount = openIssueCount ?? 0
-  return mapProjectSummaryToUi(
+  const mapped = mapProjectSummaryToUi(
     {
       id: detail.id,
       key: detail.key,
       slug: detail.slug,
       name: detail.name,
       status: detail.status,
+      methodology: detail.methodology,
+      board_type: detail.board_type,
       open_issue_count: issueCount,
       active_sprint_id: null,
+      is_member: true,
     },
     detail.description,
   )
+  return {
+    ...mapped,
+    defaultSprintWeeks: detail.default_sprint_weeks,
+    ...projectMembersToAvatarGroup(detail.members ?? []),
+  }
 }

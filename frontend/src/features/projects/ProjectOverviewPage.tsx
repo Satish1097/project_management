@@ -1,8 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
-import { useCallback, useEffect, useState } from 'react'
-import { ArrowRight, History } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ArrowRight, History, LayoutGrid } from 'lucide-react'
 import { MetricCard } from '@/components/ui/MetricCard'
-import { ProjectStatusBadge } from '@/components/ui/ProjectStatusBadge'
 import { SprintStatusBadge } from '@/components/ui/SprintStatusBadge'
 import { ActivityFeed } from '@/features/dashboard/ActivityFeed'
 import { getProjectActivityPreview } from '@/api/projects'
@@ -19,6 +18,8 @@ import {
 } from '@/services/projectData'
 import {
   projectActivityPath,
+  projectBoardPath,
+  projectReportsPath,
   projectSprintsPath,
   sprintBoardPath,
   sprintDetailPath,
@@ -26,11 +27,13 @@ import {
 import { layout } from '@/constants/layout'
 import { useLoadProjectSprints } from '@/hooks/useLoadProjectSprints'
 import { useProjectIssueStats } from '@/hooks/useProjectIssueStats'
+import { useProjectMethodology } from '@/hooks/useProjectMethodology'
 import { cn } from '@/utils/cn'
 
 export function ProjectOverviewPage() {
   const { projectId = '' } = useParams()
   const project = getProjectById(projectId)
+  const { isScrum, isKanban } = useProjectMethodology(projectId)
   const { loading: sprintsLoading } = useLoadProjectSprints(projectId)
   const { stats: issueStats, loading: issueStatsLoading } = useProjectIssueStats(projectId)
   const { members, loading: membersLoading } = useProjectMembersContext()
@@ -61,6 +64,12 @@ export function ProjectOverviewPage() {
     void loadActivity()
   }, [loadActivity])
 
+  const visibleActivities = useMemo(() => {
+    if (!activities) return null
+    if (isScrum) return activities
+    return activities.filter((item) => item.event_type !== 'sprint_changed')
+  }, [activities, isScrum])
+
   if (!project) return null
 
   const openIssueCount = issueStats?.openIssues ?? project.openIssueCount
@@ -84,19 +93,34 @@ export function ProjectOverviewPage() {
         ? (primaryActiveSprint?.name ?? 'None')
         : `${activeSprints.length} active`
 
+  const totalIssues = issueStats?.totalIssues ?? 0
+  const doneIssues = issueStats?.doneIssues ?? 0
+  const completionRate =
+    totalIssues > 0 ? Math.round((doneIssues / totalIssues) * 100) : 0
+  const todoIssues =
+    issueStats?.todoIssues ??
+    (totalIssues > 0 ? Math.max(totalIssues - doneIssues, 0) : undefined)
+
   return (
     <main className="page-main !gap-0 p-4">
       <div className="page-stack min-w-0 w-full flex-1">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-page-title text-devflow-text">Overview</h2>
-              <ProjectStatusBadge status={project.status} size="sm" />
+              <h2 className="text-page-title text-devflow-text">
+                {isKanban ? 'Board overview' : 'Overview'}
+              </h2>
             </div>
-            {project.description && (
+            {isKanban ? (
               <p className="mt-1 max-w-3xl text-body text-devflow-text-secondary">
-                {project.description}
+                Continuous flow workflow — track open work and completion across your board.
               </p>
+            ) : (
+              project.description && (
+                <p className="mt-1 max-w-3xl text-body text-devflow-text-secondary">
+                  {project.description}
+                </p>
+              )
             )}
           </div>
         </div>
@@ -118,43 +142,76 @@ export function ProjectOverviewPage() {
                 : { text: 'On track', variant: 'success' }
             }
           />
-          <MetricCard
-            label={activeSprints.length > 1 ? 'Active sprints' : 'Active sprint'}
-            value={sprintsLoading ? '—' : activeSprintValue}
-            footer={
-              sprintsLoading
-                ? 'Loading sprints…'
-                : activeSprints.length === 1 && primaryActiveSprint
-                  ? formatSprintStatus(primaryActiveSprint.status)
-                  : activeSprints.length > 1
-                    ? 'Running in parallel'
-                    : 'Start a sprint from Sprints'
-            }
-          />
-          <MetricCard
-            label="Team members"
-            value={membersLoading ? '—' : String(members.length)}
-            footer={
-              membersLoading ? 'Loading members…' : 'Members with project access'
-            }
-          />
-          <MetricCard
-            label="Sprint progress"
-            value={sprintsLoading ? '—' : `${sprintProgress}%`}
-            progress={sprintsLoading ? undefined : sprintProgress}
-            footer={
-              sprintsLoading
-                ? 'Loading sprints…'
-                : activeSprints.length > 1
-                  ? 'Average across active sprints'
-                  : 'Issues completed in active sprint'
-            }
-          />
+          {isScrum ? (
+            <>
+              <MetricCard
+                label={activeSprints.length > 1 ? 'Active sprints' : 'Active sprint'}
+                value={sprintsLoading ? '—' : activeSprintValue}
+                footer={
+                  sprintsLoading
+                    ? 'Loading sprints…'
+                    : activeSprints.length === 1 && primaryActiveSprint
+                      ? formatSprintStatus(primaryActiveSprint.status)
+                      : activeSprints.length > 1
+                        ? 'Running in parallel'
+                        : 'Start a sprint from Sprints'
+                }
+              />
+              <MetricCard
+                label="Team members"
+                value={membersLoading ? '—' : String(members.length)}
+                footer={
+                  membersLoading ? 'Loading members…' : 'Members with project access'
+                }
+              />
+              <MetricCard
+                label="Sprint progress"
+                value={sprintsLoading ? '—' : `${sprintProgress}%`}
+                progress={sprintsLoading ? undefined : sprintProgress}
+                footer={
+                  sprintsLoading
+                    ? 'Loading sprints…'
+                    : activeSprints.length > 1
+                      ? 'Average across active sprints'
+                      : 'Issues completed in active sprint'
+                }
+              />
+            </>
+          ) : (
+            <>
+              <MetricCard
+                label="Completed"
+                value={issueStatsLoading ? '—' : String(doneIssues)}
+                footer={
+                  issueStatsLoading
+                    ? 'Loading issue stats…'
+                    : `${doneIssues} of ${totalIssues || '—'} issues done`
+                }
+              />
+              <MetricCard
+                label="Completion rate"
+                value={issueStatsLoading ? '—' : `${completionRate}%`}
+                progress={issueStatsLoading ? undefined : completionRate}
+                footer={
+                  issueStatsLoading
+                    ? 'Loading issue stats…'
+                    : 'Share of issues marked done'
+                }
+              />
+              <MetricCard
+                label="Team members"
+                value={membersLoading ? '—' : String(members.length)}
+                footer={
+                  membersLoading ? 'Loading members…' : 'Members with project access'
+                }
+              />
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,13fr)_minmax(0,7fr)] lg:items-start">
           <div className="flex min-w-0 flex-col gap-4">
-            {!sprintsLoading &&
+            {isScrum && !sprintsLoading &&
               activeSprints.map((sprint) => (
                 <ActiveSprintCard
                   key={sprint.id}
@@ -164,11 +221,14 @@ export function ProjectOverviewPage() {
                 />
               ))}
 
-            {!sprintsLoading && sprints.length > 0 && (
+            {isScrum && !sprintsLoading && sprints.length > 0 && (
               <SprintListSection projectId={projectId} sprints={sprints} />
             )}
 
-            {!sprintsLoading && activeSprints.length === 0 && sprints.length === 0 && (
+            {isScrum &&
+              !sprintsLoading &&
+              activeSprints.length === 0 &&
+              sprints.length === 0 && (
               <div className={cn(layout.uiCard, 'text-center')}>
                 <p className="text-body text-devflow-text-secondary">
                   No sprints yet. Create one from the Sprints page to start tracking work.
@@ -181,6 +241,19 @@ export function ProjectOverviewPage() {
                   <ArrowRight className="size-3.5" />
                 </Link>
               </div>
+            )}
+
+            {isKanban && (
+              <KanbanFlowPanel
+                projectId={projectId}
+                issueStatsLoading={issueStatsLoading}
+                totalIssues={totalIssues}
+                openIssues={openIssueCount ?? 0}
+                doneIssues={doneIssues}
+                backlogIssues={issueStats?.backlogIssues}
+                todoIssues={todoIssues}
+                completionRate={completionRate}
+              />
             )}
           </div>
 
@@ -204,15 +277,115 @@ export function ProjectOverviewPage() {
               embedded
               variant="preview"
               showProjectName={false}
-              activities={activities}
+              activities={visibleActivities}
               isLoading={activityLoading}
               error={activityError}
               onRetry={loadActivity}
+              emptyHelperText={
+                isScrum
+                  ? undefined
+                  : 'Activity will appear here when issues, comments, or status updates occur.'
+              }
             />
           </aside>
         </div>
       </div>
     </main>
+  )
+}
+
+function KanbanFlowPanel({
+  projectId,
+  issueStatsLoading,
+  totalIssues,
+  openIssues,
+  doneIssues,
+  backlogIssues,
+  todoIssues,
+  completionRate,
+}: {
+  projectId: string
+  issueStatsLoading: boolean
+  totalIssues: number
+  openIssues: number
+  doneIssues: number
+  backlogIssues?: number
+  todoIssues?: number
+  completionRate: number
+}) {
+  const breakdown = [
+    backlogIssues != null
+      ? { label: 'Backlog', value: backlogIssues }
+      : null,
+    todoIssues != null
+      ? { label: 'To do', value: todoIssues }
+      : null,
+    { label: 'Open', value: openIssues },
+    { label: 'Done', value: doneIssues },
+  ].filter((item): item is { label: string; value: number } => item != null)
+
+  return (
+    <article className={cn(layout.uiCard, 'border-devflow-primary/25 bg-[var(--df-nav-tint)]/30')}>
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <LayoutGrid className="size-4 shrink-0 text-devflow-primary" />
+            <h3 className="text-section-title text-devflow-text">Kanban board</h3>
+          </div>
+          <p className="mt-1 text-caption text-devflow-text-secondary">
+            Move issues through workflow columns on your continuous flow board.
+          </p>
+        </div>
+        <Link
+          to={projectBoardPath(projectId)}
+          className="inline-flex shrink-0 items-center gap-0.5 text-caption text-devflow-primary hover:underline"
+        >
+          Open board
+          <ArrowRight className="size-3" />
+        </Link>
+      </div>
+
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-devflow-progress-track">
+        <div
+          className="h-full rounded-full bg-devflow-success transition-all"
+          style={{ width: `${completionRate}%` }}
+        />
+      </div>
+      <p className="mt-1 text-caption text-devflow-text-secondary">
+        {issueStatsLoading
+          ? 'Loading flow summary…'
+          : `${completionRate}% complete · ${openIssues} open of ${totalIssues} total`}
+      </p>
+
+      {!issueStatsLoading && breakdown.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-caption text-devflow-text-secondary">
+          {breakdown.map(({ label, value }) => (
+            <Stat key={label} label={label} value={value} />
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-3 border-t border-devflow-border/60 pt-3">
+        <Link
+          to={projectBoardPath(projectId)}
+          className="text-caption text-devflow-primary hover:underline"
+        >
+          Board
+        </Link>
+        <Link
+          to={projectReportsPath(projectId)}
+          className="text-caption text-devflow-primary hover:underline"
+        >
+          Flow reports
+        </Link>
+        <Link
+          to={projectActivityPath(projectId)}
+          className="text-caption text-devflow-primary hover:underline"
+        >
+          Activity
+        </Link>
+      </div>
+    </article>
   )
 }
 

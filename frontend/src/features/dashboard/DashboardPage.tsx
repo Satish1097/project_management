@@ -15,14 +15,13 @@ import { ActivityFeed } from './ActivityFeed'
 import { getDashboardSummary, getDashboardActivity } from '@/api/dashboard'
 import type { DashboardSummaryApi, DashboardActivityApi } from '@/types/dashboard'
 import { mockProjects } from '@/services/mockProjects'
-import { getActiveSprint } from '@/services/projectData'
 import { projectOverviewPath } from '@/constants/routes'
 
 const quickLinks = [
   {
     icon: FolderKanban,
     title: 'Browse projects',
-    description: 'Open a project workspace, backlog, and sprint boards.',
+    description: 'Open a project workspace and boards.',
     to: ROUTES.projects,
   },
   {
@@ -93,8 +92,8 @@ export function DashboardPage() {
           <div>
             <h1 className="text-page-title text-devflow-text">Dashboard</h1>
             <p className="text-body text-devflow-text-secondary">
-              Workspace overview — pick a project, then a sprint, to work on the
-              board.
+              Workspace overview — pick a project and open its board to start
+              working.
             </p>
           </div>
           {summaryError && (
@@ -110,7 +109,7 @@ export function DashboardPage() {
             <MetricCard
               label="Active sprints"
               value={summaryLoading || !summary ? '—' : String(summary.active_sprint_count)}
-              footer={summaryLoading ? 'Loading…' : 'Across your assigned projects'}
+              footer={summaryLoading ? 'Loading…' : 'Scrum projects only'}
               badge={{ text: 'Live', variant: 'success' }}
             />
             <MetricCard
@@ -168,34 +167,31 @@ export function DashboardPage() {
               </Link>
             </div>
             <ul className="flex flex-col gap-2">
-              {mockProjects.map((project) => {
-                const sprint = getActiveSprint(project.id)
-                return (
-                  <li key={project.id}>
-                    <Link
-                      to={projectOverviewPath(project.id)}
-                      className="flex items-center justify-between rounded-lg border border-devflow-border bg-devflow-card px-4 py-3 hover:shadow-devflow-sm"
-                    >
-                      <div className="flex items-center gap-3">
-                        <LayoutGrid className="size-5 text-devflow-primary" />
-                        <div>
-                          <span className="font-medium text-devflow-text">
-                            {project.name}
-                          </span>
-                          <p className="text-caption text-devflow-text-secondary">
-                            {sprint
-                              ? `${sprint.name} • Active Sprint`
-                              : 'No active sprint'}
-                          </p>
-                        </div>
+              {mockProjects.map((project) => (
+                <li key={project.id}>
+                  <Link
+                    to={projectOverviewPath(project.id)}
+                    className="flex items-center justify-between rounded-lg border border-devflow-border bg-devflow-card px-4 py-3 hover:shadow-devflow-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <LayoutGrid className="size-5 text-devflow-primary" />
+                      <div>
+                        <span className="font-medium text-devflow-text">
+                          {project.name}
+                        </span>
+                        <p className="text-caption text-devflow-text-secondary">
+                          {project.recentActivity ??
+                            project.openIssuesLabel ??
+                            'No recent activity'}
+                        </p>
                       </div>
-                      <span className="text-caption text-devflow-text-secondary">
-                        {project.progress ?? 0}% complete
-                      </span>
-                    </Link>
-                  </li>
-                )
-              })}
+                    </div>
+                    <span className="text-caption text-devflow-text-secondary">
+                      {project.progress ?? 0}% complete
+                    </span>
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         </div>

@@ -25,7 +25,7 @@ const kpiConfig = [
   },
   {
     key: 'activeSprint' as const,
-    label: 'Active Sprints',
+    label: 'Active Sprints (Scrum)',
     to: ROUTES.sprints,
     icon: Timer,
     value: (s: DashboardSummaryApi) => String(s.active_sprint_count),

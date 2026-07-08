@@ -16,6 +16,7 @@ import {
 } from '@/constants/issueOptions'
 import { useIssues } from '@/contexts/IssuesContext'
 import { useProjects } from '@/contexts/ProjectsContext'
+import { useProjectMethodology } from '@/hooks/useProjectMethodology'
 import { ApiError } from '@/api/types'
 import type { CreateIssuePayload } from '@/api/issues'
 import { formatSprintStatusLabel, getSprintsForProject } from '@/services/projectData'
@@ -71,6 +72,7 @@ export function CreateIssueDrawer({
   const [values, setValues] = useState<CreateIssueFormValues>(() =>
     buildInitialValues(defaults),
   )
+  const { isScrum } = useProjectMethodology(values.projectId || undefined)
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
@@ -170,7 +172,7 @@ export function CreateIssueDrawer({
       labels: values.labels.length > 0 ? values.labels : undefined,
     }
 
-    if (values.storyPoints) {
+    if (values.storyPoints && isScrum) {
       payload.story_points = Number(values.storyPoints)
     }
     if (values.sprintId) {
@@ -272,7 +274,11 @@ export function CreateIssueDrawer({
       open={open}
       onClose={onClose}
       title="Create issue"
-      subtitle="Add work to backlog or a sprint without leaving your current view."
+      subtitle={
+        isScrum
+          ? 'Add work to backlog or a sprint without leaving your current view.'
+          : 'Add work to the board without leaving your current view.'
+      }
       footer={footer}
       size="wide"
     >
@@ -382,14 +388,16 @@ export function CreateIssueDrawer({
             }}
             onBlur={() => setTouched((t) => ({ ...t, projectId: true }))}
           />
-          <SelectField
-            label="Sprint (optional)"
-            value={values.sprintId}
-            disabled={!values.projectId}
-            hint="Leave empty to keep issue in backlog."
-            options={sprintOptions}
-            onChange={(e) => update('sprintId', e.target.value)}
-          />
+          {isScrum ? (
+            <SelectField
+              label="Sprint (optional)"
+              value={values.sprintId}
+              disabled={!values.projectId}
+              hint="Leave empty to keep issue in backlog."
+              options={sprintOptions}
+              onChange={(e) => update('sprintId', e.target.value)}
+            />
+          ) : null}
         </FormSection>
 
         <FormSection title="Assignment">
@@ -423,15 +431,17 @@ export function CreateIssueDrawer({
 
         <FormSection title="Planning">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <SelectField
-              label="Story points"
-              value={values.storyPoints}
-              options={[
-                { value: '', label: 'None' },
-                ...STORY_POINT_OPTIONS.map((p) => ({ value: p, label: p })),
-              ]}
-              onChange={(e) => update('storyPoints', e.target.value)}
-            />
+            {isScrum ? (
+              <SelectField
+                label="Story points"
+                value={values.storyPoints}
+                options={[
+                  { value: '', label: 'None' },
+                  ...STORY_POINT_OPTIONS.map((p) => ({ value: p, label: p })),
+                ]}
+                onChange={(e) => update('storyPoints', e.target.value)}
+              />
+            ) : null}
             <FormField
               label="Due date"
               type="date"

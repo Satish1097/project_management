@@ -32,6 +32,7 @@ def test_create_organization_service_adds_owner_membership(superuser):
         user_id=superuser.id,
     )
     assert membership.role == OrganizationRole.OWNER
+    assert membership.can_create_projects is True
     assert organization.owner_id == superuser.id
 
 
