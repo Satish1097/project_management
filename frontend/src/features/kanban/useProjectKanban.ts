@@ -158,7 +158,6 @@ export function useProjectKanban(
   const loadInitialColumns = useCallback(
     async (columnMeta: KanbanColumn[], fetchGeneration: number) => {
       const visibleColumns = columnMeta.filter((column) => {
-        const statusId = column.statusId ?? column.id
         return column.count > 0 || !filters || filters.statusId === 'all'
       })
 

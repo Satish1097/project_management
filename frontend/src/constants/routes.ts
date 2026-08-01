@@ -27,6 +27,7 @@ export const ROUTES = {
 
   // Workspace-level project settings (legacy path)
   workspaceProjectSettings: '/projects/settings',
+  projectSettings: '/projects/settings',
   projectSettingsLabels: '/projects/settings/labels',
 
   // Delivery modules (workspace scope)
@@ -36,6 +37,7 @@ export const ROUTES = {
 
   // Legacy board paths — redirect to project/sprint context
   boardLegacy: '/board',
+  advancedBoard: '/board/advanced',
   advancedBoardLegacy: '/board/advanced',
   issueDetailLegacy: '/board/issue',
   issueDetailEnhancedLegacy: '/board/issue/enhanced',
@@ -212,6 +214,33 @@ export type SidebarNavId =
   | 'releases'
   | 'roadmaps'
   | 'settings'
+
+/** Workspace shell (WorkspaceSidebar) nav ids. */
+export type WorkspaceNavId =
+  | 'search'
+  | 'inbox'
+  | 'myIssues'
+  | 'projects'
+  | 'cycles'
+  | 'roadmaps'
+
+export function resolveWorkspaceActiveNav(
+  pathname: string,
+): WorkspaceNavId | undefined {
+  if (pathname === ROUTES.search) return 'search'
+  if (pathname === ROUTES.notifications) return 'inbox'
+  if (pathname === ROUTES.myTasks) return 'myIssues'
+  if (
+    pathname === ROUTES.workspaceEmpty ||
+    pathname === ROUTES.dashboard ||
+    pathname === ROUTES.workspaceSettings ||
+    pathname === ROUTES.projectSettingsLabels ||
+    pathname.startsWith('/projects/settings')
+  ) {
+    return 'projects'
+  }
+  return undefined
+}
 
 /** Workspace-level Sprints module (not project-scoped /projects/:id/sprints). */
 export function isSprintsArea(pathname: string): boolean {

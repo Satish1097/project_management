@@ -5,6 +5,10 @@ import type {
   DashboardSummaryApi,
   DashboardSummaryResponseApi,
   DashboardActivityApi,
+  DashboardAssignedTaskApi,
+  DashboardActiveSprintContextApi,
+  DashboardProjectApi,
+  WorkspaceDashboardApi,
 } from '@/types/dashboard'
 
 export type ActivityFilterId =
@@ -90,6 +94,45 @@ export async function getDashboardActivityPage(
       },
     )
     return data.data
+  } catch (error) {
+    throw toApiError(error)
+  }
+}
+
+type WorkspaceDashboardResponseApi = {
+  summary: DashboardSummaryResponseApi
+  projects: DashboardProjectApi[]
+  tasks: DashboardAssignedTaskApi[]
+  activities?: DashboardActivityApi[]
+  active_sprints: DashboardActiveSprintContextApi[]
+}
+
+function mapSummary(summary: DashboardSummaryResponseApi): DashboardSummaryApi {
+  return {
+    visible_project_count: summary.total_visible_projects,
+    active_sprint_count: summary.active_sprints,
+    open_issue_count: summary.open_issues,
+    assigned_to_me_count: summary.assigned_to_me,
+    overdue_issue_count: summary.overdue_issues,
+    unread_notification_count: summary.unread_notification_count,
+  }
+}
+
+export async function getWorkspaceDashboard(
+  organizationId: string,
+): Promise<WorkspaceDashboardApi> {
+  try {
+    const { data } = await apiClient.get<ApiResponse<WorkspaceDashboardResponseApi>>(
+      `/organizations/${organizationId}/dashboard`,
+    )
+    const payload = data.data
+    return {
+      summary: mapSummary(payload.summary),
+      projects: payload.projects ?? [],
+      tasks: payload.tasks ?? [],
+      activities: payload.activities ?? [],
+      activeSprints: payload.active_sprints ?? [],
+    }
   } catch (error) {
     throw toApiError(error)
   }

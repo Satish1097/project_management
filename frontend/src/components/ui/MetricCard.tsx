@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { layout } from '@/constants/layout'
 import { cn } from '@/utils/cn'
 
@@ -10,6 +11,7 @@ type MetricCardProps = {
   progress?: number
   footer?: string
   icon?: ReactNode
+  to?: string
   className?: string
 }
 
@@ -21,16 +23,11 @@ export function MetricCard({
   progress,
   footer,
   icon,
+  to,
   className,
 }: MetricCardProps) {
-  return (
-    <div
-      className={cn(
-        layout.uiCard,
-        'flex h-full flex-col',
-        className,
-      )}
-    >
+  const content = (
+    <>
       <div className="flex items-start justify-between">
         <span className="text-label text-devflow-text-secondary">
           {label}
@@ -67,6 +64,18 @@ export function MetricCard({
       {footer && (
         <p className="mt-2 text-caption text-devflow-text-secondary">{footer}</p>
       )}
-    </div>
+    </>
   )
+
+  const cardClassName = cn(layout.uiCard, 'flex h-full flex-col', className)
+
+  if (to) {
+    return (
+      <Link to={to} className={cn(cardClassName, 'transition-opacity hover:opacity-90')}>
+        {content}
+      </Link>
+    )
+  }
+
+  return <div className={cardClassName}>{content}</div>
 }

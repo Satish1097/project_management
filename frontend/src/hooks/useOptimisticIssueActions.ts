@@ -95,7 +95,11 @@ export function useOptimisticIssueActions(projectId: string) {
   )
 
   const assignUser = useCallback(
-    async (issueId: string, userId: string | null, member?: { name: string; color: string }) => {
+    async (
+      issueId: string,
+      userId: string | null,
+      member?: { name: string; color: string; email?: string },
+    ) => {
       await patchIssue(
         issueId,
         {

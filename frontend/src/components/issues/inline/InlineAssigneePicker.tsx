@@ -209,7 +209,7 @@ export function InlineAssigneePicker({
   const displayAssigneeLabel = useMemo(() => {
     if (displayAssignees[0]?.name === 'Unassigned') return 'Unassigned'
     return displayAssignees
-      .map((item) => item.email || item.name)
+      .map((item) => ('email' in item && item.email ? item.email : item.name))
       .join(', ')
   }, [displayAssignees])
 

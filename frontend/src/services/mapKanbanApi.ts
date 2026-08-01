@@ -67,7 +67,7 @@ export function mapApiIssuesToKanbanIssues(
 /** Map board metadata (no issues) into column shells for the kanban UI. */
 export function mapKanbanBoardToColumns(
   board: KanbanBoardApi,
-  projectId: string,
+  _projectId: string,
 ): KanbanColumn[] {
   const columnsBySlug = new Map(
     board.columns.map((column) => [column.status_slug, column]),

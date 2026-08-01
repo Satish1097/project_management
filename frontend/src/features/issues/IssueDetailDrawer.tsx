@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type FormEvent,
   type ReactNode,
 } from 'react'
 import {
@@ -240,7 +241,7 @@ function useAutoSizingTextarea(value: string) {
     ref.current.style.height = `${ref.current.scrollHeight}px`
   }, [editing, value])
 
-  const handleInput = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInput = useCallback((event: FormEvent<HTMLTextAreaElement>) => {
     if (!editing) return
     event.currentTarget.style.height = 'auto'
     event.currentTarget.style.height = `${event.currentTarget.scrollHeight}px`

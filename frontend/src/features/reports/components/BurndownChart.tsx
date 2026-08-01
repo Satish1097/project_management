@@ -82,7 +82,6 @@ export function BurndownChart() {
   }))
 
   const hasData = chartData && chartData.length > 0
-  const activeSprint = sprints.find((s) => s.id === selectedSprintId)
 
   return (
     <div className={layout.uiCard}>
